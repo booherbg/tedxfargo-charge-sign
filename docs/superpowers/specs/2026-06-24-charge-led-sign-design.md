@@ -71,9 +71,10 @@ One module = one job. `build.sh` regenerates every STL from `config.scad`.
 
 A single shared rear plate (2mm, on the bed, 3 merged collars) with **three
 chimneys of different heights** = a depth ladder. Chimney heights set
-`led_gaps` = 20 / 35 / 50mm clear LED-to-panel distance. Each chimney has an
-open top with an outer locating lip; a diffuser panel drops in and rests on the
-seat (no overhangs anywhere — every face is on the bed or an open top).
+`led_gaps` = 20 / 35 / 50mm clear LED-to-panel distance. Each chimney is a plain
+open box; the diffuser panel **press-fits** straight into the opening
+(`panel_press_clear` undersize), so panel thickness can vary freely and the
+print stays support-free (every face is on the bed or an open top).
 
 Print: 1 coupon body + diffuser panels at 1/2/3mm. Vary slicer infill on the
 panels. Outcome: read distance × thickness × infill against each other, and

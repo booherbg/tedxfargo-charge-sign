@@ -5,8 +5,8 @@
 module one_chimney(i) {
     H  = chimney_H(i);
     cx = cell_x(i);
-    translate([cx, cell_pitch / 2, 0]) {
-        // four walls
+    // plain open box; the diffuser panel press-fits into the cell_inner opening
+    translate([cx, cell_pitch / 2, 0])
         difference() {
             translate([0, 0, plate_t])
                 linear_extrude(H - plate_t)
@@ -15,14 +15,6 @@ module one_chimney(i) {
                 linear_extrude(H - plate_t + 0.02)
                     square([cell_inner, cell_inner], center = true);
         }
-        // outer locating lip (panel rests on the seat, captured by this lip)
-        translate([0, 0, H])
-            linear_extrude(lip_h)
-                difference() {
-                    square([cell_pitch, cell_pitch], center = true);
-                    square([cell_pitch - 2 * lip_t, cell_pitch - 2 * lip_t], center = true);
-                }
-    }
 }
 
 module coupon_body() {

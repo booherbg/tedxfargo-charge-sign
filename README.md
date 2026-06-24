@@ -33,8 +33,9 @@ stl/                generated output (git-ignored)
 `stl/coupon_body.stl` is a 3-cell test rig with LED-to-panel gaps of 20 / 35 /
 50mm and three merged press-fit collars. Print it in **opaque** filament. Print
 `panel_{1,2,3}mm.stl` in **clear** filament and vary slicer infill
-(gyroid/grid, top & bottom solid layers = 0) to test the diffuser. Drop a panel
-onto each chimney, press a pixel into each collar, and compare.
+(gyroid/grid, top & bottom solid layers = 0) to test the diffuser. The panels
+**press-fit** into the chimneys (size = opening − `panel_press_clear`), so you
+can swap thicknesses freely. Press a pixel into each collar, and compare.
 
 > Tune `dome_clear` in `config.scad` to your actual pixel's dome protrusion —
 > the gap distances depend on it.

@@ -14,13 +14,11 @@ dome_clear    = 9.0;     // lit dome protrusion above the rear plate — MEASURE
 // ---- shell ----
 plate_t    = 2.0;        // rear plate thickness (== collar_h, so the collar sits flush)
 wall_t     = 2.5;        // chimney wall thickness
-cell_inner = 30;         // square interior of each test cell
-lip_t      = 1.2;        // outer locating-lip thickness
-lip_h      = 3.5;        // lip height above the seat (captures the panel)
+cell_inner = 30;         // square interior of each test cell (the press-fit opening)
 
-// ---- diffuser panels ----
-panel_clear  = 0.4;      // clearance so a panel drops into the lip
-panel_thicks = [1, 2, 3];
+// ---- diffuser panels (press-fit straight into the cell opening) ----
+panel_press_clear = 0.25; // panel is this much SMALLER than the opening (total) -> friction fit
+panel_thicks      = [1, 2, 3];
 
 // ---- coupon depth ladder ----
 led_gaps = [20, 35, 50]; // clear LED-tip -> panel distance, per cell (mm)
@@ -30,6 +28,6 @@ cell_pitch = cell_inner + 2 * wall_t;      // outer cell footprint (35)
 n_cells    = len(led_gaps);
 plate_w    = n_cells * cell_pitch;
 plate_d    = cell_pitch;
-panel_side = cell_pitch - 2 * lip_t - panel_clear;
+panel_side = cell_inner - panel_press_clear;
 function cell_x(i)     = i * cell_pitch + cell_pitch / 2;
 function chimney_H(i)  = plate_t + dome_clear + led_gaps[i];
