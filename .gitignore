@@ -1,0 +1,14 @@
+# Visual-companion scratch
+.superpowers/
+
+# Generated build artifacts
+stl/
+*_preview.png
+preview*.png
+
+# Large source assets (keep EPS letters, collar STL, logo PNG; drop the rest)
+assets/*.zip
+assets/TEDxFargo CHARGE Graphics and Assets/
+
+# OS / editor
+.DS_Store
