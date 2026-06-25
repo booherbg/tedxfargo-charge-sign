@@ -95,9 +95,32 @@ pipeline.
 Press a real pixel into a printed collar (calibration) → light it → compare
 wells and panels → lock the recipe into `config.scad` → print the C.
 
+## Pixel spec (measured from datasheet, 2026-06-25)
+
+12mm bullet pixel: dome lens Ø8, barrel Ø12, flange+clip ring Ø13.6 × 2mm
+thick, dome-tip→flange 5.5mm, flange→rear housing 13.5mm, overall 37mm. The
+rear housing is wider than the flange and stays behind the rear wall. Collar
+fit confirmed: Ø12 barrel through the Ø12.19 bore, Ø11.44 lip bites ~0.28mm/side,
+Ø13.6 flange seats on the plate back. `dome_clear` set to 4.0mm.
+
+## Cable management (constraint for the letter/cover, not the coupon)
+
+Each pixel has molded leads; a few inches of cable + the rear housing (~13.5mm)
+sit behind the rear wall. The mounting/wiring cavity and cover must allow:
+rear-housing clearance + cable bend radius + a short service loop per pixel,
+cable routing channels between pixels, an exit point, and tie-down/strain-relief
+anchors. Leave ~15-25mm cavity depth as a starting point.
+
+## Collar refinement ideas (STL is calibrated and works; change sparingly)
+
+- Add an entry lead-in chamfer (~Ø13→Ø12.19 over 0.4mm) for easier starts —
+  can be added in our model as a back-face countersink without editing the STL.
+- If pixels pop out under cable tug, add a second lip / sharper cavity-side barb.
+- If insertion force is too high at scale, switch the full lip to 3–4 discrete tabs.
+
 ## Open / deferred
 
-- Exact `dome_clear` for the specific bullet pixel (measure).
+- Confirm `dome_clear` by seating a real pixel and measuring protrusion.
 - How literally to follow the neon-tube outline aesthetic vs. solid channel
   letters (a later letterform decision).
 - EPS→SVG conversion path (Illustrator export vs. installed tool).
