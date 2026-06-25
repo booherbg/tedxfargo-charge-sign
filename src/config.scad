@@ -22,10 +22,17 @@ cell_inner = 30;         // square interior of each test cell (the press-fit ope
 panel_press_clear = 0.25; // panel is this much SMALLER than the opening (total) -> friction fit
 panel_thicks      = [1, 2, 3];
 
-// ---- diffuser CAP (slides over the chimney; easy-swap for testing) ----
+// ---- diffuser CAP (slides over an ISOLATED chimney; not used on touching rows) ----
 cap_fit_clear = 0.4;   // skirt-inner minus chimney-outer (total); bigger = looser slide
 cap_skirt_t   = 1.6;   // skirt wall thickness
 cap_skirt_h   = 7;     // how far the skirt grips down over the chimney
+
+// ---- diffuser LID = flanged plug (plug locates in the opening, flange catches on the rim) ----
+lid_flange_cover = wall_t;  // flange overhang per side ~= wall width (rests on rim, can't fall in)
+lid_flange_gap   = 0.3;     // shrink the flange a hair so neighbour lids don't clash
+lid_plug_h       = 4;       // how far the plug drops into the opening (0 = plain flat tile)
+lid_plug_clear   = 0.5;     // plug-outer = opening minus this (total) -> snug slip fit
+lid_plug_wall    = 1.5;     // plug-frame wall thickness
 
 // ---- coupon depth ladder ----
 led_gaps = [20, 35, 50]; // clear LED-tip -> panel distance, per cell (mm)
