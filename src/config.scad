@@ -36,7 +36,8 @@ lid_plug_clear   = 0.2;     // plug-outer = opening minus this (total) -> fricti
 lid_plug_wall    = 1.5;     // plug-frame wall thickness
 
 // ---- coupon depth ladder ----
-led_gaps = [20, 35, 50]; // clear LED-tip -> panel distance, per cell (mm)
+led_gaps = [10, 15, 20]; // clear LED-tip -> diffuser distance, per cell (mm)
+                         // (was [20,35,50] — 35/50 went too dim/washed; 20 is the new max)
 
 // ---- collar v2: original bore + lip, plus a 45-deg lead-in chamfer ----
 bore_face_r   = 6.10;    // collar bore radius at each face (~Ø12.2)
