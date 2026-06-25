@@ -18,9 +18,14 @@ plate_t    = 2.0;        // rear plate thickness (== collar_h, so the collar sit
 wall_t     = 2.5;        // chimney wall thickness
 cell_inner = 30;         // square interior of each test cell (the press-fit opening)
 
-// ---- diffuser panels (press-fit straight into the cell opening) ----
+// ---- diffuser panels (flat, drop-in — kept for the final glued option) ----
 panel_press_clear = 0.25; // panel is this much SMALLER than the opening (total) -> friction fit
 panel_thicks      = [1, 2, 3];
+
+// ---- diffuser CAP (slides over the chimney; easy-swap for testing) ----
+cap_fit_clear = 0.4;   // skirt-inner minus chimney-outer (total); bigger = looser slide
+cap_skirt_t   = 1.6;   // skirt wall thickness
+cap_skirt_h   = 7;     // how far the skirt grips down over the chimney
 
 // ---- coupon depth ladder ----
 led_gaps = [20, 35, 50]; // clear LED-tip -> panel distance, per cell (mm)

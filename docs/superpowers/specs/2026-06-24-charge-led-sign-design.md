@@ -111,6 +111,27 @@ rear-housing clearance + cable bend radius + a short service loop per pixel,
 cable routing channels between pixels, an exit point, and tie-down/strain-relief
 anchors. Leave ~15-25mm cavity depth as a starting point.
 
+## Letter connection & mounting — chosen direction (detailed design deferred)
+
+Join the letters with a **back spine / raceway** (option A). Chosen because it
+solves spacing, cable routing, and wall-hanging in one move, and absorbs the
+cover/backing.
+
+- **Rail:** aluminum **2040 T-slot extrusion** (~1.5m for CHARGE). Stiffer than
+  2020 over the span, holds ~2–3kg of letters without sag. Wood (1×3) is the
+  budget fallback; a segmented printed rail is the all-printed fallback.
+- **Attach:** two **printed bracket pads built into each letter's rear plate**
+  (flat boss, counterbored Ø5.5 hole) → **M5 button-head screw** → **T-nut**
+  dropped into the extrusion slot. Slide the letter to its mark, tighten,
+  spacing locked. Removable / re-adjustable. Add a registration notch per
+  letter position so spacing is foolproof.
+- **Cables:** ride in a spare extrusion slot (slot clips / zip-ties). Controller
+  + power injection can mount to the rail too.
+- **Wall mount:** L-bracket or French cleat at each end → 2 anchors into studs;
+  the whole word lifts on/off as one piece.
+- **TODO when we return:** parametric `bracket` module (M5 + standard 2040
+  T-nut dims); test-print one against a scrap of extrusion.
+
 ## Collar refinement ideas (STL is calibrated and works; change sparingly)
 
 - Add an entry lead-in chamfer (~Ø13→Ø12.19 over 0.4mm) for easier starts —

@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 OSCAD="${OPENSCAD:-openscad}"
 mkdir -p stl
 
-PARTS=(coupon_body panel_1mm panel_2mm panel_3mm collar_harness collar_v2)
+PARTS=(coupon_body cap_1mm cap_2mm cap_3mm collar_harness collar_v2)
 
 echo "Rendering CHARGE coupon STLs with $OSCAD ..."
 for p in "${PARTS[@]}"; do
