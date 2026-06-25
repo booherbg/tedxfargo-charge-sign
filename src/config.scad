@@ -31,7 +31,8 @@ cap_skirt_h   = 7;     // how far the skirt grips down over the chimney
 lid_flange_cover = wall_t;  // flange overhang per side ~= wall width (rests on rim, can't fall in)
 lid_flange_gap   = 0.3;     // shrink the flange a hair so neighbour lids don't clash
 lid_plug_h       = 4;       // how far the plug drops into the opening (0 = plain flat tile)
-lid_plug_clear   = 0.5;     // plug-outer = opening minus this (total) -> snug slip fit
+lid_plug_clear   = 0.2;     // plug-outer = opening minus this (total) -> friction fit
+                            // (was 0.5/loose; PETG plug in a PLA hole grips well at 0.2)
 lid_plug_wall    = 1.5;     // plug-frame wall thickness
 
 // ---- coupon depth ladder ----
@@ -54,5 +55,6 @@ n_cells    = len(led_gaps);
 plate_w    = n_cells * cell_pitch;
 plate_d    = cell_pitch;
 panel_side = cell_inner - panel_press_clear;
-function cell_x(i)     = i * cell_pitch + cell_pitch / 2;
+function cell_x(i)     = i * cell_pitch + cell_pitch / 2;   // column center (distance)
+function cell_y(j)     = j * cell_pitch + cell_pitch / 2;   // row center (for grid coupons)
 function chimney_H(i)  = plate_t + dome_clear + led_gaps[i];
