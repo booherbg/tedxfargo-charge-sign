@@ -20,11 +20,13 @@ module bolt_stroke(w) {
         }
 }
 
-module bolt_shell() {
+// wall_h = channel wall height above the plate (gap = wall_h - dome_clear).
+// The lens caps the cross-section, so the SAME lens fits any wall_h.
+module bolt_shell(wall_h = bolt_ch_h) {
     difference() {
         union() {
             linear_extrude(plate_t) bolt_stroke(bolt_outer);
-            translate([0, 0, plate_t]) linear_extrude(bolt_ch_h)
+            translate([0, 0, plate_t]) linear_extrude(wall_h)
                 difference() { bolt_stroke(bolt_outer); bolt_stroke(bolt_inner); }
         }
         for (p = pixel_pts)
