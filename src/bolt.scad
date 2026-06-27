@@ -1,5 +1,5 @@
 bolt_pts  = [[155.0,300.0], [75.0,180.0], [130.0,180.0], [45.0,30.0]];
-pixel_pts = [[155.0,300.0], [142.8,281.7], [130.6,263.3], [118.3,245.0], [106.1,226.7], [93.9,208.3], [81.7,190.0], [96.7,180.0], [118.8,180.0], [119.7,161.9], [108.9,142.8], [98.1,123.6], [87.2,104.5], [76.4,85.3], [65.5,66.2], [54.7,47.1], [45.0,30.0]];
+pixel_pts = [[155.0,300.0], [145.5,285.8], [136.0,271.5], [126.5,257.2], [117.0,243.0], [107.5,228.8], [98.0,214.5], [88.5,200.2], [79.0,186.0], [95.1,180.0], [112.3,180.0], [129.4,180.0], [121.4,164.8], [113.0,149.9], [104.5,135.1], [96.1,120.2], [87.6,105.3], [79.2,90.4], [70.8,75.5], [62.3,60.6], [53.9,45.7], [45.4,30.8]];
 
 // ===== CHARGE lightning-bolt test piece — option C (~18mm channel) =====
 bolt_inner     = 18;                       // channel interior (collar O16 fits)
@@ -43,5 +43,25 @@ module bolt_lens() {
                 bolt_stroke(bolt_inner - bolt_lip_clear);
                 bolt_stroke(bolt_inner - bolt_lip_clear - 2 * bolt_lip_t);
             }
+    }
+}
+
+// ----- snap-OVER lens: a cap that wraps the WHOLE bolt outside (skirt grips the
+// 22mm outer wall). Works because the bolt is a single isolated piece. Top = the
+// diffuser face. Print top-down, flip in use; fits any bolt height.
+// 2-filament: clear for the first cap_top_t (top), white above (skirt) via a
+// slicer height color-change. 3-filament: also paint the skirt's outer wall black.
+cap_clear   = 0.3;   // skirt-inner = bolt_outer + this (slide/snap over)
+cap_wall    = 1.6;   // skirt wall thickness
+cap_top_t   = 1.2;   // diffuser top thickness
+cap_skirt_h = 9;     // how far the skirt wraps down the bolt sides
+
+module bolt_overcap() {
+    si = bolt_outer + cap_clear;
+    so = si + 2 * cap_wall;
+    union() {
+        linear_extrude(cap_top_t) bolt_stroke(so);
+        translate([0, 0, cap_top_t]) linear_extrude(cap_skirt_h)
+            difference() { bolt_stroke(so); bolt_stroke(si); }
     }
 }
