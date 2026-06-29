@@ -36,7 +36,9 @@ module bolt_shell(wall_h = bolt_ch_h) {
 }
 
 module bolt_lens() {
-    union() {
+    // Pre-mirror: same chirality-on-flip reason as bolt_overcap (this lens is
+    // printed face-down and flipped lip-down to drop into the channel).
+    mirror([1, 0, 0]) union() {
         linear_extrude(bolt_lens_t) bolt_stroke(bolt_outer);
         translate([0, 0, bolt_lens_t]) linear_extrude(bolt_lip_h)
             difference() {
@@ -59,7 +61,11 @@ cap_skirt_h = 9;     // how far the skirt wraps down the bolt sides
 module bolt_overcap() {
     si = bolt_outer + cap_clear;
     so = si + 2 * cap_wall;
-    union() {
+    // Pre-mirror: this cap prints skirt-up (top face on bed) and is FLIPPED to
+    // seat. A flip mirrors the footprint, and the bolt is chiral, so without this
+    // the flipped cap is a backwards bolt that won't register. Mirroring here means
+    // the flipped part is just a rotation of the bolt footprint -> aligns by eye.
+    mirror([1, 0, 0]) union() {
         linear_extrude(cap_top_t) bolt_stroke(so);
         translate([0, 0, cap_top_t]) linear_extrude(cap_skirt_h)
             difference() { bolt_stroke(so); bolt_stroke(si); }
@@ -80,6 +86,33 @@ module cap_chunk(clear, marks, L = 45) {
                 difference() {
                     hull() { translate([-L/2,0]) circle(d=so); translate([L/2,0]) circle(d=so); }
                     hull() { translate([-L/2,0]) circle(d=si); translate([L/2,0]) circle(d=si); }
+                }
+        }
+        for (i = [0 : marks - 1])
+            translate([-L/2 + 9 + i*4, 0, -0.1]) cylinder(h = 0.8, d = 1.8);
+    }
+}
+
+// Fit-test slice of the INNER lens: a short STRAIGHT section of the lens face +
+// locating lip at a chosen lip clearance. Press the lip into a straight run of
+// the printed channel (the bolt's middle segment is ~55mm straight) to feel the
+// fit -- no need to print a whole lightning bolt. `clear` = total lip clearance
+// into the channel (lip outer = bolt_inner - clear); SMALLER = tighter. `marks`
+// debossed dots on the bed/face = which one (more dots = tighter). Straight =>
+// mirror-symmetric, so no chirality concern (unlike the full lens).
+module lens_chunk(clear, marks, L = 40) {
+    lip_o = bolt_inner - clear;          // lip outer width (drops into channel)
+    lip_i = lip_o - 2 * bolt_lip_t;      // lip inner width
+    difference() {
+        union() {
+            // face: full outer width, bed-face down
+            linear_extrude(bolt_lens_t)
+                hull() { translate([-L/2,0]) circle(d=bolt_outer); translate([L/2,0]) circle(d=bolt_outer); }
+            // locating lip on top of the face
+            translate([0,0,bolt_lens_t]) linear_extrude(bolt_lip_h)
+                difference() {
+                    hull() { translate([-L/2,0]) circle(d=lip_o); translate([L/2,0]) circle(d=lip_o); }
+                    hull() { translate([-L/2,0]) circle(d=lip_i); translate([L/2,0]) circle(d=lip_i); }
                 }
         }
         for (i = [0 : marks - 1])
