@@ -65,3 +65,24 @@ module bolt_overcap() {
             difference() { bolt_stroke(so); bolt_stroke(si); }
     }
 }
+
+// Fit-test chunk: a short straight section of the over-cap at a chosen skirt
+// clearance. Slide it onto a straight part of the printed bolt to feel the fit.
+// `marks` debossed dots on the bed face = which one it is (more dots = tighter).
+module cap_chunk(clear, marks, L = 45) {
+    si = bolt_outer + clear;
+    so = si + 2 * cap_wall;
+    difference() {
+        union() {
+            linear_extrude(cap_top_t)
+                hull() { translate([-L/2,0]) circle(d=so); translate([L/2,0]) circle(d=so); }
+            translate([0,0,cap_top_t]) linear_extrude(cap_skirt_h)
+                difference() {
+                    hull() { translate([-L/2,0]) circle(d=so); translate([L/2,0]) circle(d=so); }
+                    hull() { translate([-L/2,0]) circle(d=si); translate([L/2,0]) circle(d=si); }
+                }
+        }
+        for (i = [0 : marks - 1])
+            translate([-L/2 + 9 + i*4, 0, -0.1]) cylinder(h = 0.8, d = 1.8);
+    }
+}
