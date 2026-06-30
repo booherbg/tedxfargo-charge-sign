@@ -26,7 +26,8 @@ lc_wall  = 2.0;                   // white wall thickness
 lc_outer = lc_inner + 2*lc_wall;  // 34mm outer
 lc_pitch = lc_outer + 6;          // 40mm grid spacing (6mm gap between cells)
 lc_fuse  = 0.1;                   // white/clear overlap so the slicer fuses them
-led_void = 13.0;                  // keep-out diameter for the LED dome (>12mm)
+led_void  = 14.0;                 // pixel keep-out Ø (barrel 12 + clearance + hole-shrink)
+led_clear = 2.5;                  // vertical headroom ABOVE the dome tip before any solid optic
 
 // wall height above the plate for a chosen LED-tip -> face gap
 function lc_wall_h(gap) = dome_clear + gap;
@@ -63,15 +64,18 @@ module lc_walls(gap) {
 module lc_mask(gap, mask_d, stand_mm) {
     if (mask_d > 0) {
         mt = 1.5;                                      // disc thickness
-        zb = plate_t + dome_clear + stand_mm;          // disc bottom height
-        rl = max(mask_d/2 - 0.8, 7.0);                 // leg radius (>=7 clears the dome)
+        zb = plate_t + dome_clear + stand_mm;          // disc bottom height (above the dome)
         difference() {
             translate([0,0,zb]) cylinder(h=mt, d=mask_d);
             for (x=[-mask_d/2:2.6:mask_d/2], y=[-mask_d/2:2.6:mask_d/2])  // ~43% open
                 translate([x,y,zb-0.1]) cylinder(h=mt+0.2, d=1.7, $fn=12);
         }
+        // hold the disc with 3 spokes to the cell WALLS at disc height -- entirely
+        // above the pixel, so nothing sits in the insertion path (legs from the
+        // floor used to clip the barrel). Each spoke is a short ~8mm wall-anchored bridge.
         for (a=[0:120:359])
-            rotate(a) translate([rl,0,plate_t]) cylinder(h=zb-plate_t+0.01, d=1.8);
+            rotate([0,0,a]) translate([mask_d/2-0.5, -0.8, zb])
+                cube([lc_inner/2 - mask_d/2 + 1.0, 1.6, mt]);
     }
 }
 
@@ -102,20 +106,20 @@ module lc_fill(gap) {             // B: solid clear fill (slice with ~15% gyroid
     wh = lc_wall_h(gap);
     difference() {
         translate([0,0,plate_t]) linear_extrude(wh) square(lc_inner+2*lc_fuse, center=true);
-        translate([0,0,plate_t-0.1]) cylinder(h=dome_clear+0.1, d=led_void);
+        translate([0,0,plate_t-0.1]) cylinder(h=dome_clear+led_clear+0.1, d=led_void);
     }
     lc_face(gap, 1.0);
 }
 
 module lc_puck(gap, cone_ang) {   // C: solid clear + center cone refractor (TIR)
     wh = lc_wall_h(gap);
-    cone_r = led_void/2 + 1;
+    cone_r = led_void/2;
     cone_h = cone_r / tan(cone_ang/2);
     difference() {
         translate([0,0,plate_t]) linear_extrude(wh) square(lc_inner+2*lc_fuse, center=true);
         union() {
-            translate([0,0,plate_t-0.1]) cylinder(h=dome_clear+0.1, d=led_void);
-            translate([0,0,plate_t+dome_clear-0.01]) cylinder(h=cone_h, r1=cone_r, r2=0.2);
+            translate([0,0,plate_t-0.1]) cylinder(h=dome_clear+led_clear+0.1, d=led_void);
+            translate([0,0,plate_t+dome_clear+led_clear-0.01]) cylinder(h=cone_h, r1=cone_r, r2=0.2);
         }
     }
     lc_face(gap, 1.2);
