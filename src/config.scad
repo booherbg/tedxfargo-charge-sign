@@ -3,6 +3,11 @@
 
 $fn = 72;
 
+// ---- bullet pixel datasheet (measured + validated) ----
+// dome Ø8, barrel Ø12, flange Ø13.6 x 2mm, dome-tip -> flange 5.5mm.
+// Above the plate: ~Ø12 barrel for ~0.5mm, then the Ø8 dome to a tip ~dome_clear
+// above the plate front. Drives pixel_through, dome_clear, and led_void clearances.
+
 // ---- calibrated collar (press-fit for 12mm bullet pixel) ----
 collar_stl    = "../../assets/bullet-collar.stl"; // path resolved from src/parts/ entry files
 collar_h      = 2.0;     // Z span of the collar STL

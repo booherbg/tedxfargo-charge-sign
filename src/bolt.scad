@@ -9,7 +9,7 @@ bolt_gap       = 15;                       // LED-tip -> lens
 bolt_ch_h      = dome_clear + bolt_gap;    // wall height above plate
 bolt_lens_t    = 1.5;                       // lens face thickness  <-- TUNE (look/diffusion; = white-base layer count if 2-tone)
 bolt_lip_h     = 2;                         // lens locating lip depth  <-- TUNE (how far the lip grips into the channel)
-bolt_lip_clear = -0.2;                      // CONFIRMED: 0.2mm interference = perfect snap-in on the printed full lens (clear PETG lip on white-PLA base), 2026-06-30
+bolt_lip_clear = -0.2;                      // LOCKED: 0.2mm interference = perfect snap-in, material-robust (clear PETG and clear PLA both validated), 2026-06-30
 bolt_lip_t     = 1.2;                       // lip wall thickness
 
 module bolt_stroke(w) {
