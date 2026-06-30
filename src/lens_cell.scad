@@ -165,3 +165,46 @@ module matrix_clear() {
         translate([p[0],p[1],0]) lc_clear_optic(lc_cells[idx]);
     }
 }
+
+// ================== SINGLE-MATERIAL "just print it" test ==================
+// One STL, one filament (print in CLEAR/natural PETG, gyroid infill ~15%, 1-2
+// top layers). Drops the white-reflector + perforated mask (those need a 2nd
+// nozzle); tests the core diffusion: open-cavity face vs volumetric fill vs cone.
+// Connected strip on a shared base; debossed labels on the bottom.
+solo_cells = [
+    ["AIR",  15, "air"],    // air cavity + thin clear diffuser face (closest to your coupon)
+    ["FILL", 15, "fill"],   // clear solid -> gyroid infill = volumetric diffuser
+    ["CONE", 15, "cone"],   // clear + center cone spreads the beam sideways
+];
+
+module lens_solo(gap, kind) {
+    union() {
+        difference() {
+            union() {
+                linear_extrude(plate_t) square(lc_outer, center=true);
+                lc_walls(gap);
+            }
+            translate([0,0,-0.1]) cylinder(h=plate_t+0.2, d=pixel_through);
+        }
+        place_collar(0, 0);
+        if (kind == "air")  lc_face(gap, 1.2);
+        if (kind == "fill") lc_fill(gap);
+        if (kind == "cone") lc_puck(gap, 90);
+    }
+}
+
+module lens_test_strip() {
+    n = len(solo_cells);
+    difference() {
+        union() {
+            // shared base ties the strip into one handleable piece
+            translate([-lc_outer/2, -lc_outer/2, 0])
+                linear_extrude(plate_t) square([(n-1)*lc_pitch + lc_outer, lc_outer]);
+            for (i=[0:n-1])
+                translate([i*lc_pitch,0,0]) lens_solo(solo_cells[i][1], solo_cells[i][2]);
+        }
+        for (i=[0:n-1])
+            translate([i*lc_pitch, -lc_outer/2+4, -0.1]) linear_extrude(0.9)
+                mirror([1,0,0]) text(solo_cells[i][0], size=3.5, halign="center", valign="center");
+    }
+}
