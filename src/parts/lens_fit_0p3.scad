@@ -2,4 +2,4 @@
 include <../config.scad>
 include <../collar.scad>
 include <../bolt.scad>
-lens_chunk(0.3, 2);
+lens_chunk(0.3, 2, label="0.3");

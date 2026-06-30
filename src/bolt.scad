@@ -7,9 +7,9 @@ bolt_wall      = 2;                         // wall thickness
 bolt_outer     = bolt_inner + 2*bolt_wall; // 22mm outer stroke
 bolt_gap       = 15;                       // LED-tip -> lens
 bolt_ch_h      = dome_clear + bolt_gap;    // wall height above plate
-bolt_lens_t    = 1.5;                       // lens face thickness
-bolt_lip_h     = 2;                         // lens locating lip depth
-bolt_lip_clear = 0.6;                       // lip clearance into channel
+bolt_lens_t    = 1.5;                       // lens face thickness  <-- TUNE (look/diffusion; = white-base layer count if 2-tone)
+bolt_lip_h     = 2;                         // lens locating lip depth  <-- TUNE (how far the lip grips into the channel)
+bolt_lip_clear = -0.2;                      // -0.2 = 0.2mm interference (press-fit), chosen from the n0p2 fit slice
 bolt_lip_t     = 1.2;                       // lip wall thickness
 
 module bolt_stroke(w) {
@@ -100,7 +100,7 @@ module cap_chunk(clear, marks, L = 45) {
 // into the channel (lip outer = bolt_inner - clear); SMALLER = tighter. `marks`
 // debossed dots on the bed/face = which one (more dots = tighter). Straight =>
 // mirror-symmetric, so no chirality concern (unlike the full lens).
-module lens_chunk(clear, marks, L = 40) {
+module lens_chunk(clear, marks, L = 40, label = "") {
     lip_o = bolt_inner - clear;          // lip outer width (drops into channel)
     lip_i = lip_o - 2 * bolt_lip_t;      // lip inner width
     difference() {
@@ -115,7 +115,12 @@ module lens_chunk(clear, marks, L = 40) {
                     hull() { translate([-L/2,0]) circle(d=lip_i); translate([L/2,0]) circle(d=lip_i); }
                 }
         }
+        // dots = quick tightness order (more = tighter), at the centerline
         for (i = [0 : marks - 1])
             translate([-L/2 + 9 + i*4, 0, -0.1]) cylinder(h = 0.8, d = 1.8);
+        // clearance value debossed on the bed face (mirrored to read from below)
+        if (label != "")
+            translate([0, -bolt_outer/2 + 4, -0.1]) linear_extrude(0.9)
+                mirror([1,0,0]) text(label, size=4.5, halign="center", valign="center");
     }
 }
