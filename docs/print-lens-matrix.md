@@ -1,27 +1,47 @@
-# Print card — lit-lens diffusion matrix (morning run)
+# Print card — lit-lens diffusion matrix
 
 Goal: print 8 diffuser test cells in one dual-material job, light them, and pick the
 recipe that glows most evenly. Full rationale: `superpowers/specs/2026-06-29-integrated-lens-design.md`.
 
-## Files
-- `stl/matrix_white.stl` → **white PETG** (nozzle 1)
-- `stl/matrix_clear.stl` → **clear/natural PETG** (nozzle 2)
+## File to load
+- **`stl/lens_matrix_2color.3mf`** — open this one file. It loads as a single object
+  with two parts already mapped: **white body → filament 1, clear optic → filament 2.**
 
-(Regenerate any time with `./build.sh`.)
+Regenerate if it gets overwritten:
+```
+./build.sh        # rebuilds stl/matrix_white.stl + matrix_clear.stl (source)
+python3 tools/make_3mf.py stl/matrix_white.stl stl/matrix_clear.stl stl/lens_matrix_2color.3mf
+```
 
 ## Bambu Studio (H2D)
-1. Import **both** STLs.
-2. Select both → right-click → **Assemble** (they're co-registered to the same
-   origin, so this keeps them perfectly aligned as one 2-part object).
-3. Assign filaments per part: white STL → white PETG, clear STL → clear PETG.
-4. **Orientation:** leave as-is — it's already plate-down (collar tray on the bed,
-   optics up). Do **not** flip.
-5. Global settings: 0.16–0.20mm layers, ≥3 walls, **strong part cooling** (the A/R
-   clear faces bridge ~30mm — cooling keeps that clean; a little sag is fine, it
-   diffuses). 5–6 solid top layers on the clear.
-6. **Cell B1 only** (6th cell, 6 dots): give it a per-object setting → sparse infill
-   **gyroid, ~15%**, **1 top layer**, so light passes through the lattice. (If you
-   skip this it just prints as a solid clear block — still works, just not volumetric.)
+1. Open the `.3mf`. (You'll get a "saved outside Bambu" banner — normal; the part→
+   filament assignment still loads.)
+2. Set **filament slot 1 = white, slot 2 = clear**. Use the **same polymer family for
+   both** (both PLA *or* both PETG) — a PLA+PETG mix bonds poorly at the seam.
+3. **Orientation:** leave as-is — already plate-down (collar tray on the bed, optics
+   up). Do **not** flip.
+
+## Slicer recipe — Adafruit neon settings (verified), go all-in
+Source: https://learn.adafruit.com/led-neon-signs-with-neopixels/3d-printing
+
+| Setting | Value |
+|---|---|
+| Layer height | **0.16mm** (0.20 = faster / Adafruit's implied default; avoid ≥0.24 — visible striping) |
+| Line width | default **0.42mm** is fine (Adafruit says 0.4 nominal; 0.02 doesn't matter) |
+| Wall loops | **2** |
+| Infill | **10% gyroid** |
+| Top/bottom layers | **6** |
+| Supports | **off** (sealed cavities — can't remove internal supports anyway) |
+| Brim | 3–5mm (adhesion for the thin walls) |
+| Cooling | bridge fan **on** (A0–A3/R1 clear faces bridge ~30mm); don't crank the global fan on PETG |
+
+Material/temps: Adafruit uses **PLA @ 220°C / 60°C bed** — match that for a literal
+replication, or use **PETG** (Bambu PETG profile temps) for heat tolerance near the LEDs.
+Either is fine for this test; just keep both colors the same family.
+
+This one recipe covers all 8 cells. *Optional:* for a "purer" gyroid in the B1 cell
+(light straight through the lattice, no solid skin), give it **1 top layer** instead of
+6 — but that needs B1 as its own file; ask and I'll split it out.
 
 ## After printing
 - Press a 12mm bullet pixel into each collar from the **back**.
