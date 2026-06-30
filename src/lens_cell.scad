@@ -70,12 +70,14 @@ module lc_mask(gap, mask_d, stand_mm) {
             for (x=[-mask_d/2:2.6:mask_d/2], y=[-mask_d/2:2.6:mask_d/2])  // ~43% open
                 translate([x,y,zb-0.1]) cylinder(h=mt+0.2, d=1.7, $fn=12);
         }
-        // hold the disc with 3 spokes to the cell WALLS at disc height -- entirely
-        // above the pixel, so nothing sits in the insertion path (legs from the
-        // floor used to clip the barrel). Each spoke is a short ~8mm wall-anchored bridge.
+        // 3 FLOOR-anchored legs (self-supporting -> no internal support needed),
+        // with FLARED feet that sit clear of the pixel barrel/dome, leaning in to
+        // meet the disc edge. ~15 deg from vertical, so no floating cantilever.
         for (a=[0:120:359])
-            rotate([0,0,a]) translate([mask_d/2-0.5, -0.8, zb])
-                cube([lc_inner/2 - mask_d/2 + 1.0, 1.6, mt]);
+            rotate([0,0,a]) hull() {
+                translate([mask_d/2+1.5, 0, plate_t])    cylinder(h=0.6, d=2.0, $fn=16); // flared foot (clears barrel)
+                translate([mask_d/2-0.5, 0, zb-mt+0.01]) cylinder(h=0.6, d=2.0, $fn=16); // top, under disc edge
+            }
     }
 }
 
