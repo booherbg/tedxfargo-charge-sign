@@ -124,3 +124,41 @@ module lens_chunk(clear, marks, L = 40, label = "") {
                 mirror([1,0,0]) text(label, size=4.5, halign="center", valign="center");
     }
 }
+
+// ---- two-color bolt lens: white diffuser skin + clear body ----
+// A thin white layer scatters hard (milky, hides the source) while staying bright
+// because it's thin. Two variations (which face gets the white); the lip stays
+// clear (its -0.2 fit was validated in clear). Export each as white+clear STLs and
+// combine with tools/make_3mf.py, same as the test matrix.
+lens_white_t = 0.4;   // white skin thickness (~2 layers); thin = brighter, thick = more opaque
+
+module _lens_lip() {  // shared CLEAR locating lip (validated -0.2 fit)
+    translate([0, 0, bolt_lens_t]) linear_extrude(bolt_lip_h)
+        difference() {
+            bolt_stroke(bolt_inner - bolt_lip_clear);
+            bolt_stroke(bolt_inner - bolt_lip_clear - 2 * bolt_lip_t);
+        }
+}
+
+// V1: white on the LED-facing (inner) side of the face, clear viewer face + lip
+module bolt_lens_v1_white() {
+    mirror([1,0,0]) translate([0,0,bolt_lens_t - lens_white_t])
+        linear_extrude(lens_white_t) bolt_stroke(bolt_outer);
+}
+module bolt_lens_v1_clear() {
+    mirror([1,0,0]) union() {
+        linear_extrude(bolt_lens_t - lens_white_t) bolt_stroke(bolt_outer);
+        _lens_lip();
+    }
+}
+
+// V2: clear on the LED side, white skin on the viewer (outer) face + clear lip
+module bolt_lens_v2_white() {
+    mirror([1,0,0]) linear_extrude(lens_white_t) bolt_stroke(bolt_outer);
+}
+module bolt_lens_v2_clear() {
+    mirror([1,0,0]) union() {
+        translate([0,0,lens_white_t]) linear_extrude(bolt_lens_t - lens_white_t) bolt_stroke(bolt_outer);
+        _lens_lip();
+    }
+}
