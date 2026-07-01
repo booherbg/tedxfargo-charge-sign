@@ -30,7 +30,7 @@ module tb_stroke(w) {             // straight stadium: rounded caps past the end
     hull() { translate([tb_x(0),0]) circle(d=w); translate([tb_x(tb_n-1),0]) circle(d=w); }
 }
 
-module testbox_white() {          // plate + walls + collars (pixels plug in from below)
+module testbox_white(label="") {  // plate + walls + collars (pixels plug in from below)
     difference() {
         union() {
             linear_extrude(plate_t) tb_stroke(tb_outer);
@@ -38,6 +38,9 @@ module testbox_white() {          // plate + walls + collars (pixels plug in fro
                 difference() { tb_stroke(tb_outer); tb_stroke(tb_inner); }
         }
         for (i=[0:tb_n-1]) translate([tb_x(i),0,-0.1]) cylinder(h=plate_t+0.2, d=pixel_through);
+        if (label != "")                                   // variation label, debossed on the bed face
+            translate([tb_x(0)-6, 0, -0.1]) linear_extrude(0.9)
+                mirror([1,0,0]) text(label, size=6, halign="center", valign="center");
     }
     for (i=[0:tb_n-1]) place_collar(tb_x(i), 0);
 }
@@ -47,18 +50,20 @@ module testbox_clear() {          // integrated lens roof (bridges the channel),
         linear_extrude(tb_lens_t+tb_fuse) tb_stroke(tb_outer);
 }
 
-// ---- baked "fuzzy skin": a random bumpy top on the lens to scatter/soften light ----
-// Bambu's fuzzy skin only textures vertical walls, so we bake the noise into the top
-// geometry. Heights from src/parts/fuzz.dat (regen: tools/make_fuzz.py). Print lens-UP.
-fuzz_h = 0.55;   // peak bump height above the flat lens top
-module testbox_clear_fuzzy() {
+// ---- baked "fuzzy skin": random bumpy lens top (surface() heightmap) ----
+// Bambu fuzzy skin only textures vertical walls, so bake the noise into the top.
+// dat files (absolute-mm heights, 1-unit cells) come from tools/make_fuzz.py; `cell`
+// scales the bump size in XY. Pure heightfield -> no overhangs, no support; print lens-up.
+module fuzzy_lens(datfile, cell) {
     z0  = plate_t + tb_wall_h - tb_fuse;                 // fused to walls
     top = plate_t + tb_wall_h + tb_lens_t;              // nominal flat top
     union() {
         translate([0,0,z0]) linear_extrude(top - z0) tb_stroke(tb_outer);   // flat lens body
         intersection() {                                                     // random bumps, clipped
-            translate([tb_x(tb_n-1)/2, 0, top-0.1]) surface(file="fuzz.dat", center=true, convexity=8);
-            translate([0,0,top-0.2]) linear_extrude(fuzz_h+0.6) tb_stroke(tb_outer);
+            translate([tb_x(tb_n-1)/2, 0, top-0.1]) scale([cell,cell,1])
+                surface(file=datfile, center=true, convexity=8);
+            translate([0,0,top-0.3]) linear_extrude(3) tb_stroke(tb_outer);
         }
     }
 }
+module testbox_clear_fuzzy() { fuzzy_lens("fuzz.dat", 1.0); }   // original single variant
