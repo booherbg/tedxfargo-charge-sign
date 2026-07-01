@@ -42,7 +42,23 @@ module testbox_white() {          // plate + walls + collars (pixels plug in fro
     for (i=[0:tb_n-1]) place_collar(tb_x(i), 0);
 }
 
-module testbox_clear() {          // integrated lens roof (bridges the channel), fuzzy-skin this
+module testbox_clear() {          // integrated lens roof (bridges the channel), smooth top
     translate([0,0,plate_t+tb_wall_h-tb_fuse])
         linear_extrude(tb_lens_t+tb_fuse) tb_stroke(tb_outer);
+}
+
+// ---- baked "fuzzy skin": a random bumpy top on the lens to scatter/soften light ----
+// Bambu's fuzzy skin only textures vertical walls, so we bake the noise into the top
+// geometry. Heights from src/parts/fuzz.dat (regen: tools/make_fuzz.py). Print lens-UP.
+fuzz_h = 0.55;   // peak bump height above the flat lens top
+module testbox_clear_fuzzy() {
+    z0  = plate_t + tb_wall_h - tb_fuse;                 // fused to walls
+    top = plate_t + tb_wall_h + tb_lens_t;              // nominal flat top
+    union() {
+        translate([0,0,z0]) linear_extrude(top - z0) tb_stroke(tb_outer);   // flat lens body
+        intersection() {                                                     // random bumps, clipped
+            translate([tb_x(tb_n-1)/2, 0, top-0.1]) surface(file="fuzz.dat", center=true, convexity=8);
+            translate([0,0,top-0.2]) linear_extrude(fuzz_h+0.6) tb_stroke(tb_outer);
+        }
+    }
 }
