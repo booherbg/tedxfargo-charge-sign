@@ -18,11 +18,23 @@ Finalized, print-validated parameters. Change only with a new test.
 - masks ride **flared floor legs** (self-supporting, feet splay clear of the barrel) → **no internal support**
 - Verified by `src/parts/lens_pixel_collision.scad`: pixel envelope intersects nothing in all 8 cells
 
+## WHITE shell is essential ✅ measured
+- Reflective white walls **recycle light** → same brightness with **~5 fewer LEDs** vs a dark shell,
+  *and* far more even. **Never use a black/dark shell** (it absorbs, dims, and shows the source).
+- Project impact: eases the pixel-count/brightness limit → a **sparser pixel pitch** is viable on the
+  full sign (fewer pixels / less power / less wiring for target brightness).
+
+## Diffuser lens material — leaning PLA (pending)
+- Printed **clear PLA is naturally cloudier** than clear PETG (PETG prints glassy, shows the source);
+  cloudier = better diffuser. A0 (PLA lens + white shell) was the best-looking cell.
+- **Open:** heat test (run full-white 30–60min; if PLA stays firm, use it) + research on making the
+  on-hand transparent **PETG** cloudier via settings (in progress).
+
 ## Diffuser print recipe — Adafruit neon, verified (see `print-lens-matrix.md`)
 - **0.16mm** layer · **0.42mm** line (slicer default ok) · **2 walls** · **10% gyroid** · **6 top/bottom**
 - supports **off** · small brim · bridge fan on (A/R faces bridge ~30mm)
 - **same polymer family for both colors** (both PLA *or* both PETG — not mixed; PLA↔PETG bonds poorly)
-- PETG preferred near LEDs for heat; PLA fine for prototyping / this test
+- winning cell A0 = thin **solid clear face** over an air gap (no mask, no gyroid needed in the face)
 
 ## Two-color file
 - `stl/lens_matrix_2color.3mf` — Bambu-native, white → filament 1 / clear → filament 2
