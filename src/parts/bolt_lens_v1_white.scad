@@ -1,4 +1,4 @@
-// V1 WHITE part: white skin on the LED-facing side of the lens face. filament 1.
+// V1 WHITE part: white CENTER stripe on the viewer/bed face. filament 1.
 include <../config.scad>
 include <../collar.scad>
 include <../bolt.scad>

@@ -125,40 +125,33 @@ module lens_chunk(clear, marks, L = 40, label = "") {
     }
 }
 
-// ---- two-color bolt lens: white diffuser skin + clear body ----
-// A thin white layer scatters hard (milky, hides the source) while staying bright
-// because it's thin. Two variations (which face gets the white); the lip stays
-// clear (its -0.2 fit was validated in clear). Export each as white+clear STLs and
-// combine with tools/make_3mf.py, same as the test matrix.
-lens_white_t = 0.4;   // white skin thickness (~2 layers); thin = brighter, thick = more opaque
+// ---- two-color bolt lens: white/clear STRIPE on the viewer (bed) face ----
+// The lens prints face-DOWN, so the bed layers ARE the viewer face. A white region
+// on the bottom ~lens_white_t scatters light (milky); the rest stays clear. In-layer
+// 2-color (needs the 3MF). Two variations:
+//   V1: WHITE center stripe (over the LED line) + clear edges
+//   V2: CLEAR center stripe + WHITE edges
+// Lip (above the face) stays clear in both -- validated -0.2 fit. Export white+clear
+// STLs, combine with tools/make_3mf.py, same as the matrix.
+lens_white_t  = 0.4;   // white depth from the bed/viewer face (~2 layers); = bolt_lens_t -> full-thickness stripe
+lens_stripe_w = 12;    // center-stripe width over the LEDs (face is bolt_outer = 22 wide)
 
-module _lens_lip() {  // shared CLEAR locating lip (validated -0.2 fit)
+module _lens_full() {   // whole lens: face + clear locating lip
+    linear_extrude(bolt_lens_t) bolt_stroke(bolt_outer);
     translate([0, 0, bolt_lens_t]) linear_extrude(bolt_lip_h)
         difference() {
             bolt_stroke(bolt_inner - bolt_lip_clear);
             bolt_stroke(bolt_inner - bolt_lip_clear - 2 * bolt_lip_t);
         }
 }
+module _stripe_center() { linear_extrude(lens_white_t) bolt_stroke(lens_stripe_w); }
+module _stripe_edges()  { linear_extrude(lens_white_t)
+    difference() { bolt_stroke(bolt_outer); bolt_stroke(lens_stripe_w); } }
 
-// V1: white on the LED-facing (inner) side of the face, clear viewer face + lip
-module bolt_lens_v1_white() {
-    mirror([1,0,0]) translate([0,0,bolt_lens_t - lens_white_t])
-        linear_extrude(lens_white_t) bolt_stroke(bolt_outer);
-}
-module bolt_lens_v1_clear() {
-    mirror([1,0,0]) union() {
-        linear_extrude(bolt_lens_t - lens_white_t) bolt_stroke(bolt_outer);
-        _lens_lip();
-    }
-}
+// V1: white center stripe; clear edges + body + lip
+module bolt_lens_v1_white() { mirror([1,0,0]) _stripe_center(); }
+module bolt_lens_v1_clear() { mirror([1,0,0]) difference() { _lens_full(); _stripe_center(); } }
 
-// V2: clear on the LED side, white skin on the viewer (outer) face + clear lip
-module bolt_lens_v2_white() {
-    mirror([1,0,0]) linear_extrude(lens_white_t) bolt_stroke(bolt_outer);
-}
-module bolt_lens_v2_clear() {
-    mirror([1,0,0]) union() {
-        translate([0,0,lens_white_t]) linear_extrude(bolt_lens_t - lens_white_t) bolt_stroke(bolt_outer);
-        _lens_lip();
-    }
-}
+// V2: white edges; clear center stripe + body + lip
+module bolt_lens_v2_white() { mirror([1,0,0]) _stripe_edges(); }
+module bolt_lens_v2_clear() { mirror([1,0,0]) difference() { _lens_full(); _stripe_edges(); } }

@@ -1,4 +1,4 @@
-// V2 WHITE part: white skin on the viewer (outer) face. filament 1.
+// V2 WHITE part: white EDGES on the viewer/bed face. filament 1.
 include <../config.scad>
 include <../collar.scad>
 include <../bolt.scad>

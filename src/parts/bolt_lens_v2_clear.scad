@@ -1,4 +1,4 @@
-// V2 CLEAR part: clear LED-side face body + clear locating lip. filament 2.
+// V2 CLEAR part: clear center stripe + body + lip (edges removed). filament 2.
 include <../config.scad>
 include <../collar.scad>
 include <../bolt.scad>
