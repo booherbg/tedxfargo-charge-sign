@@ -56,11 +56,11 @@ So from the front: black frame/background, glowing white-lined channels, capped 
 - **The one wrinkle is scale:** at ~250–300mm cap height each neon line is only **~12mm** wide — same
   as a Ø12 pixel, too thin to hold one. **Fix: widen each tube +3mm/side → ~18mm** (fits pixel +
   collar + walls) while **keeping the hollow-outline look** (the two lines stay separate — verified).
-- **Size — NO letter splitting (preferred).** Widest letter is **H (15.4 units, ~1.16× cap height)**.
-  On the 300×320 bed, max unsplit cap height ≈ **250mm** (H prints ~296mm wide). **Sign ≈ 1.5m wide.**
-  Each letter = one rectangular tile.
-- **Pixels — TIGHT ~17mm pitch** (smooth solid-tube glow): CHARGE + bolt ≈ **470 pixels** at 250mm cap
-  → within the 600 budget. (Sparser ~32mm ≈ 250px is the fallback.)
+- **Size — NO letter splitting.** Cap height **270mm**; **rotate the wide letters 90°** so their width
+  runs along the 320mm bed axis (at 270mm the widest, H, is ~320mm = the full bed). **Sign ≈ 1.6m wide.**
+  Each letter = one rectangular tile. (Absolute max ~310mm, but that splits ~5 of 6 letters — not worth it.)
+- **Pixels — TIGHT ~17mm pitch** (smooth solid-tube glow): CHARGE + bolt ≈ **~510 pixels** at 270mm cap
+  → within the 600 budget. (Sparser ~32mm ≈ 270px is the fallback.)
 - **Each letter tile** = the 3-color cross-section (black base + white-lined channel + fuzzy clear lens),
   pixels plugged in from behind, tiles butt together on a rear rail/backer that hides the wiring.
 

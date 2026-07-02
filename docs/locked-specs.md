@@ -29,11 +29,11 @@ Cross-section = **white reflective shell + ~15mm air gap + chunky clear lens wit
   from EPS via `tools/eps2svg.sh`). **Both neon lines lit.**
 - **Widen each neon tube +3mm/side → ~18mm channel** so the Ø12 pixel + collar fit; the hollow-outline
   look is preserved (verified in render).
-- **NO letter splitting (preferred).** Widest letter is **H (15.4 units)** → max unsplit cap height
-  ≈ **250mm** on the 300×320 dual-nozzle bed (H prints ~296mm wide). Sign ≈ **1.5m** wide.
-  (300mm caps are possible only if you accept splitting H/A/G.)
-- **Pixel pitch ~17mm (TIGHT — chosen)** for a smooth "solid tube" glow → CHARGE + bolt ≈ **470 pixels**
-  at 250mm cap. Buy up to 600 (own 300 + 300 more). (Sparser ~32mm ≈ 250px is the fallback if budget bites.)
+- **NO letter splitting.** Cap height **270mm** — **rotate the wide letters 90°** so their width runs
+  along the 320mm bed axis (at 270mm the widest letter H is ~320mm = the full bed; heights fit easily).
+  Sign ≈ **1.6m** wide. (Absolute max ~310mm, but that splits ~5 of 6 letters for +40mm — not worth it.)
+- **Pixel pitch ~17mm (TIGHT — chosen)** for a smooth "solid tube" glow → CHARGE + bolt ≈ **~510 pixels**
+  at 270mm cap. Buy up to 600 (own 300 + 300 more). (Sparser ~32mm ≈ 270px is the fallback if budget bites.)
 - Pixel placement needs a **tube-centerline extractor** (skeletonize each letter) — **TODO tooling.**
 
 ## Bolt lens fit ✅ printed & snapped
