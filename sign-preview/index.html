@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><title>TEDxFargo CHARGE — letter build</title>
+<style>
+ body{background:#0b0f14;color:#e8eef2;font-family:system-ui,Arial,sans-serif;margin:0;padding:34px;line-height:1.5}
+ h1{color:#5fd3df;margin:0 0 6px} h2{color:#7fe;margin-top:36px}
+ .cap{color:#9fb0bd;max-width:940px} b{color:#e8eef2}
+ img{max-width:100%;background:#fdfae0;border-radius:10px;border:1px solid #223}
+ .row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:10px}
+ .row>div{flex:1;min-width:330px}
+ .plan{background:#121924;padding:8px 24px 18px;border-radius:12px;border:1px solid #223;max-width:940px}
+ table{border-collapse:collapse;margin:8px 0} td,th{border:1px solid #2a3644;padding:7px 16px;text-align:left}
+ th{color:#5fd3df}
+</style></head><body>
+<h1>TEDxFargo CHARGE — faithful letter build</h1>
+<p class="cap">Replicating the logo's <b>hollow neon-outline</b> letters, channels widened just enough to fit your Ø12 pixels.</p>
+
+<h2>1 · The letters we're replicating</h2>
+<p class="cap">Each letter is a hollow neon outline — the tube traces both edges of every stroke. We keep this exactly.</p>
+<img src="charge.png">
+
+<h2>2 · The only wrinkle: scale — and the fix</h2>
+<div class="row">
+ <div><img src="c_thin.png">
+   <p class="cap"><b>Problem:</b> at 300&nbsp;mm letters the neon tube is only <b>~12&nbsp;mm</b> wide. The red dots are your <b>Ø12 pixel, to scale</b> — as fat as the whole line. No room for a pixel + walls.</p></div>
+ <div><img src="c_wide.png">
+   <p class="cap"><b>Fix:</b> widen each tube <b>+3&nbsp;mm → ~18&nbsp;mm</b>. The pixel fits, and the <b>hollow-outline look is preserved</b> (the two lines stay separate). Faithful, just a touch chunkier.</p></div>
+</div>
+
+<h2>3 · The plan &amp; the numbers</h2>
+<div class="plan">
+ <ul>
+  <li><b>Letters:</b> ~300&nbsp;mm tall (bed height), hollow neon outline, tubes widened to ~18&nbsp;mm. Both lines lit.</li>
+  <li><b>Construction (validated):</b> white shell + clear/fuzzy lens channel, print lens-up, pixels from behind — same as the bolt.</li>
+ </ul>
+ <b>Pixels (CHARGE + bolt) by density:</b>
+ <table>
+  <tr><th>Pitch</th><th>Pixels</th><th>Your budget</th></tr>
+  <tr><td>~32&nbsp;mm (sparser)</td><td>~300</td><td>fits your <b>300</b> ✓ — diffusion blends the gaps</td></tr>
+  <tr><td>~17&nbsp;mm (dense)</td><td>~560</td><td>buy up to <b>600</b> — smoother "solid tube" glow</td></tr>
+ </table>
+ <ul>
+  <li><b>Bed:</b> at 300&nbsp;mm a wide letter may exceed the ~300&nbsp;mm dual-nozzle width → split those into 2 tiles.</li>
+  <li><b>Each letter = a rectangular tile</b> (black base + raised white channels + lens); tiles butt together on a rear rail/backer that also hides the wiring.</li>
+ </ul>
+</div>
+</body></html>
