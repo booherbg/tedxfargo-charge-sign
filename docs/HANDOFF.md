@@ -16,8 +16,13 @@ addressable 12mm bullet pixels, to recreate the neon look. Retro neon-billboard 
   a 4-way fuzzy-texture bake-off. The look is **locked and working**.
 - **Current scope:** the **CHARGE** wordmark (6 letters) **+ the red lightning bolt**. The rest of the
   billboard (arrow, TEDxFargo badge, "2026", yellow border, truss) is later scope.
-- **Next build step:** a **tube-centerline extractor** to auto-place pixels + generate the letter
-  geometry from the SVGs. Everything upstream of that is done and proven.
+- **2026-07-02: ALL-PETG decided** (on hand; same-material welds fix the PLA↔PETG adhesion worry).
+  Slicer-setting haze tricks dropped (no noticeable effect in practice) — **cloudiness = baked geometry**.
+- **Extractor + letter pipeline LIVE:** `tools/centerline.py` (EPS → skeleton → tube centerline +
+  pixels) and `src/letter.scad` (3-color tile). **Letter C generated** (`stl/letter_C_3color.3mf`,
+  ~390g, 69 px); **integrated bolt** (`stl/bolt2_2color.3mf`) replaces the press-fit-lens bolt.
+- **Next:** PETG fuzz bake-off (testbox v3–v6), remaining letters (H needs a size call — see
+  locked-specs), bolt into the layout, mounting.
 
 ## 1. Hardware
 - **Printer:** Bambu **H2D** — dual nozzle, 300×320×325 build, **textured PEI plate**, 65°C chamber.
@@ -77,10 +82,14 @@ So from the front: black frame/background, glowing white-lined channels, capped 
   + `tools/make_fuzz.py` grids (`fuzz_v1..v4.dat`) — the fuzzy bake-off (V3 won).
 - `src/lens_cell.scad` — the 8-cell diffusion test matrix (how we found the recipe).
 - `src/collar.scad` — `place_collar()` (imports the calibrated collar STL).
+- `src/letter.scad` — 3-color letter tile (black base+outer wall / white liner+inner wall+collars /
+  clear welded fuzzy lens); consumes `src/parts/letter_<L>_data.scad` from the extractor.
 - `src/parts/*.scad` — thin entry files (one per printable STL); `letter_viz.scad`/`svg_bbox.scad` are
   planning helpers.
-- `tools/` — `eps2svg.sh` (letters), `make_3mf.py` (combine white+clear STLs → Bambu 2-color 3MF),
-  `make_fuzz.py` (fuzzy height grids). **`make_3mf.py` writes Bambu's real `model_settings.config`
+- `tools/` — `eps2svg.sh` (letters), `make_3mf.py` (combine N co-registered STLs → Bambu multi-filament
+  3MF, part i → extruder i), `make_fuzz.py` (fuzzy height grids; optional two-scale octave + area args),
+  `centerline.py` (EPS → tube centerlines + pixel points; writes a `.debug.ppm` overlay — eyeball it),
+  `stl_stats.py` (volume/grams/bbox). **`make_3mf.py` writes Bambu's real `model_settings.config`
   part→extruder map — standard 3MF `<basematerials>` is ignored by Bambu.**
 - `assets/` — `bullet-collar.stl`, `svg/` letters, `tedxfargo-full-logo.png`, EPS letters.
 - `docs/` — `locked-specs.md`, `print-lens-matrix.md`, `petg-cloudy-research.md`,

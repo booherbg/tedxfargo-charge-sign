@@ -2,6 +2,12 @@
 
 Research summary (2026-07-01). Goal: take on-hand *clear* PETG and make it milky/diffusing.
 
+> **UPDATE 2026-07-02:** in practice, slicer-setting adjustments made **no noticeable difference**
+> for us — the project's cloudiness lever is now **baked lens geometry** (the fuzz-texture ladder,
+> `tools/make_fuzz.py`; V5 chunky + V6 two-scale added for the PETG bake-off). All-PETG decided.
+> The settings recipe below is kept for reference; the white-skin-over-clear V2 lens remains the
+> fallback if geometry alone isn't milky enough.
+
 **Mechanism:** haze = light scattering at internal air↔plastic interfaces (unfused
 bonding-neck gaps, micro-voids, moisture bubbles; air n≈1.0 vs PETG n≈1.57, same physics
 as frosted glass). To make PETG cloudy you **maximize** those interfaces — the exact
