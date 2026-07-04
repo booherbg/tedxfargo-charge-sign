@@ -37,6 +37,8 @@ for p in paths:
     stroke(p, R, (60, 160, 178))               # band outer
 for p in paths:
     stroke(p, R - 2.0, (95, 222, 246))         # channel-ish inner
+for x, y in data["pixels"]:
+    dot(x, y, 2.0, (14, 110, 128))
 for c in cuts:
     stroke(c, 1.2, (240, 190, 70), 1.5)
 for pc in pieces:
@@ -49,8 +51,10 @@ with open(ppm_out, "wb") as f:
 def path_d(pts):
     return "M " + " L ".join("%.1f %.1f" % (x - fx0, fy1 - y) for x, y in pts)
 tubes = "".join('<path d="%s" fill="none" stroke="#5fdef6" stroke-width="%.1f" '
-                'stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>' % (path_d(p), 2*R)
+                'stroke-linecap="round" stroke-linejoin="round"/>' % (path_d(p), 2*R)
                 for p in paths)
+pxdots = "".join('<circle cx="%.1f" cy="%.1f" r="2.2" fill="#0e6e80"/>' % (x - fx0, fy1 - y)
+                 for x, y in data["pixels"])
 cutsvg = "".join('<path d="%s" fill="none" stroke="#f0be46" stroke-width="3" '
                  'stroke-dasharray="7 5"/>' % path_d(c) for c in cuts)
 screws = "".join('<circle cx="%.1f" cy="%.1f" r="3.4" fill="#f08878"/>' % (sx - fx0, fy1 - sy)
@@ -105,7 +109,7 @@ html = """<title>CHARGE — cut preview</title>
     <div class="figbox">
     <svg viewBox="0 0 %(fw).0f %(fh).0f" role="img" aria-label="CHARGE face with cut lines">
       <rect x="0" y="0" width="%(fw).0f" height="%(fh).0f" fill="#16191f"/>
-      %(tubes)s %(cutsvg)s %(screws)s %(labels)s
+      %(tubes)s %(pxdots)s %(cutsvg)s %(screws)s %(labels)s
     </svg>
     </div>
     <p class="cap"><b>To scale in mm.</b> Tubes drawn at the printed 22 mm outer band width.</p>
@@ -121,6 +125,7 @@ html = """<title>CHARGE — cut preview</title>
   </section>
 </div>
 """ % {"np": len(pieces), "fw": fw, "fh": fh, "kern": kern,
-       "tubes": tubes, "cutsvg": cutsvg, "screws": screws, "labels": labels, "rows": rows}
+       "tubes": tubes, "pxdots": pxdots, "cutsvg": cutsvg, "screws": screws,
+       "labels": labels, "rows": rows}
 open(html_out, "w").write(html)
 print("wrote %s (%dx%d) and %s" % (ppm_out, W, H, html_out))

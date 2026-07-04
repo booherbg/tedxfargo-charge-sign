@@ -34,6 +34,14 @@ def grab(key):
     return json.loads(m.group(1))
 paths, closed, pixels, bb = grab("paths"), grab("closed"), grab("pixels"), grab("bbox")
 W, H = bb
+PITCH    = float(arg("--pitch", "17"))       # pixel spacing along tube centerlines
+PX_MIN   = float(arg("--px-min", "14.5"))    # min pixel-center spacing (flange O13.6 + margin)
+
+def _plen(p):
+    return sum(math.dist(p[i], p[i+1]) for i in range(len(p)-1))
+def cut_at(c, y):
+    lo = min(range(len(c)), key=lambda i: abs(c[i][1] - y))
+    return c[lo][0]
 
 # ---------- letter grouping (x-overlap clustering of segment band extents) ----------
 def seg_ext(p):
@@ -193,15 +201,101 @@ cut_results = [corridor((groups[i]["x1"] + groups[i+1]["x0"]) / 2) for i in rang
 cuts = [c for c, _ in cut_results]
 bottlenecks = [b for _, b in cut_results]
 
-# ---------- pieces, bed fit, screws ----------
-def _plen(p):
-    return sum(math.dist(p[i], p[i+1]) for i in range(len(p)-1))
-def cut_at(c, y):
-    lo = min(range(len(c)), key=lambda i: abs(c[i][1] - y))
-    return c[lo][0]
+# ---------- pixels: resample on the kerned layout, then DE-CONFLICT ----------
+# Segment ends each carry a pixel, so tube breaks/crossings can put two pixels
+# closer than a bullet flange (O13.6) allows. Fix: shift end-pixels inward along
+# their own path; where paths truly overlap (shared lit pocket), drop one.
+def point_at(p, t):
+    acc = 0.0
+    for i in range(len(p) - 1):
+        d = math.dist(p[i], p[i+1])
+        if acc + d >= t:
+            f = (t - acc) / d if d else 0
+            return (p[i][0] + (p[i+1][0]-p[i][0])*f, p[i][1] + (p[i+1][1]-p[i][1])*f)
+        acc += d
+    return tuple(p[-1])
 
+insets = [[0.0, 0.0] for _ in paths]          # per segment: [start inset, end inset]
+def build_pmeta():
+    """Chord-aware pixel placement: next pixel at >=PITCH along the arc AND
+    >=PX_MIN+0.3 by straight-line chord — corners stretch a little instead of
+    crowding flanges (a 90 elbow turns 17mm of arc into ~13.5mm of chord)."""
+    pm = []
+    for si, p in enumerate(paths):
+        L = _plen(p)
+        a, b = insets[si]
+        lo, hi = a, max(L - b, a + 1.0)
+        pts = [(point_at(p, lo), lo)]
+        t = lo
+        while True:
+            t2 = t + PITCH
+            while t2 < hi and math.dist(point_at(p, t2), pts[-1][0]) < PX_MIN + 0.3:
+                t2 += 1.0
+            if t2 >= hi - PITCH * 0.45:
+                if math.dist(point_at(p, hi), pts[-1][0]) < PX_MIN + 0.3 and len(pts) > 1:
+                    pts.pop()                 # end pixel wins over a crowding predecessor
+                pts.append((point_at(p, hi), hi))
+                break
+            pts.append((point_at(p, t2), t2))
+            t = t2
+        for i, ((x, y), _) in enumerate(pts):
+            pm.append([x, y, si, i, len(pts)])
+    return pm
+def conflict_pairs(pm, adjacent=False):
+    """Pairs closer than PX_MIN. Along-path neighbors (same segment, |di|==1) are
+    excluded unless adjacent=True: they can only get too close at hairpin corners,
+    where the band folds onto itself (a merged pocket) — handled by dropping, never
+    by insets (an inset would shrink the segment and make its own spacing worse)."""
+    live = [k for k in range(len(pm)) if pm[k] is not None]
+    return [(k, j, math.dist(pm[k][:2], pm[j][:2]))
+            for ai, k in enumerate(live) for j in live[ai+1:]
+            if (adjacent or pm[k][2] != pm[j][2] or abs(pm[k][3] - pm[j][3]) >= 2)
+            and math.dist(pm[k][:2], pm[j][:2]) < PX_MIN]
+
+for _ in range(4):                            # end conflicts: inset + re-spread the segment
+    pmeta = build_pmeta()
+    changed = False
+    for k, j, d in conflict_pairs(pmeta):
+        for idx in (k, j):
+            x, y, si, i, n = pmeta[idx]
+            end = 0 if i == 0 else (1 if i == n - 1 else None)
+            if end is not None and insets[si][end] < 8.0:
+                insets[si][end] = min(8.0, insets[si][end] + (PX_MIN - d) / 2 + 0.4)
+                changed = True
+    if not changed:
+        break
+pmeta = build_pmeta()
+inset_n = sum(1 for s in insets if s[0] > 0 or s[1] > 0)
+dropped = 0
+while True:                                    # residual = crossings/hairpins: pocket is shared, drop
+    pairs = conflict_pairs(pmeta, adjacent=True)
+    if not pairs:
+        break
+    k, j, _ = min(pairs, key=lambda t: t[2])
+    pmeta[j if pmeta[j][3] not in (0, pmeta[j][4]-1) else k] = None
+    dropped += 1
+pixels = [[m[0], m[1]] for m in pmeta if m is not None]
+print("pixels: %d after de-conflict (%d segment ends re-spread, %d dropped at crossings)"
+      % (len(pixels), inset_n, dropped))
+
+# ---------- pieces, bed fit, screws ----------
 face_x0, face_x1 = -BAND_OUT/2 - SIDE_PAD, W + BAND_OUT/2 + SIDE_PAD
 face_y0, face_y1 = -(FACE_H - H)/2 + 0.0, H + (FACE_H - H)/2   # centered bands
+
+# global, evenly spaced hardware along both rail bands (~SCREW_STEP), nudged off seams
+SCREW_STEP = float(arg("--screw-step", "130"))
+scr_ys = (face_y0 + 5.5, face_y1 - 5.5)
+edge = 25.0
+nspan = max(2, round((face_x1 - face_x0 - 2*edge) / SCREW_STEP))
+screws_all = []
+for sy in scr_ys:
+    for i in range(nspan + 1):
+        x = face_x0 + edge + i * (face_x1 - face_x0 - 2*edge) / nspan
+        for c in cuts:                          # keep 20mm off every seam
+            cx = cut_at(c, sy)
+            if abs(x - cx) < 20:
+                x = cx + (20 if x >= cx else -20)
+        screws_all.append([round(x, 1), round(sy, 1)])
 def cut_x_range(c):
     xs = [q[0] for q in c]
     return min(xs), max(xs)
@@ -216,9 +310,12 @@ for i in range(len(groups)):
                  (i == len(groups)-1 or px[0] <= cut_at(cuts[i], px[1])))
     tube_mm = sum(_plen(paths[s]) for s in groups[i]["segs"])
     grams = wpc * FACE_H * PLATE_G_MM2 + tube_mm * TUBE_G_MM
-    scr_y = (face_y0 + 5.5, face_y1 - 5.5)
-    sx0, sx1 = lx + 18, rx - 18
-    screws = [[round(sx0 + f*(sx1-sx0), 1), round(sy, 1)] for sy in scr_y for f in (0.08, 0.92)]
+    screws = [s for s in screws_all
+              if (i == 0 or s[0] > cut_at(cuts[i-1], s[1])) and
+                 (i == len(groups)-1 or s[0] <= cut_at(cuts[i], s[1]))]
+    for sy in scr_ys:                          # guarantee 2 per band per piece
+        if sum(1 for s in screws if abs(s[1] - sy) < 1) < 2:
+            screws.append([round((lx + rx) / 2, 1), round(sy, 1)])
     pieces.append({"letter": letters[i], "x0": round(lx,1), "x1": round(rx,1),
                    "w": round(wpc,1), "h": FACE_H, "fits": long_ax <= BED_LONG and short_ax <= BED_SHORT,
                    "pixels": npx, "grams": round(grams), "screws": screws})
