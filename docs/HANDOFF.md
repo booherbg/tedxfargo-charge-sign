@@ -69,11 +69,17 @@ on any new path vs the yellow), `tools/bolt_preview.py` (fast raster comps).
 Letter pixel truth: `src/parts/word_cuts.json` (454). Board: `bolt_el6.json` + pixmap.
 
 ## 4. Morning-review queue (user)
+0. The overnight review artifact (lit-sign render, billboard gate-check, physics notes,
+   iteration verdicts, wiring chain, print queue, phase-2 accents teaser):
+   https://claude.ai/code/artifact/1eb4e351-e13a-43f7-a56d-8fafd92376fa
 1. Look at `docs/sign-preview/full-sign.html` (regenerate: `python3 tools/gen_preview.py`)
-   and the overnight artifact page — composition, seams, red shape.
+   and the artifact — composition, seams, red shape.
 2. If the red gesture or seam positions want tweaking: edit `RED_PATH` / re-run composer
    (the seam scanner re-picks automatically), then `boltboard.py`, then `build_board.sh`.
-3. Slice `stl/board1..4_3color.3mf` (same 0.20 process as the word; plates are smaller).
+3. Slice `stl/board1..4_3color.3mf` in the GUI (same 0.20 process as the word; plates are
+   smaller). Note: Bambu's headless CLI was probed overnight — it only slices project 3MFs
+   with plate metadata and silently no-ops on our geometry 3MFs, so GUI import remains the
+   flow (our 3MFs load as ONE co-registered multi-part object, verified).
 4. Bolt-vs-word hang alignment is a frame decision (word band currently centered on 550).
 
 ## 5. Non-obvious gotchas (hard-won, keep)
