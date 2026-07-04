@@ -92,19 +92,32 @@ for pc in wpieces:
                   wpieces.index(pc) + 1))
 svg.append("</svg>")
 
+def _g(st, k):
+    return ("%.0f" % st[k]) if k in st else "&mdash;"
 def wrow(i, pc):
     st = pstats.get("piece%d" % (i + 1), {})
-    g = sum(st.values()) if st else None
-    return ("<tr><td>%d — %s</td><td>%.0f × %.0f</td><td>%d</td><td>%s</td><td>%s</td></tr>"
+    tot = sum(st.values()) if st else None
+    return ("<tr><td>%d — %s</td><td>%.0f × %.0f</td><td>%d</td>"
+            "<td>%s</td><td>%s</td><td>%s</td><td><b>%s</b></td><td>%s</td></tr>"
             % (i + 1, pc["letter"], pc["w"], pc["h"], pc["pixels"],
-               ("%.0f g" % g) if g else "&mdash;", "✓" if pc["fits"] else "✗"))
+               _g(st, "black"), _g(st, "white"), _g(st, "clear"),
+               ("%.0f" % tot) if tot else "&mdash;", "✓" if pc["fits"] else "✗"))
 def brow(i):
     x0, x1, y0, y1 = plates[i]
     st = bstats.get("board%d" % (i + 1), {})
-    g = sum(st.values()) if st else None
+    tot = sum(st.values()) if st else None
     n = sum(1 for q in pixmap["pixels"] if q["plate"] == i + 1)
-    return ("<tr><td>B%d</td><td>%.0f × %.0f</td><td>%d</td><td>%s</td><td>✓</td></tr>"
-            % (i + 1, x1 - x0, y1 - y0, n, ("%.0f g" % g) if g else "&mdash;"))
+    return ("<tr><td>B%d</td><td>%.0f × %.0f</td><td>%d</td>"
+            "<td>%s</td><td>%s</td><td>%s</td><td><b>%s</b></td><td>✓</td></tr>"
+            % (i + 1, x1 - x0, y1 - y0, n,
+               _g(st, "black"), _g(st, "white"), _g(st, "clear"),
+               ("%.0f" % tot) if tot else "&mdash;"))
+def totals_row(stats, label, npx):
+    cols = {k: sum(v.get(k, 0) for v in stats.values()) for k in ("black", "white", "clear")}
+    tot = sum(cols.values())
+    return ("<tr><td><b>%s</b></td><td></td><td><b>%d</b></td><td><b>%.0f</b></td>"
+            "<td><b>%.0f</b></td><td><b>%.0f</b></td><td><b>%.0f g</b></td><td></td></tr>"
+            % (label, npx, cols["black"], cols["white"], cols["clear"], tot))
 
 word_px_n = sum(pc["pixels"] for pc in wpieces)
 board_px_n = len(pixmap["pixels"])
@@ -152,23 +165,54 @@ on board height; final hang alignment is a frame decision.</p></header>
 
 <section class="panel"><h2>Piece notes</h2>
 <div class="duo">
-<div><h2 style="font-size:14px;color:#98a2ae">CHARGE — 6 pieces</h2>
-<table><tr><th>Piece</th><th>Size (mm)</th><th>Pixels</th><th>Weight</th><th>Bed fit</th></tr>
+<div><h2 style="font-size:14px;color:#98a2ae">CHARGE — 6 pieces (PETG grams)</h2>
+<table><tr><th>Piece</th><th>Size (mm)</th><th>Px</th><th>Black</th><th>White</th><th>Clear</th><th>Total</th><th>Bed</th></tr>
 %WROWS%</table></div>
-<div><h2 style="font-size:14px;color:#98a2ae">Bolt board — 4 plates</h2>
-<table><tr><th>Plate</th><th>Size (mm)</th><th>Pixels</th><th>Weight</th><th>Bed fit</th></tr>
+<div><h2 style="font-size:14px;color:#98a2ae">Bolt board — 4 plates (PETG grams)</h2>
+<table><tr><th>Plate</th><th>Size (mm)</th><th>Px</th><th>Black</th><th>White</th><th>Clear</th><th>Total</th><th>Bed</th></tr>
 %BROWS%</table>
 <p class="cap">Plate joints: y=255 full width; top row splits at x=126, bottom at x=153.
 Butt plates snug &mdash; the shared fuzz field makes the lens texture continuous across
 joints. Extension jumpers at chain 87 and 108.</p></div>
 </div></section>
+
+<section class="panel"><h2>Grand totals — filament &amp; power</h2>
+<table style="max-width:760px">
+<tr><th></th><th>Pixels</th><th>Black</th><th>White</th><th>Clear</th><th>Total PETG</th></tr>
+%GRAND%
+</table>
+<p class="cap">Power at 0.25 W/pixel: <b>%W100% W @ 100%</b> brightness &middot;
+<b>%W66% W @ 66%</b>. The 150 W/24 V PSU covers 66% with ~35% headroom; 100% full-white
+sits right at its nameplate &mdash; cap brightness or add the second PSU for sustained
+full-white. Colors-only scenes draw well under these figures.</p></section>
 </div>
 """
+tot_px = word_px_n + board_px_n
+def col_sum(stats, k):
+    return sum(v.get(k, 0) for v in stats.values())
+grand = []
+grand.append(totals_row(pstats, "CHARGE", word_px_n))
+grand.append(totals_row(bstats, "Bolt board", board_px_n))
+gb = col_sum(pstats, "black") + col_sum(bstats, "black")
+gw = col_sum(pstats, "white") + col_sum(bstats, "white")
+gc = col_sum(pstats, "clear") + col_sum(bstats, "clear")
+grand.append("<tr><td><b>SIGN</b></td><td><b>%d</b></td><td><b>%.0f</b></td>"
+             "<td><b>%.0f</b></td><td><b>%.0f</b></td><td><b>%.0f g</b></td></tr>"
+             % (tot_px, gb, gw, gc, gb + gw + gc))
+# grand table has no Size/Bed columns: strip them from totals_row output
+grand = [g.replace("<td></td><td><b>", "<td><b>", 1).replace("</b></td><td></td></tr>", "</b></td></tr>", 1)
+         for g in grand]
+
 html = (html.replace("%SVG%", "\n".join(svg))
-            .replace("%WROWS%", "\n".join(wrow(i, pc) for i, pc in enumerate(wpieces)))
-            .replace("%BROWS%", "\n".join(brow(i) for i in range(4)))
+            .replace("%WROWS%", "\n".join([wrow(i, pc) for i, pc in enumerate(wpieces)]
+                                           + [totals_row(pstats, "total", word_px_n)]))
+            .replace("%BROWS%", "\n".join([brow(i) for i in range(4)]
+                                           + [totals_row(bstats, "total", board_px_n)]))
+            .replace("%GRAND%", "\n".join(grand))
+            .replace("%W100%", "%.0f" % (tot_px * 0.25))
+            .replace("%W66%", "%.0f" % (tot_px * 0.25 * 0.66))
             .replace("%WPX%", str(word_px_n)).replace("%BPX%", str(board_px_n))
-            .replace("%TOTPX%", str(word_px_n + board_px_n))
+            .replace("%TOTPX%", str(tot_px))
             .replace("%WG%", "%.0f" % wg).replace("%BG%", "%.0f" % bg))
 open("docs/sign-preview/sign-cut-preview.html", "w").write(html)
 print("wrote docs/sign-preview/sign-cut-preview.html (%d + %d = %d px)"
