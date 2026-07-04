@@ -130,9 +130,11 @@ with open("build_pieces.sh", "w") as f:
         for ci, cn in ((1, "black"), (2, "white"), (3, "clear")):
             f.write('"$OSCAD" -D PIECE=%d -D COL=%d -o stl/piece%d_%s.stl src/parts/piece.scad '
                     '2>stl/p%d%s.log && echo "  ok piece%d_%s"\n' % (i+1, ci, i+1, cn, i+1, cn[0], i+1, cn))
+    # filament order: 1=black (right/AMS + backup spool), 2=clear (right/AMS),
+    # 3=white (left/external) — user's chosen H2D layout, 2026-07-05
     for i in range(len(pieces)):
-        f.write("python3 tools/make_3mf.py stl/piece%d_black.stl stl/piece%d_white.stl "
-                "stl/piece%d_clear.stl stl/piece%d_3color.3mf\n" % (i+1, i+1, i+1, i+1))
+        f.write("python3 tools/make_3mf.py stl/piece%d_black.stl stl/piece%d_clear.stl "
+                "stl/piece%d_white.stl stl/piece%d_3color.3mf\n" % (i+1, i+1, i+1, i+1))
 print("wrote word_layout.scad, fuzz_piece_1..%d.dat, build_pieces.sh" % len(pieces))
 for i, pc in enumerate(pieces):
     print("  piece %d (%s): %d segs, %d px, %d ties, %d screws" %

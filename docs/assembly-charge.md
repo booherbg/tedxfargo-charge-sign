@@ -50,16 +50,20 @@ Screws: per-plate corners + long-edge midpoints (Ø4.5, 24 total). Labels deboss
 bed faces (B1–B4).
 
 ## Slicing (per validated specs)
-- Filaments: black and white MUST be on different nozzles (they alternate every layer,
-  purge-free on the H2D); clear shares a nozzle and triggers the print's ONLY filament
-  change at the lens (~z21). Two workable layouts:
-  (a) **white+clear on the AMS side, black external** — the swap residue (white→clear)
-  is invisible in the weld; black has no auto-backup, so weigh the spool (needs ~260 g).
-  (b) **black+clear on the AMS side, white external** — black gets a same-filament AMS
-  backup pair (auto-failover on the heavy consumer); bump the black→clear flush volume
-  to ~700–800 mm³. Preferred once two black spools are on hand.
-- Prime tower: sliced fine tiny (≈9 g) — keep it, or tower OFF + flush-into-objects.
-  Prepare-stage tower warnings that vanish after slicing are safe to ignore.
+- **CHOSEN LAYOUT (2026-07-05): black + clear on the RIGHT nozzle (AMS side), white on
+  the LEFT (external spool).** 3MF filament order matches: **1 = black (right), 2 = clear
+  (right), 3 = white (left)**. Load a second black spool in the right AMS as a
+  same-filament backup pair (auto-failover on the heavy consumer — black is 2/3 of all
+  filament). Black and white still sit on different nozzles → the per-layer wall
+  alternation stays purge-free. The print's ONLY filament change is black→clear on the
+  right nozzle at the lens (~z21, black is finished by then); bump the black→clear
+  flush volume to ~700–800 mm³ — the prime tower absorbs it.
+- Prime tower ON, placed in the right-nozzle-only column (fits all pieces; across-bed
+  footprint is uniformly 295). Prepare-stage tower warnings that vanish after slicing
+  are safe to ignore. Verify the filament→nozzle grouping in the slicer preview before
+  sending (known Bambu Studio grouping quirk — use Rearrange Filament if needed).
+- White (left, no backup): worst single piece uses ~81 g — weigh the spool before
+  starting a piece if it's running low.
 - **0.20 mm Standard** process validated in a test slice: ~8h51m/piece, ~0.25 g purged,
   ~106 "filament changes" = free per-layer nozzle swaps, not purges.
 - Place **295-side across the bed** (between the H2D nozzle bands), 316-side deep. Validated

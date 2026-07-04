@@ -34,8 +34,10 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
   collar `assets/bullet-collar.stl`. 4-inch strings.
 - Bed truth (H2D, validated `stl/bedcheck_316x295.stl`): both-nozzle zone 316×295; place 295
   across, long side deep. Multi-color parts must sit between the nozzle bands.
-- Slicing: 0.20 Standard + card overrides; clear shares the WHITE nozzle (only swap ≈ z21);
-  prime tower in the right-nozzle column or OFF + flush-into-objects; skirt/brim OFF.
+- Slicing: 0.20 Standard + card overrides. LAYOUT (chosen 2026-07-05): black+clear on the
+  RIGHT nozzle (AMS, black backup pair), white LEFT external; 3MF filament order 1=black,
+  2=clear, 3=white. Only swap = black→clear ≈ z21 (flush 700–800 mm³); prime tower ON in
+  the right-nozzle column; skirt/brim OFF.
 - **PIXEL INVENTORY IS THE HARD CAP: user owns EXACTLY 600 (strings of 50).** Sign total
   **591** (word 454 + board 137 @20 mm) → 9 spares. Any change that adds pixels needs
   user sign-off. (Power is secondary: ~591 px also sits at the 150 W PSU's full-white

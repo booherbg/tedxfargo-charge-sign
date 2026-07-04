@@ -14,7 +14,8 @@ for P in 1 2 3 4; do
   done
 done
 for P in 1 2 3 4; do
-  python3 tools/make_3mf.py "stl/board${P}_black.stl" "stl/board${P}_white.stl" \
-    "stl/board${P}_clear.stl" "stl/board${P}_3color.3mf"
+  # filament order: 1=black (right/AMS + backup), 2=clear (right/AMS), 3=white (left/ext)
+  python3 tools/make_3mf.py "stl/board${P}_black.stl" "stl/board${P}_clear.stl" \
+    "stl/board${P}_white.stl" "stl/board${P}_3color.3mf"
 done
 python3 tools/stl_stats.py stl/board?_black.stl stl/board?_white.stl stl/board?_clear.stl
