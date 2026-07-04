@@ -173,10 +173,11 @@ html.append('<p class="cap">All plates fit the validated 316x295 both-nozzle zon
             'flange snip. <b>bolt_pixmap.json</b> carries every pixel&rsquo;s color zone, '
             'plate, and chain position for the controller.</p>')
 html.append('</div></div></section>')
-html.append('<section class="panel"><h2>Power &amp; pitch</h2><p class="cap" style="margin-top:0">'
-            'Board at 20 mm pitch: %d px. Sign total %d px vs the 150 W PSU&rsquo;s ~600 px '
-            'full-white edge &mdash; run the global brightness cap at ~80%% (locked spec) or add '
-            'a second PSU if you want headroom. Colors-only scenes draw far less than full white.'
+html.append('<section class="panel"><h2>Pixels &amp; power</h2><p class="cap" style="margin-top:0">'
+            'Board: %d px @22 mm. Sign total <b>%d px</b> vs the ~600 bullets OWNED (the hard '
+            'inventory cap &mdash; pitch was set to respect it). Power coincidentally lands at the '
+            '150 W PSU&rsquo;s full-white edge too: cap brightness ~80%% or add a second PSU. '
+            'Colors-only scenes draw far less than full white.'
             '</p></section>' % (board_px, word_px + board_px))
 html.append('</div>')
 open("docs/sign-preview/full-sign.html", "w").write("\n".join(html))

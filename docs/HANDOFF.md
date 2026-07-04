@@ -6,17 +6,20 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
 `docs/locked-specs.md`; print/assembly steps in `docs/assembly-charge.md`.
 
 ## 0. State at a glance
-- **CHARGE word: REGENERATED 2026-07-05 (continuous letters) — user must RE-SLICE.**
-  Per user feedback ("smooth all around, no gaps"), every letter is now a continuous closed
-  neon loop (tools/bridge_word.py bridged the art's 55-107 mm stroke-end openings; R's bowl
-  is its own loop). Cuts/kerning/pixels UNTOUCHED (454 px stands). Six 3-color pieces
-  rebuilt (`stl/piece1..6_3color.3mf`); prints still pending white PETG delivery.
+- **CHARGE word: RESTORED to the APPROVED design (2026-07-05) — do not restyle.**
+  A bridging experiment (closing the letterforms' open strokes) was built and then
+  REVERTED at the user's direction: the open strokes ARE the font; "no gaps" applies to
+  the BOLT BOARD ONLY. Word = the approved 454 px / original letterforms / original cuts.
+  Pieces re-rendered from the restored data (identical inputs to what the user sliced);
+  prints pending white PETG delivery. tools/bridge_word.py remains in the repo but MUST
+  NOT be run on the word.
 - **Bolt board: CONTINUOUS MODE, plates rebuilt 2026-07-05.** Element 6 (the logo's left
   panel) as ONE bridged closed loop + the billboard's red zigzag. 410×550 face, 4 plates;
   channels now CROSS the plate joints (no pullback breaks — user chose continuity over
   joint-free lenses); 7 hairline lens joints; one global fuzz field keeps texture continuous.
-  137 px @20 mm, **sign total 591 px**. `stl/board1..4_3color.3mf`. User approved the look
-  ("looks great"), gaps feedback applied; slicing pending.
+  137 px @20 mm, **sign total 591 px** (of EXACTLY 600 owned — hard inventory cap).
+  `stl/board1..4_3color.3mf`. User approved the look; gaps feedback applied (BOLT ONLY);
+  slicing pending.
 - **PETG fuzz bake-off** (testboxes v3–v6, picks the lens texture): ready to print on the
   ~100 g white remnant; a texture change is a one-line .dat swap + clear-body re-render.
 - Wood frame, wiring, mounting: user-built later; interface specs in the assembly card.
@@ -33,7 +36,10 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
   across, long side deep. Multi-color parts must sit between the nozzle bands.
 - Slicing: 0.20 Standard + card overrides; clear shares the WHITE nozzle (only swap ≈ z21);
   prime tower in the right-nozzle column or OFF + flush-into-objects; skirt/brim OFF.
-- Power: **591 px** ≈ full-white edge of the 150 W PSU → cap ~80% or add PSU.
+- **PIXEL INVENTORY IS THE HARD CAP: user owns EXACTLY 600 (strings of 50).** Sign total
+  **591** (word 454 + board 137 @20 mm) → 9 spares. Any change that adds pixels needs
+  user sign-off. (Power is secondary: ~591 px also sits at the 150 W PSU's full-white
+  edge → cap ~80% or add PSU.)
 
 ## 2. Bolt board — final design (element 6, C1 colorway)
 - **Source truth:** `RedNeon/TEDx_RedNeon_6.psd` = the logo's left panel: flat-top bolt and X
@@ -57,8 +63,8 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
   joints instead of pullback breaks; graze/corner checks still gate seam placement; pixels
   and collars kept ≥12.5 mm off seams; ONE global fuzz field (fuzz_board_global.dat).
 - **Pixels:** 137 (116 yellow / 21 red) @20 mm pitch, relaxation-solved, seam-avoiding.
-  `src/parts/bolt_pixmap.json` = per-pixel color zone + plate + chain (136 links, 2 need
-  extension jumpers).
+  `src/parts/bolt_pixmap.json` = per-pixel color zone + plate + chain (136 links,
+  extension jumpers at chain 87 and 108).
 - (Historic note: the earlier pullback design read as 4 aligned breaks across the X's waist;
   superseded by continuous mode per user feedback.)
 
