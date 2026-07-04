@@ -8,19 +8,31 @@ Six 3-color pieces (`stl/piece<N>_3color.3mf`), cut preview / seam map:
 
 | # | letter | footprint (mm) | black | white | clear | total | pixels |
 |---|--------|----------------|-------|-------|-------|-------|--------|
-| 1 | C | 295 × 295 | 226 g | 60 g | 47 g | 333 g | 61 |
-| 2 | H | 316 × 295 | 236 g | 78 g | 61 g | 374 g | 78 |
-| 3 | A | 296 × 295 | 224 g | 63 g | 50 g | 337 g | 63 |
-| 4 | R | 292 × 295 | 253 g | 80 g | 62 g | 395 g | 80 |
-| 5 | G | 300 × 295 | 235 g | 79 g | 62 g | 377 g | 81 |
-| 6 | E | 290 × 295 | 240 g | 77 g | 61 g | 378 g | 79 |
-| | **total** | face 1597 × 295 | 1414 g | 437 g | 343 g | **2194 g** | **442** |
+| 1 | C | 295 × 295 | 225 g | 60 g | 47 g | 332 g | 62 |
+| 2 | H | 316 × 295 | 234 g | 78 g | 61 g | 373 g | 81 |
+| 3 | A | 296 × 295 | 222 g | 63 g | 50 g | 335 g | 67 |
+| 4 | R | 292 × 295 | 252 g | 80 g | 62 g | 394 g | 82 |
+| 5 | G | 300 × 295 | 235 g | 79 g | 62 g | 376 g | 82 |
+| 6 | E | 290 × 295 | 240 g | 78 g | 61 g | 379 g | 80 |
+| | **total** | face 1597 × 295 | 1408 g | 438 g | 343 g | **2189 g** | **454** |
+
+Pixel layout is relaxation-solved: min spacing 14.2 mm (flange is 13.6). Three snug pairs
+sit in the R's lower leg (~x 957–989) — press those firmly; no trimming needed. One pixel
+deliberately omitted at the A's tube crossing (shared light pocket).
 
 ## Slicing (per validated specs)
-- Filaments: **1 = black PETG, 2 = white PETG (the two nozzles), 3 = clear PETG sharing the
-  WHITE nozzle** — black never swaps; the print's ONLY filament change is white→clear at the
-  lens (~z21), whose residue hides in the white weld zone. **Prime tower OFF, purge to chute**
-  (no plate room for a tower, and one benign swap doesn't need it).
+- Filaments: black and white MUST be on different nozzles (they alternate every layer,
+  purge-free on the H2D); clear shares a nozzle and triggers the print's ONLY filament
+  change at the lens (~z21). Two workable layouts:
+  (a) **white+clear on the AMS side, black external** — the swap residue (white→clear)
+  is invisible in the weld; black has no auto-backup, so weigh the spool (needs ~260 g).
+  (b) **black+clear on the AMS side, white external** — black gets a same-filament AMS
+  backup pair (auto-failover on the heavy consumer); bump the black→clear flush volume
+  to ~700–800 mm³. Preferred once two black spools are on hand.
+- Prime tower: sliced fine tiny (≈9 g) — keep it, or tower OFF + flush-into-objects.
+  Prepare-stage tower warnings that vanish after slicing are safe to ignore.
+- **0.20 mm Standard** process validated in a test slice: ~8h51m/piece, ~0.25 g purged,
+  ~106 "filament changes" = free per-layer nozzle swaps, not purges.
 - Place **295-side across the bed** (between the H2D nozzle bands), 316-side deep. Validated
   with `stl/bedcheck_316x295.stl`.
 - 0.16 mm layer · 0.42 line · 2 walls · 10% gyroid · 6 top / **7 bottom** (the +1 kills the
