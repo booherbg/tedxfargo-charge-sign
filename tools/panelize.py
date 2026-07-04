@@ -58,7 +58,7 @@ for i, p in enumerate(sorted(range(len(paths)), key=lambda i: seg_ext(paths[i])[
     else:
         groups.append({"segs": [p], "x0": x0, "x1": x1})
 groups.sort(key=lambda g: g["x0"])
-letters = list("CHARGE")
+letters = arg("--labels", "C,H,A,R,G,E").split(",")
 assert len(groups) == len(letters), "expected %d letter groups, got %d" % (len(letters), len(groups))
 
 # ---------- clearance field on a coarse grid (rebuilt after each kerning nudge) ----------

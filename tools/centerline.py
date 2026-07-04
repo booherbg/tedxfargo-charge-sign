@@ -26,7 +26,8 @@ def arg(flag, default=None):
     return default
 
 eps    = sys.argv[1]
-ref    = arg("--ref")
+target_h = arg("--target-h", "")   # scale so the ink bbox height == this many mm (skips --ref)
+ref    = arg("--ref", "" if target_h else None)
 cap_mm = float(arg("--cap", "270"))
 pitch  = float(arg("--pitch", "17"))
 name   = arg("--name")
@@ -38,12 +39,15 @@ RUNG_MM = 9.0         # drop short junction-junction edges (sliver bridges where
 MIN_PATH_MM = 30.0    # ignore debris segments shorter than this
 GEO_STEP = 4.0        # emitted path point spacing (mm); sagitta on a 50mm-radius arc ~0.04mm
 
-# ---------- raster: EPS -> ink pixel set ----------
+# ---------- raster: EPS (via gs) or ready-made PGM -> ink pixel set ----------
 def raster(path, dpi):
-    pgm = subprocess.run(
-        ["gs", "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-dEPSCrop",
-         "-sDEVICE=pgmraw", "-r%d" % dpi, "-o", "-", path],
-        capture_output=True, check=True).stdout
+    if path.endswith(".pgm"):
+        pgm = open(path, "rb").read()
+    else:
+        pgm = subprocess.run(
+            ["gs", "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-dEPSCrop",
+             "-sDEVICE=pgmraw", "-r%d" % dpi, "-o", "-", path],
+            capture_output=True, check=True).stdout
     m = re.match(rb"P5\s+(?:#[^\n]*\n\s*)*(\d+)\s+(?:#[^\n]*\n\s*)*(\d+)\s+(?:#[^\n]*\n\s*)*(\d+)\s", pgm)
     w, h = int(m.group(1)), int(m.group(2))
     px = pgm[m.end():]
@@ -264,9 +268,13 @@ def resample(pts, step, closed):
 
 # ---------- main ----------
 w, h, ink = raster(eps, dpi)
-_, _, rink = raster(ref, dpi)
-_, ry0, _, ry1 = bbox(rink)
-mm_px = cap_mm / (ry1 - ry0 + 1)               # scale: ref letter ink height == cap height
+if target_h:
+    _, iy0, _, iy1 = bbox(ink)
+    mm_px = float(target_h) / (iy1 - iy0 + 1)  # scale: this art's ink height == target
+else:
+    _, _, rink = raster(ref, dpi)
+    _, ry0, _, ry1 = bbox(rink)
+    mm_px = cap_mm / (ry1 - ry0 + 1)           # scale: ref letter ink height == cap height
 px_mm = 1.0 / mm_px
 
 skel = thin(ink)
