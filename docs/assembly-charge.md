@@ -62,6 +62,11 @@ bed faces (B1–B4).
   footprint is uniformly 295). Prepare-stage tower warnings that vanish after slicing
   are safe to ignore. Verify the filament→nozzle grouping in the slicer preview before
   sending (known Bambu Studio grouping quirk — use Rearrange Filament if needed).
+- **These are SLICER settings — the 3MFs carry only geometry + filament order.** Set
+  flush volumes / tower / nozzle mapping once per session, then **File → Import** each
+  3MF into that one project (each becomes its own plate). Do NOT File → Open each file —
+  that resets the project and your settings. Black→clear flush: verify the matrix cell
+  (auto-calc is usually high for dark→light, but check ≈700–800 mm³).
 - White (left, no backup): worst single piece uses ~81 g — weigh the spool before
   starting a piece if it's running low.
 - **0.20 mm Standard** process validated in a test slice: ~8h51m/piece, ~0.25 g purged,
