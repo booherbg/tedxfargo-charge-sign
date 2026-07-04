@@ -215,68 +215,79 @@ def point_at(p, t):
         acc += d
     return tuple(p[-1])
 
-insets = [[0.0, 0.0] for _ in paths]          # per segment: [start inset, end inset]
-def build_pmeta():
-    """Chord-aware pixel placement: next pixel at >=PITCH along the arc AND
-    >=PX_MIN+0.3 by straight-line chord — corners stretch a little instead of
-    crowding flanges (a 90 elbow turns 17mm of arc into ~13.5mm of chord)."""
-    pm = []
-    for si, p in enumerate(paths):
-        L = _plen(p)
-        a, b = insets[si]
-        lo, hi = a, max(L - b, a + 1.0)
-        pts = [(point_at(p, lo), lo)]
-        t = lo
-        while True:
-            t2 = t + PITCH
-            while t2 < hi and math.dist(point_at(p, t2), pts[-1][0]) < PX_MIN + 0.3:
-                t2 += 1.0
-            if t2 >= hi - PITCH * 0.45:
-                if math.dist(point_at(p, hi), pts[-1][0]) < PX_MIN + 0.3 and len(pts) > 1:
-                    pts.pop()                 # end pixel wins over a crowding predecessor
-                pts.append((point_at(p, hi), hi))
-                break
-            pts.append((point_at(p, t2), t2))
-            t = t2
-        for i, ((x, y), _) in enumerate(pts):
-            pm.append([x, y, si, i, len(pts)])
-    return pm
-def conflict_pairs(pm, adjacent=False):
-    """Pairs closer than PX_MIN. Along-path neighbors (same segment, |di|==1) are
-    excluded unless adjacent=True: they can only get too close at hairpin corners,
-    where the band folds onto itself (a merged pocket) — handled by dropping, never
-    by insets (an inset would shrink the segment and make its own spacing worse)."""
-    live = [k for k in range(len(pm)) if pm[k] is not None]
-    return [(k, j, math.dist(pm[k][:2], pm[j][:2]))
-            for ai, k in enumerate(live) for j in live[ai+1:]
-            if (adjacent or pm[k][2] != pm[j][2] or abs(pm[k][3] - pm[j][3]) >= 2)
-            and math.dist(pm[k][:2], pm[j][:2]) < PX_MIN]
+# Even placement per segment (ends pinned), then RELAXATION: any pair of pixels
+# closer than PX_MIN pushes both along their own arcs in small steps, cascading
+# through neighbors, until everything clears. Only pairs that physically cannot
+# clear (band folded onto itself / true crossings) get dropped — the pocket is
+# shared there anyway.
+pmeta = []                                     # [x, y, seg, t, moved]
+seg_len = [_plen(p) for p in paths]
+for si, p in enumerate(paths):
+    n = max(2, round(seg_len[si] / PITCH) + 1)
+    for i in range(n):
+        t = i * seg_len[si] / (n - 1)
+        x, y = point_at(p, t)
+        pmeta.append([x, y, si, t, 0.0])
 
-for _ in range(4):                            # end conflicts: inset + re-spread the segment
-    pmeta = build_pmeta()
-    changed = False
-    for k, j, d in conflict_pairs(pmeta):
-        for idx in (k, j):
-            x, y, si, i, n = pmeta[idx]
-            end = 0 if i == 0 else (1 if i == n - 1 else None)
-            if end is not None and insets[si][end] < 8.0:
-                insets[si][end] = min(8.0, insets[si][end] + (PX_MIN - d) / 2 + 0.4)
-                changed = True
-    if not changed:
-        break
-pmeta = build_pmeta()
-inset_n = sum(1 for s in insets if s[0] > 0 or s[1] > 0)
-dropped = 0
-while True:                                    # residual = crossings/hairpins: pocket is shared, drop
-    pairs = conflict_pairs(pmeta, adjacent=True)
+def live_pairs():
+    live = [k for k in range(len(pmeta)) if pmeta[k] is not None]
+    out = []
+    for ai, k in enumerate(live):
+        for j in live[ai+1:]:
+            if math.dist(pmeta[k][:2], pmeta[j][:2]) < PX_MIN:
+                out.append((k, j))
+    return out
+
+for _ in range(60):
+    pairs = live_pairs()
     if not pairs:
         break
-    k, j, _ = min(pairs, key=lambda t: t[2])
-    pmeta[j if pmeta[j][3] not in (0, pmeta[j][4]-1) else k] = None
+    for k, j in pairs:
+        for idx, other in ((k, j), (j, k)):
+            x, y, si, t, mv = pmeta[idx]
+            if abs(mv) >= 9.0:
+                continue                        # give up on this one; partner may still move
+            L = seg_len[si]
+            best_t, best_d = t, math.dist(pmeta[idx][:2], pmeta[other][:2])
+            for dt in (-0.8, 0.8):
+                t2 = min(max(t + dt, 0.0), L)
+                d2 = math.dist(point_at(paths[si], t2), pmeta[other][:2])
+                if d2 > best_d:
+                    best_t, best_d = t2, d2
+            if best_t != t:
+                nx, ny = point_at(paths[si], best_t)
+                pmeta[idx] = [nx, ny, si, best_t, mv + (best_t - t)]
+dropped, trims, accepted = 0, [], set()
+PX_TRIM = 13.0        # >= this: keep both, clip one flange edge at install (flange O13.6)
+while True:
+    pairs = [pr for pr in live_pairs() if frozenset(pr) not in accepted]
+    if not pairs:
+        break
+    k, j = min(pairs, key=lambda pr: math.dist(pmeta[pr[0]][:2], pmeta[pr[1]][:2]))
+    dkj = math.dist(pmeta[k][:2], pmeta[j][:2])
+    if dkj >= PX_TRIM:                          # seatable with a snipped flange: keep the light
+        accepted.add(frozenset((k, j)))
+        trims.append([round(pmeta[k][0], 1), round(pmeta[k][1], 1), round(dkj, 1)])
+        continue
+    end_k = pmeta[k][3] < 1 or pmeta[k][3] > seg_len[pmeta[k][2]] - 1
+    pmeta[k if not end_k else j] = None         # true overlap: shared pocket, drop one
     dropped += 1
+moved = sum(1 for m in pmeta if m is not None and abs(m[4]) > 0.5)
 pixels = [[m[0], m[1]] for m in pmeta if m is not None]
-print("pixels: %d after de-conflict (%d segment ends re-spread, %d dropped at crossings)"
-      % (len(pixels), inset_n, dropped))
+# per-segment lighting audit: worst consecutive on-path gap
+worst_gap, seg_of_worst = 0.0, -1
+for si in range(len(paths)):
+    chain = [m for m in pmeta if m is not None and m[2] == si]
+    chain.sort(key=lambda m: m[3])
+    for a, b in zip(chain, chain[1:]):
+        g = math.dist(a[:2], b[:2])
+        if g > worst_gap:
+            worst_gap, seg_of_worst = g, si
+print("pixels: %d after relaxation (%d nudged, %d dropped, %d flange-trim pairs); "
+      "worst on-path gap %.1fmm (seg %d)"
+      % (len(pixels), moved, dropped, len(trims), worst_gap, seg_of_worst))
+for t in trims:
+    print("  TRIM one flange edge near (%.0f, %.0f) — neighbors at %.1fmm" % (t[0], t[1], t[2]))
 
 # ---------- pieces, bed fit, screws ----------
 face_x0, face_x1 = -BAND_OUT/2 - SIDE_PAD, W + BAND_OUT/2 + SIDE_PAD
@@ -315,6 +326,7 @@ for i in range(len(groups)):
 json.dump({"face": [face_x0, face_y0, face_x1, face_y1], "face_h": FACE_H,
            "cuts": [[[round(x,2), round(y,2)] for x, y in c] for c in cuts],
            "bottlenecks_mm": bottlenecks, "kern_nudges_mm": [round(n,1) for n in nudges],
+           "flange_trims": trims,
            "pieces": pieces, "band_out": BAND_OUT, "clear": CLEAR,
            # auto-kerned layout — AUTHORITATIVE for the geometry step
            "paths": [[[round(x,2), round(y,2)] for x, y in p] for p in paths],
