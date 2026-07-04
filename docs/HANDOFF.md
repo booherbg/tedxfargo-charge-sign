@@ -6,14 +6,17 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
 `docs/locked-specs.md`; print/assembly steps in `docs/assembly-charge.md`.
 
 ## 0. State at a glance
-- **CHARGE word: DONE and sliceable.** Six 3-color pieces (`stl/piece1..6_3color.3mf`), all
-  bed-validated, mesh-audit clean, 2,189 g total, **454 pixels**. User has successfully sliced;
-  first prints pending white PETG delivery. Do not regenerate unless design changes.
-- **Bolt board: GEOMETRY FINAL, plates BUILT (overnight 2026-07-04→05).** The wrong-vector
-  blocker is resolved: board now uses **element 6** (the logo's actual left panel — flat-top
-  bolt + X fused as ONE yellow outline) with the billboard's red zigzag inside. 410×550 face,
-  **4 plates** (piecewise seams), 141 px @20 mm, **sign total 595 px**. `stl/board1..4_3color.3mf`.
-  User has NOT yet reviewed the design or sliced — morning review pending.
+- **CHARGE word: REGENERATED 2026-07-05 (continuous letters) — user must RE-SLICE.**
+  Per user feedback ("smooth all around, no gaps"), every letter is now a continuous closed
+  neon loop (tools/bridge_word.py bridged the art's 55-107 mm stroke-end openings; R's bowl
+  is its own loop). Cuts/kerning/pixels UNTOUCHED (454 px stands). Six 3-color pieces
+  rebuilt (`stl/piece1..6_3color.3mf`); prints still pending white PETG delivery.
+- **Bolt board: CONTINUOUS MODE, plates rebuilt 2026-07-05.** Element 6 (the logo's left
+  panel) as ONE bridged closed loop + the billboard's red zigzag. 410×550 face, 4 plates;
+  channels now CROSS the plate joints (no pullback breaks — user chose continuity over
+  joint-free lenses); 7 hairline lens joints; one global fuzz field keeps texture continuous.
+  137 px @20 mm, **sign total 591 px**. `stl/board1..4_3color.3mf`. User approved the look
+  ("looks great"), gaps feedback applied; slicing pending.
 - **PETG fuzz bake-off** (testboxes v3–v6, picks the lens texture): ready to print on the
   ~100 g white remnant; a texture change is a one-line .dat swap + clear-body re-render.
 - Wood frame, wiring, mounting: user-built later; interface specs in the assembly card.
@@ -30,7 +33,7 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
   across, long side deep. Multi-color parts must sit between the nozzle bands.
 - Slicing: 0.20 Standard + card overrides; clear shares the WHITE nozzle (only swap ≈ z21);
   prime tower in the right-nozzle column or OFF + flush-into-objects; skirt/brim OFF.
-- Power: **595 px** ≈ full-white edge of the 150 W PSU → cap ~80% or add PSU.
+- Power: **591 px** ≈ full-white edge of the 150 W PSU → cap ~80% or add PSU.
 
 ## 2. Bolt board — final design (element 6, C1 colorway)
 - **Source truth:** `RedNeon/TEDx_RedNeon_6.psd` = the logo's left panel: flat-top bolt and X
@@ -50,20 +53,22 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
 - **Board:** 410×550, content margins ~17 mm. **Piecewise seams** (a full-height vertical seam
   cannot avoid grazing the X's near-vertical legs): y=255 full width, then top row splits at
   x=126, bottom row at x=153. Plates B1 153×255 / B2 257×255 / B3 126×295 / B4 284×295 — all
-  fit 316×295. **7 breaks**, all engineered pullbacks (13 mm PERPENDICULAR to the seam —
-  shallow crossings get proportionally longer arc trims). The red crosses NO seam.
-- **Pixels:** 141 (119 yellow / 22 red) @20 mm pitch, relaxation-solved, 3 snug pairs,
-  2 dropped at crossings. `src/parts/bolt_pixmap.json` = per-pixel color zone + plate.
-- The y-seam reads as 4 aligned neon breaks across the X's waist (same engineered-break
-  pattern the user approved for the old 2-plate C1). Bed depth pins the seam at 255; the red
-  tail tip pins it from above — it cannot move.
+  fit 316×295. **CONTINUOUS MODE (2026-07-05):** channels cross the joints — 7 hairline lens
+  joints instead of pullback breaks; graze/corner checks still gate seam placement; pixels
+  and collars kept ≥12.5 mm off seams; ONE global fuzz field (fuzz_board_global.dat).
+- **Pixels:** 137 (116 yellow / 21 red) @20 mm pitch, relaxation-solved, seam-avoiding.
+  `src/parts/bolt_pixmap.json` = per-pixel color zone + plate + chain (136 links, 2 need
+  extension jumpers).
+- (Historic note: the earlier pullback design read as 4 aligned breaks across the X's waist;
+  superseded by continuous mode per user feedback.)
 
 ## 3. Pipeline (all committed, reproducible)
 Word: `tools/centerline.py` → `tools/panelize.py` → `tools/gen_pieces.py` →
 `src/parts/piece.scad` → `build_pieces.sh` → `tools/make_3mf.py` (manifold audit inline).
-Board: `tools/bolt_compose6.py` (composition + piecewise seam scan + splits; graze check,
-corner keepout, tangent-apex rejection) → `tools/boltboard.py --pitch 20` (pixels/screws/
-ties/fuzz/pixmap) → `src/parts/bolt_piece.scad -D PIECE=1..4 -D COL=1..3` → `build_board.sh`.
+Word bridging: `tools/bridge_word.py` (letters -> closed loops, in word_cuts.json).
+Board: `tools/bolt_compose6.py` (bridge + piecewise seam scan, CONTINUOUS mode; graze check,
+corner keepout, tangent-apex rejection) → `tools/boltboard.py --pitch 20` (seam-avoiding
+pixels/screws/ties/global fuzz/pixmap+chain) → `src/parts/bolt_piece.scad -D PIECE=1..4 -D COL=1..3` → `build_board.sh`.
 Audits: `tools/clearance_audit.py` (26 mm channel rule with crisp-crossing exemption — run it
 on any new path vs the yellow), `tools/bolt_preview.py` (fast raster comps).
 Letter pixel truth: `src/parts/word_cuts.json` (454). Board: `bolt_el6.json` + pixmap.
@@ -87,8 +92,8 @@ Letter pixel truth: `src/parts/word_cuts.json` (454). Board: `bolt_el6.json` + p
 - The art paints breaks as notches; element 6's outline is 3 open runs, not a closed loop —
   two of the six ends are kiss-junctions that FUSE in the 22 mm band (by design).
 - A vertical seam through this art almost always grazes a steep stroke — the graze check in
-  bolt_compose6.py is what makes seams legal; don't bypass it. Pullbacks are perpendicular-
-  normalized (arc = 13/sin θ), else shallow cuts leave <13 mm true seam clearance.
+  bolt_compose6.py is what makes seams legal; don't bypass it. (Historic pullback-mode note:
+  pullbacks must be perpendicular-normalized, arc = 13/sin θ.)
 - Fuzz heightfields near the lens plane make CGAL micro-slivers → 0.02 floor + off-lattice
   base (0.1504) + ±50 µm dead-band; `make_3mf.py` audits every mesh.
 - Bambu: "filament change times" on H2D = free per-layer nozzle swaps, not purges. 3MF-imported

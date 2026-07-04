@@ -2,7 +2,7 @@
 """Regenerate docs/sign-preview/full-sign.html: full-sign composition (element-6
 bolt board + CHARGE word, to scale) + board plate detail + production table.
 Reads: src/parts/bolt_el6.json, src/parts/board_layout.scad,
-       src/parts/word_data.scad, src/parts/bolt_pixmap.json,
+       src/parts/word_cuts.json, src/parts/bolt_pixmap.json,
        stl/board_stats.txt (optional, from build_board.sh, for grams).
 """
 import json, math, re, os
@@ -19,9 +19,8 @@ bb_px = grab(lay, "bb_px")
 bb_scr = grab(lay, "bb_scr")
 bb_tie = grab(lay, "bb_tie")
 plates = grab(lay, "bb_plates")
-wtxt = open("src/parts/word_data.scad").read()
-wp = grab(wtxt, "WORD_paths")
-wpx = grab(wtxt, "WORD_pixels")
+wc_all = json.load(open("src/parts/word_cuts.json"))
+wp = wc_all["paths"]              # bridged + auto-kerned (continuous letters)
 pixmap = json.load(open("src/parts/bolt_pixmap.json"))
 n_yellow = len(C["yellow"])
 
@@ -88,7 +87,8 @@ def word_svg():
     oy = word_y + (WORD_H - 251.2) / 2      # center word band vertically in face
     s = ['<rect x="%.1f" y="%.1f" width="%.0f" height="%.0f" fill="#16191f"/>'
          % (word_x, fy(word_y + WORD_H), WORD_W, WORD_H)]
-    ox = word_x + (WORD_W - 1556.4) / 2
+    wxs = [q[0] for p in wp for q in p]
+    ox = word_x + (WORD_W - (max(wxs) - min(wxs))) / 2 - min(wxs)
     for p in wp:
         s.append('<path d="%s" fill="none" stroke="#57d7e6" stroke-width="22" '
                  'stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>'
@@ -146,10 +146,10 @@ html.append('<p class="cap">Board %.0fx%.0f mm; word face %.0fx%.0f. The bolt pa
 html.append('<section class="panel"><h2>Bolt board detail — plates B1&ndash;B4, pixels, hardware</h2>')
 html.append('<div class="chips"><span class="chip good">%d px board (%d yellow / %d red)</span>'
             '<span class="chip">B1/B2/B3/B4 = %d/%d/%d/%d px</span>'
-            '<span class="chip">%d breaks</span><span class="chip">tube %.0f mm</span>'
+            '<span class="chip">%d lens joints</span><span class="chip">tube %.0f mm</span>'
             '<span class="chip good">sign total %d px</span></div>'
             % (board_px, board_px - red_px, red_px, *by_plate,
-               C["breaks"], C["tube"], word_px + board_px))
+               C["crossings"], C["tube"], word_px + board_px))
 html.append('<div class="duo"><div class="b"><svg viewBox="-6 -6 %.0f %.0f">'
             % (FW + 12, FH + 12))
 html.append(board_svg(detail=True))
@@ -166,11 +166,12 @@ for i, (x0, x1, y0, y1) in enumerate(plates):
                    fmt_g(g[2]), ("%.0f" % tot) if tot else "&mdash;"))
 html.append('</table>')
 html.append('<p class="cap">All plates fit the validated 316x295 both-nozzle zone. '
-            'Every seam crossing is an engineered 13 mm pullback neon break (perpendicular '
-            'clearance; shallow crossings get proportionally longer trims). The red zigzag '
-            'crosses no seam. Pixels relax to a 14.5 mm flange floor; snug pairs 13&ndash;14.5 '
-            'seat with a flange snip. <b>bolt_pixmap.json</b> carries every pixel&rsquo;s '
-            'color zone and plate for the controller.</p>')
+            'CONTINUOUS MODE: the outline is one bridged loop and channels cross the plate '
+            'joints (hairline lens joint at each crossing; one global fuzz field keeps the '
+            'texture continuous). Pixels and collars are kept &ge;12.5 mm off the seams. '
+            'Pixels relax to a 14.5 mm flange floor; snug pairs 13&ndash;14.5 seat with a '
+            'flange snip. <b>bolt_pixmap.json</b> carries every pixel&rsquo;s color zone, '
+            'plate, and chain position for the controller.</p>')
 html.append('</div></div></section>')
 html.append('<section class="panel"><h2>Power &amp; pitch</h2><p class="cap" style="margin-top:0">'
             'Board at 20 mm pitch: %d px. Sign total %d px vs the 150 W PSU&rsquo;s ~600 px '

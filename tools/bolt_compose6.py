@@ -5,12 +5,16 @@ inner zigzag) into src/parts/bolt_el6.json for tools/boltboard.py.
 - Yellow: src/parts/boltx_data.scad (element-6 extraction, 3 open runs, y-up mm).
 - Red:    RED_PATH below (billboard-derived single-stroke zigzag, clearance-audited
           legal vs yellow: see tools/clearance_audit.py).
-- Face 410x550, 4 rectangular plates. Y-seam at face y=255 (below the red tail
-  tip -> red never crosses a seam). Each row gets its OWN vertical seam position
-  (piecewise seam: a full-height vertical cut cannot avoid grazing the X's
-  near-vertical leg strokes). Each x-seam segment chosen by scan: fewest
-  crossings, all crisp (stroke >= CRISP deg off the seam direction), no cut
-  within KEEPOUT of a path end/junction, pieces >= MIN_PIECE after pullbacks.
+- Face 410x550, 4 rectangular plates. Y-seam at face y=255; each row gets its
+  OWN vertical seam position (piecewise: a full-height vertical cut cannot
+  avoid grazing the X's near-vertical leg strokes).
+- CONTINUOUS MODE (2026-07-05, user request "smooth all around, no gaps"):
+  the yellow outline is bridged into one closed loop and channels CROSS the
+  plate joints (no pullback breaks). Each crossing = a hairline joint through
+  the lens; the seam scan minimizes crossings, forbids grazes (a channel
+  running along a seam would be sliced lengthwise), keeps crossings >= CRISP
+  deg off the seam, and stays KEEPOUT away from path ends/corners so joints
+  never land on a vertex.
 Writes bolt_el6.json {face, seam_y, seam_x_top, seam_x_bot, c1:{...}}.
 """
 import json, math, re, sys
@@ -179,8 +183,43 @@ def seam_quality(paths, coord, axis, ends, band=None):
     ok = worst >= CRISP and mind >= KEEPOUT
     return n, worst, mind, ok
 
+def bridge(paths, max_gap=40.0):
+    """Join end pairs closer than max_gap (kiss junctions + the art's tail-tip
+    break) until none remain -> the fused outline becomes one continuous loop
+    ("smooth all around" request, 2026-07-05)."""
+    pool = {i: list(map(list, p)) for i, p in enumerate(paths)}
+    closed = set()
+    while True:
+        best = None
+        for a in pool:
+            for b in pool:
+                if b < a or a in closed or b in closed:
+                    continue
+                for ea in (0, 1):
+                    for eb in (0, 1):
+                        if a == b and ea == eb:
+                            continue
+                        pa = pool[a][0 if ea == 0 else -1]
+                        pb = pool[b][0 if eb == 0 else -1]
+                        dd = math.dist(pa, pb)
+                        if dd < max_gap and (best is None or dd < best[0]):
+                            best = (dd, a, b, ea, eb)
+        if best is None:
+            return list(pool.values())
+        dd, a, b, ea, eb = best
+        if a == b:
+            pool[a].append(list(pool[a][0]))
+            closed.add(a)
+            print("  close loop      (gap %.1f mm)" % dd)
+        else:
+            A = pool[a][::-1] if ea == 0 else pool[a]
+            B = pool[b] if eb == 0 else pool[b][::-1]
+            pool[a] = A + B
+            del pool[b]
+            print("  bridge two runs (gap %.1f mm)" % dd)
+
 def main():
-    yellow = load_paths("src/parts/boltx_data.scad", "BOLTX")
+    yellow = bridge(load_paths("src/parts/boltx_data.scad", "BOLTX"))
     red = [RED_PATH]
     ends = [p[0] for p in yellow + red] + [p[-1] for p in yellow + red]
     for p in yellow + red:
@@ -220,37 +259,23 @@ def main():
     print("y-seam @ face y=%.0f: %d crossings, worst angle %.0f deg, "
           "min end-dist %.0f" % (SEAM_Y_FACE, ny, wy, my))
 
-    # ---- split: y-seam, then each row's x-seam inside its band ----
-    Y1, by = split_with_pullback(Y, SEAM_Y_FACE, 1)
-    R1, bry = split_with_pullback(R, SEAM_Y_FACE, 1)
-    Y2, bxt = split_with_pullback(Y1, seams["top"], 0, (SEAM_Y_FACE, FH))
-    Y3, bxb = split_with_pullback(Y2, seams["bot"], 0, (0.0, SEAM_Y_FACE))
-    R2, brt = split_with_pullback(R1, seams["top"], 0, (SEAM_Y_FACE, FH))
-    R3, brb = split_with_pullback(R2, seams["bot"], 0, (0.0, SEAM_Y_FACE))
-    breaks = by + bry + bxt + bxb + brt + brb
-    tube = sum(plen(p) for p in Y3 + R3)
-    print("after split: yellow %d runs, red %d runs, %d breaks, tube %.0f mm"
-          % (len(Y3), len(R3), breaks, tube))
+    # ---- NO splitting: channels cross the plate joints (continuous neon).
+    # The plate clip in bolt_piece.scad cuts each body flush at its window;
+    # butting plates continue the channel. Crossings = hairline lens joints.
+    crossings = ny
+    for label, band in (("top", (SEAM_Y_FACE, FH)), ("bot", (0.0, SEAM_Y_FACE))):
+        n, _, _, _ = seam_quality(Y + R, seams[label], 0, ends, band)
+        crossings += n
+    tube = sum(plen(p) for p in Y + R)
+    print("continuous: yellow %d run(s), red %d, %d seam crossings "
+          "(hairline lens joints), tube %.0f mm"
+          % (len(Y), len(R), crossings, tube))
 
-    # ---- post-split assertion: every point clears every seam segment ----
-    segs = [(1, SEAM_Y_FACE, 0.0, FW),
-            (0, seams["top"], SEAM_Y_FACE, FH),
-            (0, seams["bot"], 0.0, SEAM_Y_FACE)]
-    worst_clear = 1e9
-    for p in Y3 + R3:
-        for q in p:
-            for axis, coord, b0, b1 in segs:
-                if b0 - 1 <= q[1 - axis] <= b1 + 1:
-                    worst_clear = min(worst_clear, abs(q[axis] - coord))
-    print("post-split min point-to-seam clearance: %.1f mm (need >= ~12)"
-          % worst_clear)
-    if worst_clear < 11.5:
-        sys.exit("SEAM CLEARANCE FAILURE")
-
+    rnd = lambda paths: [[[round(v, 2) for v in q] for q in p] for p in paths]
     json.dump({"face": [FW, FH], "seam_y": SEAM_Y_FACE,
                "seam_x_top": seams["top"], "seam_x_bot": seams["bot"],
-               "c1": {"yellow": Y3, "red": R3,
-                      "breaks": breaks, "tube": round(tube)}},
+               "c1": {"yellow": rnd(Y), "red": rnd(R),
+                      "crossings": crossings, "tube": round(tube)}},
               open("src/parts/bolt_el6.json", "w"))
     print("wrote src/parts/bolt_el6.json")
 

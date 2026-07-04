@@ -8,15 +8,18 @@ Specs: `docs/locked-specs.md`,
 
 ## Pieces (rendered weights, PETG @1.27)
 
+Letters are CONTINUOUS closed neon loops (2026-07-05: stroke-end openings bridged
+per user feedback; `tools/bridge_word.py`). Cuts, kerning, and pixel layout unchanged.
+
 | # | letter | footprint (mm) | black | white | clear | total | pixels |
 |---|--------|----------------|-------|-------|-------|-------|--------|
-| 1 | C | 295 × 295 | 225 g | 60 g | 47 g | 332 g | 62 |
-| 2 | H | 316 × 295 | 234 g | 78 g | 61 g | 373 g | 81 |
-| 3 | A | 296 × 295 | 222 g | 63 g | 50 g | 335 g | 67 |
-| 4 | R | 292 × 295 | 252 g | 80 g | 62 g | 394 g | 82 |
-| 5 | G | 300 × 295 | 235 g | 79 g | 62 g | 376 g | 82 |
-| 6 | E | 290 × 295 | 240 g | 78 g | 61 g | 379 g | 80 |
-| | **total** | face 1597 × 295 | 1408 g | 438 g | 343 g | **2189 g** | **454** |
+| 1 | C | 295 × 295 | 227 g | 62 g | 48 g | 337 g | 62 |
+| 2 | H | 316 × 295 | 232 g | 78 g | 61 g | 370 g | 81 |
+| 3 | A | 296 × 295 | 222 g | 64 g | 50 g | 336 g | 67 |
+| 4 | R | 292 × 295 | 249 g | 79 g | 62 g | 391 g | 82 |
+| 5 | G | 300 × 295 | 236 g | 81 g | 63 g | 380 g | 82 |
+| 6 | E | 290 × 295 | 239 g | 78 g | 60 g | 377 g | 80 |
+| | **total** | face 1597 × 295 | 1406 g | 442 g | 344 g | **2190 g** | **454** |
 
 Pixel layout is relaxation-solved: min spacing 14.2 mm (flange is 13.6). Three snug pairs
 sit in the R's lower leg (~x 957–989) — press those firmly; no trimming needed. One pixel
@@ -25,18 +28,20 @@ deliberately omitted at the A's tube crossing (shared light pocket).
 ## Bolt board (element 6: fused bolt+X, yellow + red inner)
 
 Board face 410 × 550 mm, four plates, piecewise seams (y=255 full width; top row
-splits at x=126, bottom row at x=153). All seam crossings are engineered 13 mm
-pullback neon breaks (7 total); the red zigzag crosses no seam. 141 pixels @ 20 mm
-(119 yellow / 22 red), `src/parts/bolt_pixmap.json` maps every pixel's color zone +
-plate for the controller.
+splits at x=126, bottom row at x=153). CONTINUOUS MODE: channels cross the plate
+joints (7 hairline lens joints; butt the plates snug — one global fuzz field keeps
+the lens texture continuous). 137 pixels @ 20 mm (116 yellow / 21 red), kept
+≥12.5 mm off every seam so no collar straddles a joint. `src/parts/bolt_pixmap.json`
+maps every pixel's color zone + plate + chain position (136 links; two links exceed
+the 4-inch string — extension jumpers at chain 87 and 108).
 
 | plate | position | footprint (mm) | black | white | clear | total | pixels |
 |-------|----------|----------------|-------|-------|-------|-------|--------|
-| B1 | bottom-left | 153 × 255 | 112 g | 21 g | 16 g | 149 g | 19 |
-| B2 | bottom-right | 257 × 255 | 192 g | 44 g | 33 g | 269 g | 40 |
-| B3 | top-left | 126 × 295 | 101 g | 12 g | 9 g | 123 g | 11 |
-| B4 | top-right | 284 × 295 | 257 g | 77 g | 60 g | 393 g | 71 |
-| | **total** | board 410 × 550 | 661 g | 155 g | 119 g | **934 g** | **141** |
+| B1 | bottom-left | 153 × 255 | TBD | TBD | TBD | TBD | 19 |
+| B2 | bottom-right | 257 × 255 | TBD | TBD | TBD | TBD | 39 |
+| B3 | top-left | 126 × 295 | TBD | TBD | TBD | TBD | 11 |
+| B4 | top-right | 284 × 295 | TBD | TBD | TBD | TBD | 68 |
+| | **total** | board 410 × 550 | TBD | TBD | TBD | **TBD** | **137** |
 
 Same 0.20 Standard process and filament layout as the word pieces (all plates are
 smaller than the worst word piece; 295 side across the bed). Plates butt on the wood
@@ -79,7 +84,8 @@ bed faces (B1–B4).
 3. Pixels press into collars from behind, chained in path order within each letter, jumper
    slack across seams. 4-inch strings → ~85 mm folds; tuck loose in the plenum
    (Ø3.2 tie-hole pairs along the paths are there if transport demands).
-4. Power: **595 px total** (454 word + 141 board) ≈ the 150 W/24 V PSU's full-white
+4. Power: **591 px total** (454 word + 137 board) ≈ the 150 W/24 V PSU's full-white
    edge → cap brightness ~80% or add a second PSU. Colors-only scenes draw far less.
-5. Board wiring: chain within each color zone per `bolt_pixmap.json` (yellow chain,
-   red chain), jumper slack across seams like the word pieces.
+5. Board wiring: ONE 137-px data chain (pixels are addressable; color zones are
+   software) — follow the `chain` index in `bolt_pixmap.json`; extension jumpers
+   at chain 87 and 108; jumper slack across seams like the word pieces.

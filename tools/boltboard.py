@@ -58,15 +58,31 @@ def point_at(p, t):
         acc += d
     return p[-1]
 
+# channels now CROSS the plate joints (continuous mode) -> a pixel collar must
+# never straddle a seam: keep pixel centers >= PX_SEAM from every seam segment
+PX_SEAM = 12.5
+SEAMS_PX = [(1, SY, 0.0, FW), (0, SXT, SY, FH), (0, SXB, 0.0, SY)]
+def seam_ok(xy):
+    for axis, coord, b0, b1 in SEAMS_PX:
+        if b0 - 2 <= xy[1-axis] <= b1 + 2 and abs(xy[axis] - coord) < PX_SEAM:
+            return False
+    return True
+
 # pixel placement: even + chord floor, then relaxation (same physics as letters)
 seg_len = [_plen(p) for p in paths]
 pmeta = []
 for si, p in enumerate(paths):
     L = seg_len[si]
-    pts, t = [(point_at(p, 0), 0.0)], 0.0
+    is_closed = math.dist(p[0], p[-1]) < 0.05
+    t0 = 0.0
+    if not seam_ok(point_at(p, t0)):            # nudge the anchor off a seam
+        while t0 < L and not seam_ok(point_at(p, t0)):
+            t0 += 1.0
+    pts, t = [(point_at(p, t0), t0)], t0
     while True:
         t2 = t + PITCH
-        while t2 < L and math.dist(point_at(p, t2), pts[-1][0]) < PX_MIN + 0.3:
+        while t2 < L and (math.dist(point_at(p, t2), pts[-1][0]) < PX_MIN + 0.3
+                          or not seam_ok(point_at(p, t2))):
             t2 += 1.0
         if t2 >= L - PITCH*0.45:
             R = L - t
@@ -74,8 +90,11 @@ for si, p in enumerate(paths):
             while k > 1 and R/k < PX_MIN + 0.3:
                 k -= 1
             for j in range(1, k):
-                pts.append((point_at(p, t + j*R/k), t + j*R/k))
-            pts.append((point_at(p, L), L))
+                cand = (point_at(p, t + j*R/k), t + j*R/k)
+                if seam_ok(cand[0]):
+                    pts.append(cand)
+            if not is_closed and seam_ok(point_at(p, L)):
+                pts.append((point_at(p, L), L))
             break
         pts.append((point_at(p, t2), t2))
         t = t2
@@ -99,8 +118,9 @@ for _ in range(60):
             bt, bd = t, math.dist(pmeta[idx][:2], pmeta[oth][:2])
             for dt in (-0.8, 0.8):
                 t2 = min(max(t+dt, 0.0), L)
-                d2 = math.dist(point_at(paths[si], t2), pmeta[oth][:2])
-                if d2 > bd:
+                cand = point_at(paths[si], t2)
+                d2 = math.dist(cand, pmeta[oth][:2])
+                if d2 > bd and seam_ok(cand):
                     bt, bd = t2, d2
             if bt != t:
                 nx, ny = point_at(paths[si], bt)
@@ -223,25 +243,26 @@ json.dump({"pitch": PITCH,
            "plate": plate_of(p[0], p[1]),
            "chain": chain_of[i]} for i, p in enumerate(pixels)]},
           open("src/parts/bolt_pixmap.json", "w"), indent=1)
-for pl, (x0, x1, y0, y1) in enumerate(PLATES, 1):
-    ax, ay = (x1 - x0) + 4, (y1 - y0) + 4
-    dat = "src/parts/fuzz_board_%d.dat" % pl
-    # plate 4's grid at seed 7 rolls a non-manifold fuzz sliver (grid-luck class
-    # from the word postmortem); seed 8 audits clean
-    seed = "8" if pl == 4 else "7"
-    subprocess.run(["python3", "tools/make_fuzz.py", dat,
-                    "1.5", "0.8", seed, "0", "0", "%.0f" % ax, "%.0f" % ay], check=True)
-    rows = []                                   # same +-50um dead-band as the letters
-    for line in open(dat):
-        vals = []
-        for v in line.split():
-            fv = float(v)
-            if 0.100 < fv < 0.201:
-                fv = 0.100 if fv < 0.1504 else 0.201
-            vals.append("%.3f" % fv)
-        rows.append(" ".join(vals))
-    open(dat, "w").write("\n".join(rows) + "\n")
+# ONE global fuzz field windowed by every plate -> lens texture is continuous
+# across the plate joints (channels cross seams now; a per-plate field would
+# print a visible texture discontinuity along each joint).
+dat = "src/parts/fuzz_board_global.dat"
+subprocess.run(["python3", "tools/make_fuzz.py", dat, "1.5", "0.8", "7",
+                "0", "0", "%.0f" % (FW + 4), "%.0f" % (FH + 4)], check=True)
+rows = []                                       # same +-50um dead-band as the letters
+for line in open(dat):
+    vals = []
+    for v in line.split():
+        fv = float(v)
+        if 0.100 < fv < 0.201:
+            fv = 0.100 if fv < 0.1504 else 0.201
+        vals.append("%.3f" % fv)
+    rows.append(" ".join(vals))
+open(dat, "w").write("\n".join(rows) + "\n")
 counts = [sum(1 for p in pixels if plate_of(p[0], p[1]) == pl) for pl in (1,2,3,4)]
-print("plate px: B1 %d / B2 %d / B3 %d / B4 %d; %d screws, %d ties"
-      % (*counts, len(scr), len(ties)))
-print("wrote board_layout.scad + bolt_pixmap.json + fuzz_board_{1..4}.dat")
+min_seam = min((abs((p[0], p[1])[axis] - coord)
+                for p in pixels for axis, coord, b0, b1 in SEAMS_PX
+                if b0 - 2 <= (p[0], p[1])[1-axis] <= b1 + 2), default=99)
+print("plate px: B1 %d / B2 %d / B3 %d / B4 %d; %d screws, %d ties; "
+      "min pixel-to-seam %.1f mm" % (*counts, len(scr), len(ties), min_seam))
+print("wrote board_layout.scad + bolt_pixmap.json + fuzz_board_global.dat")

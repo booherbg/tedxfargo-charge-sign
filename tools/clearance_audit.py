@@ -40,6 +40,10 @@ def audit(paths_a, paths_b=None, min_gap=26.0, crisp_deg=35.0, run_mm=14.0,
     sa = [_resample(p, step) for p in paths_a]
     sb = sa if paths_b is None else [_resample(p, step) for p in paths_b]
     self_mode = paths_b is None
+    # closed loops (first==last): same-path arc distance wraps around, else the
+    # closure point pairs its own start/end and self-flags a phantom violation
+    closed_len = [s[-1][2] if math.dist(s[0][:2], s[-1][:2]) < 0.1 else None
+                  for s in sa]
     events = []          # (a_idx, i, b_idx, j, d, angle)
     for ai, A in enumerate(sa):
         for bi, B in enumerate(sb):
@@ -48,8 +52,12 @@ def audit(paths_a, paths_b=None, min_gap=26.0, crisp_deg=35.0, run_mm=14.0,
             for i, (ax, ay, at) in enumerate(A):
                 best = None
                 for j, (bx, by, bt) in enumerate(B):
-                    if self_mode and ai == bi and abs(at - bt) < self_skip_mm:
-                        continue
+                    if self_mode and ai == bi:
+                        arc = abs(at - bt)
+                        if closed_len[ai]:
+                            arc = min(arc, closed_len[ai] - arc)
+                        if arc < self_skip_mm:
+                            continue
                     d = math.dist((ax, ay), (bx, by))
                     if d < min_gap and (best is None or d < best[0]):
                         best = (d, j)

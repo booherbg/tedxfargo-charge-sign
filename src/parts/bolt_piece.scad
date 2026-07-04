@@ -2,8 +2,9 @@
 //   openscad -D PIECE=<1|2|3|4> -D COL=<1|2|3> -o out.stl src/parts/bolt_piece.scad
 //   PIECE: 1 bottom-left, 2 bottom-right, 3 top-left, 4 top-right (bb_plates).
 //   COL: 1 black, 2 white, 3 clear.
-// Paths are pre-split at every seam with pullbacks (styled neon breaks), so no
-// seam ever crosses a channel. Fuzz: fuzz_board_<PIECE>.dat (dead-banded).
+// CONTINUOUS MODE: channels cross the plate joints (the clip cuts them flush;
+// butting plates continue the channel). Pixels/collars are kept off the seams
+// by boltboard.py. Fuzz: fuzz_board_global.dat (dead-banded, board-centered).
 include <../config.scad>
 include <../collar.scad>
 include <board_layout.scad>
@@ -76,11 +77,13 @@ module body_white() {
 module body_clear() {
     z0  = plate_t + pb_wall_h - pb_fuse;
     top = plate_t + pb_wall_h + pb_lens_t;
+    // one global fuzz field centered on the BOARD (not the plate): texture is
+    // continuous across the plate joints that the channels now cross
     clip() union() {
         translate([0,0,z0]) linear_extrude(top - z0) band(pb_band_out);
         intersection() {
-            translate([(x0+x1)/2, (y0+y1)/2, top-0.1504]) scale([1.5,1.5,1])
-                surface(file = str("fuzz_board_", PIECE, ".dat"), center = true, convexity = 8);
+            translate([bb_face[0]/2, bb_face[1]/2, top-0.1504]) scale([1.5,1.5,1])
+                surface(file = "fuzz_board_global.dat", center = true, convexity = 8);
             translate([0,0,top-0.3]) linear_extrude(3) band(pb_band_out);
         }
     }
