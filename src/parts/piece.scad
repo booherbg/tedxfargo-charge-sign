@@ -76,7 +76,10 @@ module body_clear() {
     clip() union() {
         translate([0,0,z0]) linear_extrude(top - z0) band(pc_band_out);
         intersection() {
-            translate([ctr[0], ctr[1], top-0.1]) scale([1.5, 1.5, 1])
+            // base offset 0.1504: OFF the 3-decimal height lattice, so no bump top
+            // can be exactly coplanar with the lens top (CGAL emits non-manifold
+            // micro-slivers at such tangencies — Bambu flags them)
+            translate([ctr[0], ctr[1], top-0.1504]) scale([1.5, 1.5, 1])
                 surface(file = str("fuzz_piece_", PIECE, ".dat"), center = true, convexity = 8);
             translate([0,0,top-0.3]) linear_extrude(3) band(pc_band_out);
         }

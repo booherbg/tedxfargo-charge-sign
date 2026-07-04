@@ -88,11 +88,25 @@ for si, p in enumerate(paths):
             piece_ties[pi].append([round(hx, 1), round(hy, 1)])
         t += TIE_STEP
 
-# fuzzy-top grids per piece
+# fuzzy-top grids per piece. Dead-band post-pass: with the fuzz base 0.1504 below
+# the lens top, any bump height in (0.100, 0.201) peaks within ~50um of the lens
+# top plane -> CGAL/STL-export micro-slivers (non-manifold). Snap that band to its
+# edges: bumps are then either safely swallowed or solidly proud. Sub-layer, invisible.
 for i, pc in enumerate(pieces):
     ax, ay = pc["x1"] - pc["x0"] + 6, fy1 - fy0 + 6
-    subprocess.run(["python3", "tools/make_fuzz.py", "src/parts/fuzz_piece_%d.dat" % (i+1),
+    dat = "src/parts/fuzz_piece_%d.dat" % (i+1)
+    subprocess.run(["python3", "tools/make_fuzz.py", dat,
                     "1.5", "0.8", "7", "0", "0", "%.0f" % ax, "%.0f" % ay], check=True)
+    rows = []
+    for line in open(dat):
+        vals = []
+        for v in line.split():
+            f = float(v)
+            if 0.100 < f < 0.201:
+                f = 0.100 if f < 0.1504 else 0.201
+            vals.append("%.3f" % f)
+        rows.append(" ".join(vals))
+    open(dat, "w").write("\n".join(rows) + "\n")
 
 fmt = lambda pts: "[" + ",".join("[%.2f,%.2f]" % (x, y) for x, y in pts) + "]"
 with open("src/parts/word_layout.scad", "w") as f:

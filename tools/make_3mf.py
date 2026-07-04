@@ -28,7 +28,25 @@ def parse_stl(path):
                 cur.append(idx)
                 if len(cur) == 3:
                     tris.append(tuple(cur)); cur = []
+    audit_manifold(path, tris)
     return verts, tris
+
+def audit_manifold(path, tris):
+    """Every edge of a closed manifold mesh is shared by exactly 2 triangles.
+    Slicers tolerate small violations, but flag them here so defects are caught
+    at build time, not on the printer's machine (learned via fuzz pinch edges)."""
+    from collections import Counter
+    edges, degen = Counter(), 0
+    for a, b, c in tris:
+        if a == b or b == c or a == c:
+            degen += 1
+            continue
+        for e in ((a, b), (b, c), (c, a)):
+            edges[tuple(sorted(e))] += 1
+    bad = sum(1 for n in edges.values() if n != 2)
+    if bad or degen:
+        print("WARNING: %s: %d non-manifold edge(s), %d degenerate tri(s)"
+              % (path, bad, degen))
 
 def mesh_xml(verts, tris):
     v = "".join('<vertex x="%s" y="%s" z="%s"/>' % t for t in verts)

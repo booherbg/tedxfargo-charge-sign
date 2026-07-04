@@ -19,7 +19,9 @@ AREA_Y = float(sys.argv[8]) if len(sys.argv) > 8 else 30
 NX = int(AREA_X / cell) + 2
 NY = int(AREA_Y / cell) + 2
 random.seed(seed)
-grid = [[random.uniform(0.0, hmax) for _ in range(NX)] for _ in range(NY)]
+# floor at 0.02: cells that hit exactly 0.000 make the heightfield touch its own
+# base plane -> non-manifold pinch edges in the CGAL union (Bambu flags them)
+grid = [[max(0.02, random.uniform(0.0, hmax)) for _ in range(NX)] for _ in range(NY)]
 if cell2 and hmax2:
     NX2 = int(AREA_X / cell2) + 2
     NY2 = int(AREA_Y / cell2) + 2
