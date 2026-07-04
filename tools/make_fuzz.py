@@ -2,12 +2,23 @@
 """Random height grid for the lens baked 'fuzzy skin' (OpenSCAD surface()).
 Heights are ABSOLUTE mm; 1 grid unit = 1mm, and the .scad scales XY by CELL so the
 same CELL sets the bump size. Rows = Y, cols = X.
-Usage: make_fuzz.py OUT CELL HMAX [SEED [CELL2 HMAX2 [AREA_X AREA_Y]]]
+Usage: make_fuzz.py OUT CELL HMAX [SEED [CELL2 HMAX2 [AREA_X AREA_Y]]] [--mode=M]
 Optional second octave: smooth coarse waves (CELL2, HMAX2) bilinearly added under
 the fine bumps -> two-scale texture (frost over orange peel).
 Optional AREA_X/AREA_Y (mm): grid coverage — default 102x30 (testbox lens); pass
-the part's bbox + margin for bigger parts (bolt, letters)."""
+the part's bbox + margin for bigger parts (bolt, letters).
+--mode=random (default) | pyramid | pyramid-jitter
+  pyramid: UNIFORM square-pyramid facet grid (deterministic prismatic texture),
+  sampled at CELL/4 so the .scad scale must be CELL/4 for these dats.
+  pyramid-jitter: same lattice, per-cell random peak height (0.6-1.0x) and peak
+  offset (+-0.25 cell) — uniform facet density, scattered orientations."""
 import random, sys
+
+MODE = "random"
+for a in list(sys.argv[1:]):
+    if a.startswith("--mode="):
+        MODE = a.split("=", 1)[1]
+        sys.argv.remove(a)
 out  = sys.argv[1]
 cell = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0   # bump size (mm) -> also the .scad scale
 hmax = float(sys.argv[3]) if len(sys.argv) > 3 else 0.55  # peak bump height (mm)
@@ -21,7 +32,28 @@ NY = int(AREA_Y / cell) + 2
 random.seed(seed)
 # floor at 0.02: cells that hit exactly 0.000 make the heightfield touch its own
 # base plane -> non-manifold pinch edges in the CGAL union (Bambu flags them)
-grid = [[max(0.02, random.uniform(0.0, hmax)) for _ in range(NX)] for _ in range(NY)]
+if MODE in ("pyramid", "pyramid-jitter"):
+    S = 4                                     # samples per cell edge
+    NX, NY = int(AREA_X / cell * S) + 2, int(AREA_Y / cell * S) + 2
+    ncx, ncy = NX // S + 2, NY // S + 2
+    peaks = [[(hmax, 0.0, 0.0) for _ in range(ncx)] for _ in range(ncy)]
+    if MODE == "pyramid-jitter":
+        peaks = [[(hmax * random.uniform(0.6, 1.0),
+                   random.uniform(-0.25, 0.25), random.uniform(-0.25, 0.25))
+                  for _ in range(ncx)] for _ in range(ncy)]
+    grid = []
+    for j in range(NY):
+        row = []
+        for i in range(NX):
+            cx, cy = i // S, j // S
+            h0, ox, oy = peaks[cy][cx]
+            fx = (i % S) / S - 0.5 - ox       # position within cell, peak-relative
+            fy = (j % S) / S - 0.5 - oy
+            t = max(abs(fx), abs(fy)) * 2.0   # 0 at peak -> 1 at cell edge
+            row.append(max(0.02, h0 * max(0.0, 1.0 - t)))
+        grid.append(row)
+else:
+    grid = [[max(0.02, random.uniform(0.0, hmax)) for _ in range(NX)] for _ in range(NY)]
 if cell2 and hmax2:
     NX2 = int(AREA_X / cell2) + 2
     NY2 = int(AREA_Y / cell2) + 2
