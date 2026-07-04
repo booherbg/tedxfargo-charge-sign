@@ -10,7 +10,9 @@ PART = "white";
 tb_vars = [ [0.6, "fuzz_v1.dat", "1"],
             [1.0, "fuzz_v2.dat", "2"],
             [1.5, "fuzz_v3.dat", "3"],
-            [2.2, "fuzz_v4.dat", "4"] ];
+            [2.2, "fuzz_v4.dat", "4"],
+            [3.2, "fuzz_v5.dat", "5"],   // chunkier rung past V4 (PETG is clearer than PLA)
+            [1.5, "fuzz_v6.dat", "6"] ]; // two-scale: V3 frost + ~7mm orange-peel waves
 v = tb_vars[VAR-1];
 if (PART == "white") testbox_white(v[2]);
 else                 fuzzy_lens(v[1], v[0]);

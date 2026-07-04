@@ -48,6 +48,28 @@ module bolt_lens() {
     }
 }
 
+// ---- INTEGRATED lens (current spec): welded clear roof + baked fuzzy top ----
+// One 2-color print, lens-UP, in USE orientation: white = bolt_shell() as-is
+// (filament 1), clear = this (filament 2), fused to the wall tops by i_fuse overlap.
+// Same construction as the proven testbox. No flip -> NO mirror (chirality moot).
+// Replaces the press-fit bolt_lens: no lip, no clearance — the print welds it on.
+i_lens_t = 1.2;    // integrated lens thickness (testbox-validated)
+i_fuse   = 0.1;    // white/clear overlap so the slicer fuses them
+bolt_ctr = [100, 165];  // bolt bbox center (x 34..166, y 19..311) — fuzz grid center
+
+module bolt_lens_integrated(datfile = "fuzz_bolt.dat", cell = 1.5) {
+    z0  = plate_t + bolt_ch_h - i_fuse;                  // fused to walls
+    top = plate_t + bolt_ch_h + i_lens_t;                // nominal flat top
+    union() {
+        translate([0, 0, z0]) linear_extrude(top - z0) bolt_stroke(bolt_outer);
+        intersection() {                                  // baked fuzzy bumps, clipped
+            translate([bolt_ctr[0], bolt_ctr[1], top - 0.1]) scale([cell, cell, 1])
+                surface(file = datfile, center = true, convexity = 8);
+            translate([0, 0, top - 0.3]) linear_extrude(3) bolt_stroke(bolt_outer);
+        }
+    }
+}
+
 // ----- snap-OVER lens: a cap that wraps the WHOLE bolt outside (skirt grips the
 // 22mm outer wall). Works because the bolt is a single isolated piece. Top = the
 // diffuser face. Print top-down, flip in use; fits any bolt height.

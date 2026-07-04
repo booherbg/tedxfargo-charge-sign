@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Combine two co-registered ASCII STLs into one Bambu Studio TWO-FILAMENT .3mf.
+"""Combine N co-registered ASCII STLs into one Bambu Studio MULTI-FILAMENT .3mf.
 
-Usage: make_3mf.py white.stl clear.stl out.3mf
+Usage: make_3mf.py part1.stl [part2.stl ...] out.3mf   (part i -> extruder/filament i)
 
 Writes Bambu's native project format: the part->filament map lives in
 Metadata/model_settings.config as <metadata key="extruder" value="N"/> (1-based),
@@ -13,7 +13,7 @@ it loads as ONE object with two parts:
 Swatch colors come from the two filaments loaded in your Bambu project (set slot 1
 = white, slot 2 = clear). Format verified vs BambuStudio src/libslic3r/Format/bbs_3mf.cpp.
 """
-import sys, zipfile
+import os, sys, zipfile
 
 def parse_stl(path):
     verts, tris, vmap, cur = [], [], {}, []
@@ -53,10 +53,15 @@ ID12 = "1 0 0 0 1 0 0 0 1 0 0 0"            # 3dmodel transform (12, column-majo
 ID16 = "1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"    # config matrix (16, row-major)
 
 def main():
-    white_stl, clear_stl, out = sys.argv[1], sys.argv[2], sys.argv[3]
-    wv, wt = parse_stl(white_stl)
-    cv, ct = parse_stl(clear_stl)
+    stls, out = sys.argv[1:-1], sys.argv[-1]   # N part STLs (extruder 1..N) + out.3mf
+    meshes = [parse_stl(p) for p in stls]
+    names = [os.path.splitext(os.path.basename(p))[0] for p in stls]
+    gid = len(stls) + 1                        # parent/group object id
 
+    objs = "".join('<object id="%d" type="model">%s</object>\n' % (i + 1, mesh_xml(v, t))
+                   for i, (v, t) in enumerate(meshes))
+    comps = "".join('<component objectid="%d" transform="%s"/>' % (i + 1, ID12)
+                    for i in range(len(meshes)))
     model = (
       '<?xml version="1.0" encoding="UTF-8"?>\n'
       '<model unit="millimeter" xml:lang="en-US" '
@@ -65,44 +70,38 @@ def main():
       '<metadata name="Application">BambuStudio-02.00.00.00</metadata>\n'
       '<metadata name="BambuStudio:3mfVersion">1</metadata>\n'
       '<resources>\n'
-      '<object id="1" type="model">%s</object>\n'
-      '<object id="2" type="model">%s</object>\n'
-      '<object id="3" type="model"><components>'
-      '<component objectid="1" transform="%s"/>'
-      '<component objectid="2" transform="%s"/>'
-      '</components></object>\n'
+      '%s'
+      '<object id="%d" type="model"><components>%s</components></object>\n'
       '</resources>\n'
-      '<build><item objectid="3" transform="%s" printable="1"/></build>\n'
+      '<build><item objectid="%d" transform="%s" printable="1"/></build>\n'
       '</model>\n'
-    ) % (mesh_xml(wv, wt), mesh_xml(cv, ct), ID12, ID12, ID12)
+    ) % (objs, gid, comps, gid, ID12)
 
+    parts = "".join(
+      '    <part id="%d" subtype="normal_part">\n'
+      '      <metadata key="name" value="%s"/>\n'
+      '      <metadata key="matrix" value="%s"/>\n'
+      '      <metadata key="extruder" value="%d"/>\n'
+      '    </part>\n' % (i + 1, names[i], ID16, i + 1) for i in range(len(meshes)))
     cfg = (
       '<?xml version="1.0" encoding="UTF-8"?>\n'
       '<config>\n'
-      '  <object id="3">\n'
-      '    <metadata key="name" value="lens_matrix"/>\n'
+      '  <object id="%d">\n'
+      '    <metadata key="name" value="%s"/>\n'
       '    <metadata key="extruder" value="1"/>\n'
-      '    <part id="1" subtype="normal_part">\n'
-      '      <metadata key="name" value="white_body"/>\n'
-      '      <metadata key="matrix" value="%s"/>\n'
-      '      <metadata key="extruder" value="1"/>\n'
-      '    </part>\n'
-      '    <part id="2" subtype="normal_part">\n'
-      '      <metadata key="name" value="clear_optic"/>\n'
-      '      <metadata key="matrix" value="%s"/>\n'
-      '      <metadata key="extruder" value="2"/>\n'
-      '    </part>\n'
+      '%s'
       '  </object>\n'
       '</config>\n'
-    ) % (ID16, ID16)
+    ) % (gid, os.path.splitext(os.path.basename(out))[0], parts)
 
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", CT)
         z.writestr("_rels/.rels", RELS)
         z.writestr("3D/3dmodel.model", model)
         z.writestr("Metadata/model_settings.config", cfg)
-    print("wrote %s  (white: %d tris -> extruder 1, clear: %d tris -> extruder 2)"
-          % (out, len(wt), len(ct)))
+    print("wrote %s  (%s)" % (out, ", ".join(
+        "%s: %d tris -> extruder %d" % (names[i], len(meshes[i][1]), i + 1)
+        for i in range(len(meshes)))))
 
 if __name__ == "__main__":
     main()
