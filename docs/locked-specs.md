@@ -57,6 +57,15 @@ Cross-section = **white reflective shell + ~15mm air gap + chunky clear lens wit
 - Everything prints **lens-up / plate-down, NO supports.** Chiral flip-to-use parts must be pre-mirrored
   (see the chiral-flip note) — but letters/testbox print in use-orientation, so it's moot for them.
 
+## Bed envelope ✅ VALIDATED in Bambu Studio (2026-07-03)
+- H2D dual-nozzle ("left/right nozzle only" side bands): the **both-nozzle zone fits the
+  worst-case piece 316 × 295** placed 295-across / 316-deep — confirmed by placing
+  `stl/bedcheck_316x295.stl` (chamfer = orientation) with the real 3-filament profile.
+- Multi-color pieces must sit ENTIRELY between the side bands (every region needs both
+  nozzles). Panelizer limits stay `--bed-long 316 --bed-short 296`.
+- Print-card notes: prime tower OFF (purge to chute — no room), brim OFF on the long
+  sides (~2mm spare); consider inner mouse-ears on big black plate corners.
+
 ## Letters — build pipeline ✅ LIVE (2026-07-02)
 - **`tools/centerline.py`** (pure stdlib + ghostscript): EPS → raster → Zhang-Suen skeleton →
   ordered tube centerline(s) → pixel points at pitch → `src/parts/letter_<L>_data.scad`
