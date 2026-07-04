@@ -282,20 +282,11 @@ print("pixels: %d after de-conflict (%d segment ends re-spread, %d dropped at cr
 face_x0, face_x1 = -BAND_OUT/2 - SIDE_PAD, W + BAND_OUT/2 + SIDE_PAD
 face_y0, face_y1 = -(FACE_H - H)/2 + 0.0, H + (FACE_H - H)/2   # centered bands
 
-# global, evenly spaced hardware along both rail bands (~SCREW_STEP), nudged off seams
-SCREW_STEP = float(arg("--screw-step", "130"))
-scr_ys = (face_y0 + 5.5, face_y1 - 5.5)
-edge = 25.0
-nspan = max(2, round((face_x1 - face_x0 - 2*edge) / SCREW_STEP))
-screws_all = []
-for sy in scr_ys:
-    for i in range(nspan + 1):
-        x = face_x0 + edge + i * (face_x1 - face_x0 - 2*edge) / nspan
-        for c in cuts:                          # keep 20mm off every seam
-            cx = cut_at(c, sy)
-            if abs(x - cx) < 20:
-                x = cx + (20 if x >= cx else -20)
-        screws_all.append([round(x, 1), round(sy, 1)])
+# hardware: ALWAYS a screw in each piece corner (anti-lift), inset enough not to
+# crack, then mid-span fill so no run exceeds MAX_SPAN
+CORNER_INSET = float(arg("--corner-inset", "12"))   # from the piece's edge at that height
+MAX_SPAN     = float(arg("--screw-span", "160"))    # add mid screws beyond this
+scr_ys = (face_y0 + 6.0, face_y1 - 6.0)             # in the rail bands, clear of face edge + tubes
 def cut_x_range(c):
     xs = [q[0] for q in c]
     return min(xs), max(xs)
@@ -310,12 +301,13 @@ for i in range(len(groups)):
                  (i == len(groups)-1 or px[0] <= cut_at(cuts[i], px[1])))
     tube_mm = sum(_plen(paths[s]) for s in groups[i]["segs"])
     grams = wpc * FACE_H * PLATE_G_MM2 + tube_mm * TUBE_G_MM
-    screws = [s for s in screws_all
-              if (i == 0 or s[0] > cut_at(cuts[i-1], s[1])) and
-                 (i == len(groups)-1 or s[0] <= cut_at(cuts[i], s[1]))]
-    for sy in scr_ys:                          # guarantee 2 per band per piece
-        if sum(1 for s in screws if abs(s[1] - sy) < 1) < 2:
-            screws.append([round((lx + rx) / 2, 1), round(sy, 1)])
+    screws = []
+    for sy in scr_ys:                          # corners at THIS height (cuts wiggle) + fill
+        ax = (face_x0 if i == 0 else cut_at(cuts[i-1], sy)) + CORNER_INSET
+        bx = (face_x1 if i == len(groups)-1 else cut_at(cuts[i], sy)) - CORNER_INSET
+        nmid = max(0, math.ceil((bx - ax) / MAX_SPAN) - 1)
+        screws += [[round(ax + k * (bx - ax) / (nmid + 1), 1), round(sy, 1)]
+                   for k in range(nmid + 2)]
     pieces.append({"letter": letters[i], "x0": round(lx,1), "x1": round(rx,1),
                    "w": round(wpc,1), "h": FACE_H, "fits": long_ax <= BED_LONG and short_ax <= BED_SHORT,
                    "pixels": npx, "grams": round(grams), "screws": screws})
