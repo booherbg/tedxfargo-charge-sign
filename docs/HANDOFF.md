@@ -1,122 +1,93 @@
-# TEDxFargo CHARGE — Sign Build Handoff
+# TEDxFargo CHARGE — Sign Build Handoff (refreshed 2026-07-04)
 
-**What this project is:** a 3D-printed, LED-lit **physical replica of the TEDxFargo CHARGE 2026
-neon-billboard logo** (`assets/tedxfargo-full-logo.png`). We print the letters and lightning bolt as
-**white-reflector channels capped with a chunky clear "fuzzy" diffuser lens**, lit from behind by
-addressable 12mm bullet pixels, to recreate the neon look. Retro neon-billboard aesthetic.
+**What this is:** a 3D-printed, LED-lit replica of the TEDxFargo CHARGE 2026 neon-billboard logo
+(`assets/tedxfargo-full-logo.png`). White-reflector channels + frosted clear lenses, lit from
+behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric truth lives in
+`docs/locked-specs.md`; print/assembly steps in `docs/assembly-charge.md`.
 
-> Read this top-to-bottom to get oriented. Canonical numeric params live in `docs/locked-specs.md`;
-> this doc is the story, the decisions, and the plan. **We are faithfully replicating the logo**, not
-> designing a new one.
+## 0. State at a glance
+- **CHARGE word: DONE and sliceable.** Six 3-color pieces (`stl/piece1..6_3color.3mf`), all
+  bed-validated, mesh-audit clean, 2,189 g total, **454 pixels**. User has successfully sliced;
+  first prints pending white PETG delivery. Do not regenerate unless design changes.
+- **Bolt board: IN FLIGHT, geometry NOT final.** Decisions locked: separate 2-plate board
+  (300×590), C1 look (yellow outline + red inner bolt), 20 mm pixel pitch, straight seam with
+  13 mm neon-break pullbacks. **BLOCKER: we composed from the WRONG vector** — see §10.
+- **PETG fuzz bake-off** (testboxes v3–v6, picks the lens texture): ready to print on the
+  ~100 g white remnant; a texture change is a one-line .dat swap + clear-body re-render.
+- Wood frame, wiring, mounting: user-built later; interface specs in the assembly card.
 
----
+## 1. Locked build facts (never re-derive)
+- Cap 250 mm uniform; face 1597×295; 6 pieces, corridor cuts through black only; auto-kern
+  applied (A|R +1.2, R|G +5.9 — R/G bands would physically overlap at true kerning).
+- Cross-section: black 2 mm plate + 1.2 black outer wall / 0.4 white liner + 0.8 white inner
+  wall / 19 mm channel (18 interior) / 1.2 clear lens + baked V3 fuzz (dead-banded ±50 µm
+  around the lens plane — see §9). ALL-PETG, 3 colors.
+- Pixels: Ø12 bullets, flange Ø13.6 (**14.5 mm min spacing; 13.0–14.5 = snug/flange-snip**),
+  collar `assets/bullet-collar.stl`, letters @17 mm pitch, bolt @20 mm. 4-inch strings.
+- Bed truth (H2D, validated with `stl/bedcheck_316x295.stl`): both-nozzle zone fits 316×295;
+  place 295 across, long side deep. Multi-color parts must sit between the nozzle bands.
+- Slicing: 0.20 Standard + card overrides; clear shares the WHITE nozzle (only swap ≈ z21);
+  prime tower in the right-nozzle column or OFF + flush-into-objects; skirt/brim OFF; the
+  fuzzy-top shell islands are killed by the layer stack at 0.20 (historic +1-bottom fix).
+- Power: 585 px ≈ full-white edge of the 150 W PSU → cap ~80% or add PSU.
 
-## 0. Where we are
-- **Validated:** the full diffusion/lens recipe (below) — via a printed 8-cell test matrix, a bolt, and
-  a 4-way fuzzy-texture bake-off. The look is **locked and working**.
-- **Current scope:** the **CHARGE** wordmark (6 letters) **+ the red lightning bolt**. The rest of the
-  billboard (arrow, TEDxFargo badge, "2026", yellow border, truss) is later scope.
-- **2026-07-02: ALL-PETG decided** (on hand; same-material welds fix the PLA↔PETG adhesion worry).
-  Slicer-setting haze tricks dropped (no noticeable effect in practice) — **cloudiness = baked geometry**.
-- **Extractor + letter pipeline LIVE:** `tools/centerline.py` (EPS → skeleton → tube centerline +
-  pixels) and `src/letter.scad` (3-color tile). **Letter C generated** (`stl/letter_C_3color.3mf`,
-  ~390g, 69 px); **integrated bolt** (`stl/bolt2_2color.3mf`) replaces the press-fit-lens bolt.
-- **Next:** PETG fuzz bake-off (testbox v3–v6), remaining letters (H needs a size call — see
-  locked-specs), bolt into the layout, mounting.
+## 2. Pipeline (all committed, reproducible)
+`tools/centerline.py` EPS/PGM → tube centerlines (graph decomposition; pairs crossings by
+straightest continuation; `--target-h` for raster assets) → `tools/panelize.py` (clearance
+field, auto-kern, corridor cuts, chord-aware pixel relaxation, `--labels/--pitch`) →
+`tools/gen_pieces.py` (per-piece data + dead-banded fuzz + build scripts) →
+`src/parts/piece.scad` (numeric `-D PIECE/COL`; string -D unreliable) → `build_pieces.sh` →
+`tools/make_3mf.py` (N STLs → Bambu 3MF, **built-in manifold audit**). `tools/stl_stats.py`
+for volume/grams. Letter pixel layout truth: `src/parts/word_cuts.json`.
 
-## 1. Hardware
-- **Printer:** Bambu **H2D** — dual nozzle, 300×320×325 build, **textured PEI plate**, 65°C chamber.
-  The 3-color cross-section needs AMS or filament changes.
-- **Pixels:** 12mm **24V bullet pixels** — dome **Ø8**, barrel **Ø12**, flange **Ø13.6×2mm**,
-  dome-tip→flange **5.5mm**. **Own 300; buying 300 more (→600).** 150W/24V PSU.
-- **Collar:** `assets/bullet-collar.stl` — calibrated press-fit ring for the pixel (bore ~Ø12.19).
-- **Filament:** **black + white + clear.** Clear **PLA** is the diffuser (naturally cloudy = ideal);
-  PLA also snaps/fits fine. PETG only if heat ever demands it.
+## 10. BOLT BOARD — current sprint, exact pickup point
+**Locked decisions:** separate board left of CHARGE, 300×590, 2 plates (B1 bottom/B2 top),
+straight seam at y=295 through engineered 13 mm pullback breaks (provably legal — no router
+needed); C1 composition = yellow outline bolt + red inner bolt (colors via pixel zones, same
+3-filament print); 20 mm pitch → ~131 px → **sign total ~585 of 600 ✓**.
 
-## 2. Diffusion recipe — the core win (validated)
-Every lit element uses the same cross-section, **printed lens-UP, no supports**:
+**THE BLOCKER — wrong source vector:** everything so far used **element 5** (pointed-top slim
+bolt) from `assets/TEDxFargo CHARGE Graphics and Assets/RedNeon/`. The user correctly flagged
+the logo's bolt has a **flat top**. `docs/img/bolt-element-compare.png` (logo crop vs elements
+4/6/13) shows **element 6 IS the logo's left panel**: the flat-top bolt and the X are ONE fused
+yellow outline, with a slim red bolt laid inside. The deployed-aspect measurement (~0.45 w/h vs
+element-5's 0.239) was really telling us "wrong element."
 
-**white reflective interior  →  ~15mm air gap  →  chunky clear lens with a BAKED fuzzy top**
+**Open design question for the user first:** element 6 fuses bolt+X. Board options:
+(a) whole element-6 composition (bolt+X, yellow) + red inner — the literal logo panel (may want
+a wider/taller board or cropping); (b) isolate just the bolt portion of element 6.
 
-- **Fuzzy skin = baked geometry** (a random height-field on the lens top). Bambu's fuzzy-skin only
-  textures vertical walls, so we bake it. **Winner = V3: ~1.5mm bump cells, ~0.8mm height** — best
-  balance of texture + brightness, **hides individual LEDs**, prints clean (no supports/spaghetti).
-  Regenerate a grid: `tools/make_fuzz.py OUT <cell_mm> <height_mm>` (V3 = `1.5 0.8`).
-- **White interior recycles light** → ~same brightness with fewer LEDs, and far more even. **Never a
-  dark surface facing the LEDs.**
-- **Top surface pattern: Concentric.** Print settings (Adafruit-derived, verified): 0.16mm layer,
-  0.42 line, 2 walls, 10% gyroid, 6 top/bottom, supports off, brim, bridge fan on.
+**Then the build steps:**
+1. Extract from `RedNeon/TEDx_RedNeon_6.psd` (and/or the YellowNeon twin — same geometry):
+   `magick ... -channel R -separate -resize 200% -threshold 65% -negate → .pgm`, then
+   `tools/centerline.py <pgm> --target-h <H> --name BOLTX --out ...` (65% threshold proven;
+   50% bridges glow). The red inner bolt: slim element inside the logo — likely element 5 at
+   small scale as INNER (single tube), or trace element 6's inner if present.
+2. Clearance audit inner↔outer ≥26 mm (band edge-to-edge +4) or accept only crisp
+   point-crossings (merged amber pockets like the A letter — long parallel overlaps looked
+   like mush and were rejected by the user).
+3. `tools/boltboard.py --pitch 20` (machinery is GOOD: relaxation pixels, 3-rail screws
+   ×12, ties, dead-banded fuzz, `bolt_pixmap.json` color zones) — it reads
+   `src/parts/bolt_final2.json` key `c1` {yellow:[...], red:[...]} paths pre-split at the
+   seam; regenerate that JSON from the new extraction (seam-split helper in git history:
+   `bolt_compose.py` / composer snippets in commits).
+4. `src/parts/bolt_piece.scad` -D PIECE=1|2 COL=1|2|3 → 6 bodies → `make_3mf` (audit inline).
+5. Update `docs/sign-preview/full-sign.html` (composition + board detail page) + assembly card.
 
-## 3. The 3-color letter/channel cross-section
-1. **BLACK** — the tile base (billboard negative space) + the channel's outer structure.
-2. **WHITE** — a couple of layers lining the channel **rear (floor) + inner walls** (the reflector).
-3. **CLEAR** — the chunky lens on top with the **V3 baked fuzzy skin**.
+**OBSOLETE — do not use/slice:** current `stl/board*_c*.stl` + `board1/2_3color.3mf` (tangled
+element-5 geometry), `bolt_final2.json` c1/c2 paths, `bolt_c1_clean.json` (optimizer run had a
+scoring bug and a hacked spine width; best clearance found was only 4.4 mm). The el-5
+extractions (`bolt5_data/bolt5s_data.scad`) are geometrically fine, just the wrong bolt.
 
-So from the front: black frame/background, glowing white-lined channels, capped by a frosted clear lens.
-
-## 4. Letters — how they're built
-- The logo letters are **hollow neon outlines** — the neon tube traces **both edges** of every stroke.
-  We keep this exactly. Source art: `assets/svg/{C,H,A,R,G,E,CHARGE}.svg` (converted from
-  `assets/letters/*.eps` via `tools/eps2svg.sh`). **Both neon lines are lit.**
-- **The one wrinkle is scale:** at ~250–300mm cap height each neon line is only **~12mm** wide — same
-  as a Ø12 pixel, too thin to hold one. **Fix: widen each tube +3mm/side → ~18mm** (fits pixel +
-  collar + walls) while **keeping the hollow-outline look** (the two lines stay separate — verified).
-- **Size — NO letter splitting.** Cap height **270mm**; **rotate the wide letters 90°** so their width
-  runs along the 320mm bed axis (at 270mm the widest, H, is ~320mm = the full bed). **Sign ≈ 1.6m wide.**
-  Each letter = one rectangular tile. (Absolute max ~310mm, but that splits ~5 of 6 letters — not worth it.)
-- **Pixels — TIGHT ~17mm pitch** (smooth solid-tube glow): CHARGE + bolt ≈ **~510 pixels** at 270mm cap
-  → within the 600 budget. (Sparser ~32mm ≈ 270px is the fallback.)
-- **Each letter tile** = the 3-color cross-section (black base + white-lined channel + fuzzy clear lens),
-  pixels plugged in from behind, tiles butt together on a rear rail/backer that hides the wiring.
-
-## 5. The lightning bolt (already built)
-- `src/bolt.scad` — `bolt_shell` (the channel + collars along `pixel_pts`) + `bolt_lens` (the lens).
-  The bolt is a **solid-stroke** channel (the whole stroke lit), path from hand-placed `pixel_pts`
-  (~22 px @ ~17mm). **Lens fit locked: `bolt_lip_clear = -0.2`** (0.2mm interference press-fit,
-  material-robust). Letters reuse this exact channel construction along the neon path.
-
-## 6. Repo map
-- `src/config.scad` — global params (pixel datasheet, collar, plate, gaps).
-- `src/bolt.scad` — bolt shell + lens + fit-test slices (`lens_chunk`) + 2-color stripe variants.
-- `src/testbox.scad` — straight 5-LED stroke test box (white shell + integrated lens); `fuzzy_lens()`
-  + `tools/make_fuzz.py` grids (`fuzz_v1..v4.dat`) — the fuzzy bake-off (V3 won).
-- `src/lens_cell.scad` — the 8-cell diffusion test matrix (how we found the recipe).
-- `src/collar.scad` — `place_collar()` (imports the calibrated collar STL).
-- `src/letter.scad` — 3-color letter tile (black base+outer wall / white liner+inner wall+collars /
-  clear welded fuzzy lens); consumes `src/parts/letter_<L>_data.scad` from the extractor.
-- `src/parts/*.scad` — thin entry files (one per printable STL); `letter_viz.scad`/`svg_bbox.scad` are
-  planning helpers.
-- `tools/` — `eps2svg.sh` (letters), `make_3mf.py` (combine N co-registered STLs → Bambu multi-filament
-  3MF, part i → extruder i), `make_fuzz.py` (fuzzy height grids; optional two-scale octave + area args),
-  `centerline.py` (EPS → tube centerlines + pixel points; writes a `.debug.ppm` overlay — eyeball it),
-  `stl_stats.py` (volume/grams/bbox). **`make_3mf.py` writes Bambu's real `model_settings.config`
-  part→extruder map — standard 3MF `<basematerials>` is ignored by Bambu.**
-- `assets/` — `bullet-collar.stl`, `svg/` letters, `tedxfargo-full-logo.png`, EPS letters.
-- `docs/` — `locked-specs.md`, `print-lens-matrix.md`, `petg-cloudy-research.md`,
-  `superpowers/specs/2026-06-29-integrated-lens-design.md`; `sign-preview/index.html` (letter viz).
-- `build.sh` — regenerate STLs into `stl/` (**gitignored** — artifacts). `openscad -o out.stl part.scad`.
-
-## 7. Non-obvious decisions & gotchas
-- **Chiral flip-mirror:** any part that prints face-down and is *flipped* to use must be **pre-mirrored**
-  (`mirror([1,0,0])`) — the bolt is chiral, so an un-mirrored flip lands a backwards bolt. (Letters/testbox
-  print in use-orientation, so this doesn't bite them.)
-- **Widen the tubes, don't shrink the letters:** +3mm/side keeps the hollow-outline look at ~18mm.
-- **White interior is mandatory** (recycling); black interior kills brightness + shows the source.
-- **Fuzzy is baked** (Bambu can't texture tops); V3 texture won.
-- **Pixel clearance:** any solid optic over the LED needs `led_void`=14 / `led_clear`=2.5 headroom
-  (`lens_pixel_collision.scad` verifies). Open-cavity (A0-style) letters don't have this issue.
-
-## 8. Next steps (priority order)
-1. **Centerline extractor** — skeletonize each letter SVG → ordered path → resample at 17mm → pixel
-   points; offset the path ±(tube/2) for the widened tube. Needs image libs (`numpy`/`pillow`/
-   `scikit-image`) *or* a dependency-free Zhang-Suen thinner. **This unblocks everything.**
-2. **Generate CHARGE** — per letter: 3-color tile (black base + white-lined channel + fuzzy clear lens),
-   collars at pitch, sized to ~250mm cap (no split). Exact pixel count falls out.
-3. **Integrate the bolt** into the layout.
-4. **Mounting/wiring** — rear rail or black backer board; controller tucked behind. (Deferred, art shows a truss.)
-5. **Full-billboard extras** — arrow, TEDxFargo badge, 2026, yellow border. (Later scope.)
-
-## 9. How to sanity-check the build works
-- `./build.sh` regenerates all STLs. Render a preview: `openscad -o out.png --viewall src/parts/<x>.scad`.
-- Two-color test: `stl/testbox_fuzz_v3_2color.3mf` is the winning lens texture on a 5-LED stroke.
-- The whole recipe is proven on printed parts — the remaining work is **geometry generation for the letters.**
+## 9. Non-obvious gotchas (hard-won)
+- Skeleton tips have no degree-1 endpoints (ZS clumps) → open/closed by walk behavior.
+- Letters are OPEN neon tube runs; art paints breaks as notches; slivers can bridge shapes.
+- Fuzz heightfields near the lens plane make CGAL micro-slivers → 0.02 floor + off-lattice
+  base (0.1504) + ±50 µm dead-band; `make_3mf.py` audits every mesh now.
+- Bambu: "filament change times" on H2D = free per-layer nozzle swaps, not purges. Prepare-
+  stage tower warnings that vanish after slicing are safe. 3MF-imported filaments are unbound
+  until synced; verify mapping in the send dialog. AMS backup = identical preset+color in two
+  slots on the SAME side. Left nozzle has no AMS (external spool; weigh before big blacks).
+- Nesting two 22 mm channels needs ≥26 mm centerline gap — most "outline + inner" art only
+  supports this at large scale or with crossings.
+- Chiral flip-mirror rule is moot for everything current (all parts print in use orientation).
