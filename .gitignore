@@ -12,3 +12,4 @@ assets/TEDxFargo CHARGE Graphics and Assets/
 
 # OS / editor
 .DS_Store
+__pycache__/

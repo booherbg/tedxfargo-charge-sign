@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-"""Production data for the C1 bolt board (300x590, 2 plates, straight seam).
-Reads src/parts/bolt_final2.json (c1 = yellow outline + double-run red, pre-split
-at the seam), places pixels at --pitch (relaxation de-conflict, same rules as the
-letters), lays out screws for the 3-rail mount and zip-tie holes, and emits:
+"""Production data for the element-6 bolt board (410x550, 4 plates).
+Reads src/parts/bolt_el6.json (yellow fused bolt+X outline + red inner zigzag,
+pre-split at the seams by tools/bolt_compose6.py). Seams: y=255 full width,
+plus per-row vertical seams (piecewise: top row splits at seam_x_top, bottom
+row at seam_x_bot). Plates:
+  B1 = bottom-left   [0..seam_x_bot] x [0..seam_y]
+  B2 = bottom-right  [seam_x_bot..FW] x [0..seam_y]
+  B3 = top-left      [0..seam_x_top] x [seam_y..FH]
+  B4 = top-right     [seam_x_top..FW] x [seam_y..FH]
+Places pixels at --pitch (relaxation de-conflict, same rules as the letters),
+lays out per-plate screws + zip-tie holes, and emits:
   src/parts/board_layout.scad   (for src/parts/bolt_piece.scad)
   src/parts/bolt_pixmap.json    (pixel -> color zone map for the controller)
+  src/parts/fuzz_board_{1..4}.dat
 Usage: boltboard.py [--pitch 20]
 """
 import json, math, subprocess, sys
@@ -14,21 +22,30 @@ def arg(f, d):
 
 PITCH  = float(arg("--pitch", "20"))
 PX_MIN = 14.5
-FW, FH, SEAM = 300.0, 590.0, 295.0
-SHRINK_MARGIN = 16.0          # min distance: band edge -> face edge
 
-D = json.load(open("src/parts/bolt_final2.json"))["c1"]
-paths = [[tuple(q) for q in p] for p in D["yellow"]] + [[tuple(q) for q in p] for p in D["red"]]
-n_yellow = len(D["yellow"])
+D = json.load(open("src/parts/bolt_el6.json"))
+FW, FH = D["face"]
+SY, SXT, SXB = D["seam_y"], D["seam_x_top"], D["seam_x_bot"]
+C = D["c1"]
+paths = [[tuple(q) for q in p] for p in C["yellow"]] + \
+        [[tuple(q) for q in p] for p in C["red"]]
+n_yellow = len(C["yellow"])
+PLATES = [(0.0, SXB, 0.0, SY), (SXB, FW, 0.0, SY),
+          (0.0, SXT, SY, FH), (SXT, FW, SY, FH)]
+for i, (x0, x1, y0, y1) in enumerate(PLATES):
+    w, h = x1 - x0, y1 - y0
+    ok = (w <= 316 and h <= 295)
+    print("plate B%d: %.0fx%.0f %s" % (i+1, w, h, "ok" if ok else "TOO BIG"))
+    if not ok:
+        sys.exit(1)
 
-# recenter + shrink so channels keep SHRINK_MARGIN off the face edges
-ys = [q[1] for p in paths for q in p]; xs = [q[0] for p in paths for q in p]
-span_y = max(ys) - min(ys) + 22
-s = min(1.0, (FH - 2*SHRINK_MARGIN) / span_y)
-cx0, cy0 = (min(xs)+max(xs))/2, (min(ys)+max(ys))/2
-paths = [[((q[0]-cx0)*s + FW/2, (q[1]-cy0)*s + FH/2) for q in p] for p in paths]
-print("content scaled x%.3f; channel y-extent %.0f..%.0f" %
-      (s, min(q[1] for p in paths for q in p)-11, max(q[1] for p in paths for q in p)+11))
+# content must already sit inside the face with band margin
+lo_x = min(q[0] for p in paths for q in p) - 11
+hi_x = max(q[0] for p in paths for q in p) + 11
+lo_y = min(q[1] for p in paths for q in p) - 11
+hi_y = max(q[1] for p in paths for q in p) + 11
+assert lo_x > 14 and lo_y > 14 and hi_x < FW - 14 and hi_y < FH - 14, \
+    "content too close to face edge"
 
 def _plen(p): return sum(math.dist(p[i], p[i+1]) for i in range(len(p)-1))
 def point_at(p, t):
@@ -46,7 +63,6 @@ seg_len = [_plen(p) for p in paths]
 pmeta = []
 for si, p in enumerate(paths):
     L = seg_len[si]
-    n = max(2, round(L/PITCH) + 1)
     pts, t = [(point_at(p, 0), 0.0)], 0.0
     while True:
         t2 = t + PITCH
@@ -102,17 +118,35 @@ while True:
     pmeta[a if not end_a else b] = None
     dropped += 1
 pixels = [[round(m[0], 2), round(m[1], 2), m[2]] for m in pmeta if m is not None]
-snug = sum(1 for a, b in live_pairs() if True)
+snug = len(live_pairs())
 ny_px = sum(1 for p in pixels if p[2] < n_yellow)
 print("pixels: %d (%d yellow, %d red), %d dropped at crossings, %d snug pairs"
       % (len(pixels), ny_px, len(pixels)-ny_px, dropped, snug))
 
-# screws: 3 rails (bottom, seam, top); each plate gets corners+mid on its two rails
+# screws: per plate, corners + long-edge midpoints (inset 12 in x, 6 in y from
+# plate edges -- interior edges get the inset on each side of the seam)
 scr = []
-for sy in (6.0, SEAM-6.0, SEAM+6.0, FH-6.0):
-    for f in (12.0, FW/2, FW-12.0):
-        scr.append([round(f, 1), round(sy, 1)])
-# zip ties along paths, clear of tubes/screws/edges/seam
+for (x0, x1, y0, y1) in PLATES:
+    xs = [x0 + 12, (x0 + x1) / 2, x1 - 12]
+    for sy in (y0 + 6, y1 - 6):
+        for f in xs:
+            scr.append([round(f, 1), round(sy, 1)])
+scr = [list(s) for s in dict(((round(s[0]), round(s[1])), s) for s in scr).values()]
+
+def plate_of(x, y):
+    for i, (x0, x1, y0, y1) in enumerate(PLATES):
+        if x0 <= x < x1 and y0 <= y < y1:
+            return i + 1
+    return 0
+
+# zip ties along paths, clear of tubes/screws/edges/all seams
+SEAMS = [(1, SY, 0, FW), (0, SXT, SY, FH), (0, SXB, 0, SY)]
+def near_seam(x, y, d=12.0):
+    for axis, coord, b0, b1 in SEAMS:
+        v = (x, y)
+        if b0 - 2 <= v[1-axis] <= b1 + 2 and abs(v[axis] - coord) < d:
+            return True
+    return False
 ties = []
 for si, p in enumerate(paths):
     t = 30.0
@@ -123,7 +157,7 @@ for si, p in enumerate(paths):
         L = math.hypot(tx, ty) or 1
         for sgn in (1, -1):
             hx, hy = x - ty/L*15.5*sgn, y + tx/L*15.5*sgn
-            if not (8 < hx < FW-8 and 8 < hy < FH-8) or abs(hy-SEAM) < 12:
+            if not (8 < hx < FW-8 and 8 < hy < FH-8) or near_seam(hx, hy):
                 continue
             if min(math.dist((hx, hy), q) for pp in paths for q in pp[::2]) < 14:
                 continue
@@ -134,21 +168,26 @@ for si, p in enumerate(paths):
 
 fmt = lambda pts: "[" + ",".join("[%.2f,%.2f]" % (q[0], q[1]) for q in pts) + "]"
 with open("src/parts/board_layout.scad", "w") as f:
-    f.write("// AUTO-GENERATED by tools/boltboard.py — C1 bolt board\n")
-    f.write("bb_face = [%.1f, %.1f];\nbb_seam = %.1f;\n" % (FW, FH, SEAM))
+    f.write("// AUTO-GENERATED by tools/boltboard.py — element-6 bolt board\n")
+    f.write("bb_face = [%.1f, %.1f];\n" % (FW, FH))
+    f.write("bb_plates = [%s];\n" % ",".join(
+        "[%.1f,%.1f,%.1f,%.1f]" % r for r in PLATES))
     f.write("bb_paths = [\n  %s\n];\n" % ",\n  ".join(fmt(p) for p in paths))
     f.write("bb_px = %s;\n" % fmt(pixels))
     f.write("bb_scr = %s;\n" % fmt(scr))
     f.write("bb_tie = %s;\n" % fmt(ties))
 json.dump({"pitch": PITCH, "pixels": [{"x": p[0], "y": p[1],
            "color": "yellow" if p[2] < n_yellow else "red",
-           "plate": 1 if p[1] < SEAM else 2} for p in pixels]},
+           "plate": plate_of(p[0], p[1])} for p in pixels]},
           open("src/parts/bolt_pixmap.json", "w"), indent=1)
-for pl in (1, 2):
-    ax, ay = FW + 4, SEAM + 4
+for pl, (x0, x1, y0, y1) in enumerate(PLATES, 1):
+    ax, ay = (x1 - x0) + 4, (y1 - y0) + 4
     dat = "src/parts/fuzz_board_%d.dat" % pl
+    # plate 4's grid at seed 7 rolls a non-manifold fuzz sliver (grid-luck class
+    # from the word postmortem); seed 8 audits clean
+    seed = "8" if pl == 4 else "7"
     subprocess.run(["python3", "tools/make_fuzz.py", dat,
-                    "1.5", "0.8", "7", "0", "0", "%.0f" % ax, "%.0f" % ay], check=True)
+                    "1.5", "0.8", seed, "0", "0", "%.0f" % ax, "%.0f" % ay], check=True)
     rows = []                                   # same +-50um dead-band as the letters
     for line in open(dat):
         vals = []
@@ -159,6 +198,7 @@ for pl in (1, 2):
             vals.append("%.3f" % fv)
         rows.append(" ".join(vals))
     open(dat, "w").write("\n".join(rows) + "\n")
-p1 = sum(1 for p in pixels if p[1] < SEAM)
-print("plates: B1 %d px / B2 %d px; %d screws, %d ties" % (p1, len(pixels)-p1, len(scr), len(ties)))
-print("wrote board_layout.scad + bolt_pixmap.json + fuzz_board_{1,2}.dat")
+counts = [sum(1 for p in pixels if plate_of(p[0], p[1]) == pl) for pl in (1,2,3,4)]
+print("plate px: B1 %d / B2 %d / B3 %d / B4 %d; %d screws, %d ties"
+      % (*counts, len(scr), len(ties)))
+print("wrote board_layout.scad + bolt_pixmap.json + fuzz_board_{1..4}.dat")
