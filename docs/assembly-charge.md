@@ -65,8 +65,15 @@ bed faces (B1–B4).
 - Label (piece # + letter) is debossed on the bed face of each black body.
 
 ## Assembly
-1. Wood frame: top + bottom rails spanning ~1.65 m, 50–75 mm standoff depth; side verticals;
-   thin back skin screwed to rails (shear web). PSU/controller board on one side.
+1. Wood frame (full sign ≈ 2.07 m wide: board 410 + 60 gap + word 1597; 50–75 mm standoff
+   depth; thin back skin as shear web; PSU/controller on one side):
+   - **Word zone**: top + bottom rails spanning the 1.6 m word run, catching each piece's
+     corner/mid screws (as before).
+   - **Board zone**: three horizontal rail lines — bottom edge (screws at y≈6), the y-seam
+     line (one rail catches both rows' near-seam screws at y=249 and y=261), and top edge
+     (y≈544). Board is 550 tall vs the word's 295, so the board zone's verticals are taller;
+     with the word band centered on board height, the word rails land inside the board zone's
+     vertical span — share stiles at the 60 mm gap between board and word.
 2. Pieces butt left→right (1→6); seams are pre-relieved 0.12 mm/joint. Screw through the
    pre-drilled Ø4.5 holes (6 per piece: 4 corners + 2 mids) with black pan-heads into the rails.
 3. Pixels press into collars from behind, chained in path order within each letter, jumper
