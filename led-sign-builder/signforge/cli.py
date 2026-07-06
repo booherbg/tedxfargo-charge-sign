@@ -64,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8763)
 
+    c = sub.add_parser("coupon", help="print a fit-ladder before committing to a fit")
+    c.add_argument("--values", default="0.1,0.0,-0.1,-0.2,-0.3",
+                   help="comma-separated lip clearances (negative = interference)")
+    c.add_argument("-o", "--out", required=True)
+
     args = ap.parse_args(argv)
 
     if args.cmd == "build":
@@ -85,6 +90,31 @@ def main(argv: list[str] | None = None) -> int:
         from .web.app import app
 
         uvicorn.run(app, host=args.host, port=args.port)
+        return 0
+
+    if args.cmd == "coupon":
+        from pathlib import Path
+
+        from .coupons import fit_ladder
+        from .export.stl import stl_bytes
+        from .export.threemf import write_3mf
+        from .solids import mesh_of
+        from .verify import gated_mesh
+
+        outdir = Path(args.out)
+        outdir.mkdir(parents=True, exist_ok=True)
+        values = [float(v) for v in args.values.split(",")]
+        bodies, notes = fit_ladder(SignParams(), values)
+        parts = []
+        for b in bodies:
+            v, t = mesh_of(b.man)
+            v, t, _ = gated_mesh(v, t, f"coupon_{b.name}")
+            (outdir / f"fit_ladder_{b.name}.stl").write_bytes(stl_bytes(v, t))
+            parts.append((b.name, v, t, b.extruder))
+        write_3mf(outdir / "fit_ladder.3mf", parts)
+        for n in notes:
+            print(f"  · {n}")
+        print(f"wrote fit ladder ({len(values)} rungs) to {outdir}")
         return 0
 
     return 2

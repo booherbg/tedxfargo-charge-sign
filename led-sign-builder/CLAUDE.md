@@ -7,9 +7,11 @@ Rules for any agent/dev working in this subproject.
 - Continuity: `HANDOFF.md` (state + next step), session task list, `docs/plans/2026-07-06-implementation.md` (checkboxes), `docs/specs/…-design.md` (why).
 
 ## Commands
-- Tests: `uv run pytest` (auto-creates .venv, Python 3.12, syncs deps)
-- CLI: `uv run signforge build --text HI --font tests/assets/fonts/<f>.ttf --style channel -o /tmp/out`
+- Tests: `uv run pytest` (auto-creates .venv, Python 3.12, syncs deps) — MUST be green before commit
+- CLI: `uv run signforge build --text HI --style neon -o /tmp/out` (also `--art x.svg`, `--params f.json`)
+- Coupons: `uv run signforge coupon -o /tmp/coupons`
 - Web: `uv run signforge serve` → http://127.0.0.1:8763
+- ALWAYS run bash from this directory (`led-sign-builder/`), not the worktree root — `uv run` needs the pyproject.
 
 ## Architecture
 `ingest/*` → `model.Artwork` → `layout` → `skeleton` (neon) → `leds` → `panelize` → `parts/{neon,channel}` Bodies (manifold3d) → `verify` gates → `export/{stl,threemf,bundle}` → `preview/html`. Orchestrator `pipeline.build(params, outdir)`; CLI and `web/app.py` are thin clients. Parameter schema: `params.py` (pydantic v2, CHARGE-validated defaults).

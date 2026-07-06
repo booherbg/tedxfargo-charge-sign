@@ -1,0 +1,8 @@
+{
+  "name": "open-neon",
+  "content": {"mode": "text", "text": "OPEN", "cap_height_mm": 200},
+  "style": {"kind": "neon", "backer": "tile"},
+  "texture": {"mode": "pyramid_jitter", "cell_mm": 2.0, "height_mm": 0.6},
+  "leds": {"kind": "bullet12", "pitch_mm": 17, "budget_px": 300},
+  "printer": {"preset": "bambu-h2d-dual"}
+}

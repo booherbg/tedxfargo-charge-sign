@@ -1,0 +1,8 @@
+{
+  "name": "mini-glow",
+  "content": {"mode": "text", "text": "hi", "cap_height_mm": 60},
+  "style": {"kind": "neon", "backer": "contour"},
+  "texture": {"mode": "random", "cell_mm": 1.5, "height_mm": 0.8},
+  "leds": {"kind": "none"},
+  "printer": {"preset": "bambu-a1-mini"}
+}

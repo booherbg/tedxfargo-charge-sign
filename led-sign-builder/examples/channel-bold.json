@@ -1,0 +1,9 @@
+{
+  "name": "cafe-channel",
+  "content": {"mode": "text", "text": "CAFE", "cap_height_mm": 150},
+  "style": {"kind": "channel", "backer": "none",
+            "channel": {"wall_height": 35, "lip_clear": -0.2, "counter_mode": "glow"}},
+  "texture": {"mode": "none"},
+  "leds": {"kind": "none"},
+  "printer": {"preset": "bambu-x1c"}
+}
