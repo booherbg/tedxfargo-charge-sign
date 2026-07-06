@@ -329,7 +329,9 @@ def extract_centerlines(
 
     spur = spur_mm if spur_mm is not None else min(8.0, max(2.0, 0.55 * w_est))
     rung = rung_mm if rung_mm is not None else min(12.0, max(3.0, 0.85 * w_est))
-    min_path = min_path_mm if min_path_mm is not None else max(6.0, 2.6 * w_est)
+    # clamp: ultra-bold fonts measure huge "tube" widths; 2.6*w would prune
+    # real strokes (Bungee N's verticals). 45 mm keeps them; debris still dies.
+    min_path = min_path_mm if min_path_mm is not None else max(6.0, min(2.6 * w_est, 45.0))
 
     traced = decompose(skel_set, mm_px, spur_mm=spur, rung_mm=rung, min_mm=min_path)
     if not traced:

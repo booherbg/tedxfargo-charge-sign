@@ -116,8 +116,19 @@ def plan_tubes(
     # --- gates -------------------------------------------------------------
     if layout.fills is not None and not layout.fills.is_empty and "skeleton" in meta["source"]:
         cover_w = max(meta["tube_w"], 1.0)
+        x0, y0, x1, y1 = layout.bbox
+        if cover_w > 0.30 * max(1.0, min(x1 - x0, y1 - y0)):
+            warnings.append(
+                f"heavy strokes (~{cover_w:.0f} mm wide): neon centerlines approximate "
+                "slab letterforms coarsely — a rounded/medium font (or channel style) "
+                "reads truer"
+            )
         b = band(strokes, cover_w + 1.0)  # measured art width + raster tolerance
-        fails, notes = coverage_qa(layout.fills, b, COVERAGE_FAIL_MM2, COVERAGE_NOTE_MM2)
+        # amputations are full-tube-sized; skeleton-vs-slab corner artifacts
+        # scale with (tube_w/2)² — thresholds scale so bold fonts don't false-fail
+        fail_mm2 = max(COVERAGE_FAIL_MM2, (0.55 * cover_w) ** 2)
+        note_mm2 = max(COVERAGE_NOTE_MM2, fail_mm2 / 2)
+        fails, notes = coverage_qa(layout.fills, b, fail_mm2, note_mm2)
         warnings += [f"coverage note: {n}" for n in notes]
         if fails:
             raise BuildError(
