@@ -96,8 +96,9 @@ bed faces (B1–B4).
 2. Pieces butt left→right (1→6); seams are pre-relieved 0.12 mm/joint. Screw through the
    pre-drilled Ø4.5 holes (6 per piece: 4 corners + 2 mids) with black pan-heads into the rails.
 3. Pixels press into collars from behind, chained in path order within each letter, jumper
-   slack across seams. 4-inch strings → ~85 mm folds; tuck loose in the plenum
-   (Ø3.2 tie-hole pairs along the paths are there if transport demands).
+   slack across seams. 4-inch strings → ~85 mm folds; tuck loose in the plenum.
+   (Zip-tie holes removed 2026-07-06: through-holes in the black face leak light
+   as bright pinpricks with the plenum lit. Wood-screw holes remain.)
 4. Pixels: **591 total** (454 word + 137 board) of EXACTLY 600 owned (strings of 50 —
    hard cap, user-confirmed). Leave the last string's unused 9-px tail ATTACHED and
    tucked in the plenum — it is the only spare stock (warranty covers DOA).

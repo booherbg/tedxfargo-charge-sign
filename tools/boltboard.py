@@ -168,24 +168,8 @@ def near_seam(x, y, d=12.0):
         if b0 - 2 <= v[1-axis] <= b1 + 2 and abs(v[axis] - coord) < d:
             return True
     return False
+# zip-tie pairs REMOVED at user direction (2026-07-06): lit-plenum light leaks.
 ties = []
-for si, p in enumerate(paths):
-    t = 30.0
-    while t < seg_len[si] - 20:
-        (x, y) = point_at(p, t)
-        (x2, y2) = point_at(p, min(t+2, seg_len[si]))
-        tx, ty = x2-x, y2-y
-        L = math.hypot(tx, ty) or 1
-        for sgn in (1, -1):
-            hx, hy = x - ty/L*15.5*sgn, y + tx/L*15.5*sgn
-            if not (8 < hx < FW-8 and 8 < hy < FH-8) or near_seam(hx, hy):
-                continue
-            if min(math.dist((hx, hy), q) for pp in paths for q in pp[::2]) < 14:
-                continue
-            if any(math.dist((hx, hy), sxy) < 10 for sxy in scr):
-                continue
-            ties.append([round(hx, 1), round(hy, 1)])
-        t += 60.0
 
 # wiring chain: pixels are addressable (color zones are software), so one
 # physical chain serves the whole board. Keep arc order within each path run,

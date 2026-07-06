@@ -67,26 +67,10 @@ def path_clear(pt):
             if best < 14:
                 return False
     return True
+# zip-tie pairs REMOVED at user direction (2026-07-06): the plenum is full of
+# lit LEDs — every through-hole in the black face leaks light as a bright
+# pinprick. Wiring slack just tucks in the plenum.
 piece_ties = [[] for _ in pieces]
-for si, p in enumerate(paths):
-    L, t = plen(p), 30.0
-    while t < plen(p) - 20:
-        (x, y), (tx, ty) = point_tan(p, t)
-        for sgn in (1, -1):
-            hx, hy = x - ty*TIE_OFF*sgn, y + tx*TIE_OFF*sgn
-            if not (fx0+8 < hx < fx1-8 and fy0+8 < hy < fy1-8):
-                continue
-            if not path_clear((hx, hy)):
-                continue
-            if any(math.dist((hx, hy), s) < 10 for s in all_screws):
-                continue
-            pi = next(k for k in range(len(pieces)) if side((hx, hy), k))
-            if pi > 0 and abs(hx - cut_at(cuts[pi-1], hy)) < 12:
-                continue
-            if pi < len(pieces)-1 and abs(hx - cut_at(cuts[pi], hy)) < 12:
-                continue
-            piece_ties[pi].append([round(hx, 1), round(hy, 1)])
-        t += TIE_STEP
 
 # fuzzy-top grids per piece. V8 texture (PETG bake-off winner 2026-07-05):
 # jittered pyramid facets, 2.0mm cells / 0.6mm peaks, max-union tents, sampled

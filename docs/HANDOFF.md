@@ -77,7 +77,7 @@ Word: `tools/centerline.py` → `tools/panelize.py` → `tools/gen_pieces.py` �
 Word bridging: `tools/bridge_word.py` (letters -> closed loops, in word_cuts.json).
 Board: `tools/bolt_compose6.py` (bridge + piecewise seam scan, CONTINUOUS mode; graze check,
 corner keepout, tangent-apex rejection) → `tools/boltboard.py --pitch 20` (seam-avoiding
-pixels/screws/ties/global fuzz/pixmap+chain) → `src/parts/bolt_piece.scad -D PIECE=1..4 -D COL=1..3` → `build_board.sh`.
+pixels/screws/global fuzz crops/pixmap+chain; zip-ties removed 2026-07-06 — light leaks) → `src/parts/bolt_piece.scad -D PIECE=1..4 -D COL=1..3` → `build_board.sh`.
 Audits: `tools/clearance_audit.py` (26 mm channel rule with crisp-crossing exemption — run it
 on any new path vs the yellow), `tools/bolt_preview.py` (fast raster comps).
 Letter pixel truth: `src/parts/word_cuts.json` (454). Board: `bolt_el6.json` + pixmap.
