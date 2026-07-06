@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LED Sign Builder</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>LED Sign Builder</h1>
+  <span class="tag">text · fonts · SVG · DXF · PNG → print-ready LED sign kits</span>
+</header>
+<main>
+  <aside id="panel">
+    <section>
+      <h2>Content</h2>
+      <label>Text <textarea id="text" rows="2">GLOW</textarea></label>
+      <label>Font
+        <select id="fontsel">
+          <option value="">Bungee (bundled)</option>
+        </select>
+      </label>
+      <input type="file" id="fontfile" accept=".ttf,.otf,.woff,.woff2">
+      <label>— or upload artwork (SVG/DXF/PNG)</label>
+      <input type="file" id="artfile" accept=".svg,.dxf,.png,.jpg">
+      <button id="artclear" class="mini" hidden>use text instead</button>
+      <label>Letter height (mm) <input id="cap" type="number" value="150" min="20" max="2000"></label>
+    </section>
+    <section>
+      <h2>Style</h2>
+      <label>Kind
+        <select id="kind">
+          <option value="neon">neon tube (CHARGE look)</option>
+          <option value="channel">channel letter</option>
+        </select>
+      </label>
+      <label>Backer
+        <select id="backer">
+          <option value="tile">tile (billboard)</option>
+          <option value="contour">contour</option>
+          <option value="none">none</option>
+        </select>
+      </label>
+      <label>Lens texture
+        <select id="texture">
+          <option value="pyramid_jitter">V8 facets (bake-off winner)</option>
+          <option value="random">V3 random frost</option>
+          <option value="pyramid">uniform pyramids</option>
+          <option value="none">smooth</option>
+        </select>
+      </label>
+    </section>
+    <section>
+      <h2>LEDs</h2>
+      <label>Mode
+        <select id="leds">
+          <option value="bullet12">12mm bullet pixels</option>
+          <option value="none">no LEDs</option>
+        </select>
+      </label>
+      <label>Pitch (mm) <input id="pitch" type="number" value="17" min="10" max="60"></label>
+      <label>Pixel budget <input id="budget" type="number" placeholder="none"></label>
+    </section>
+    <section>
+      <h2>Printer</h2>
+      <label>Preset <select id="printer"></select></label>
+      <label>Kit name <input id="name" value="my-sign"></label>
+    </section>
+    <details>
+      <summary>All parameters (JSON)</summary>
+      <textarea id="advanced" rows="14" spellcheck="false"></textarea>
+      <div class="hint">Controls above override matching fields. Anything the
+      engine supports can be set here — see params.json in any kit.</div>
+    </details>
+    <button id="buildbtn">Build kit</button>
+    <div id="joblog" hidden></div>
+    <div id="jobactions" hidden>
+      <a id="dl" class="btn" href="#">Download zip</a>
+      <a id="v3d" class="btn" href="#" target="_blank">3D viewer</a>
+      <a id="vprev" class="btn" href="#" target="_blank">Dashboard</a>
+    </div>
+  </aside>
+  <section id="stage">
+    <div id="statline">…</div>
+    <div id="warnings"></div>
+    <div id="svgbox"><em>live preview appears here</em></div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

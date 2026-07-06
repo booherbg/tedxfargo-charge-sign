@@ -37,6 +37,46 @@ def _ingest(params: SignParams) -> Artwork:
     return art_to_artwork(c.art_path, c.art_target_height_mm, c.trace_threshold, c.trace_invert)
 
 
+def quick_plan(params: SignParams):
+    """Fast planning pass for live previews: no solids, no exports.
+    Returns (layout, ledplan|None, pieces, warnings)."""
+    from .geom2d import band, ring_offset
+    from .panelize import assign_pixels, panelize
+
+    art = _ingest(params)
+    if (art.fills is None or art.fills.is_empty) and not art.strokes:
+        raise BuildError(f"ingest produced no geometry ({art.source})")
+    layout = build_layout(art, params)
+    warnings: list[str] = []
+    ledplan = None
+    pixels: list = []
+    if params.style.kind == "channel":
+        from .parts.channel import channel_pan_footprint
+
+        footprint = channel_pan_footprint(layout, params)
+        pieces, cuts, pwarn = panelize(
+            footprint, [], [], params, avoid=ring_offset(layout.fills, 4.0)
+        )
+        warnings += pwarn
+    else:
+        from .leds import place_pixels
+        from .parts.neon import neon_plate_footprint
+        from .tubes import plan_tubes
+
+        strokes, layout, _meta, tw = plan_tubes(layout, params)
+        warnings += tw
+        layout.strokes = strokes
+        b_out = band(strokes, params.style.neon.band_outer)
+        footprint = neon_plate_footprint(layout, b_out, params)
+        pieces, cuts, pwarn = panelize(footprint, strokes, [], params, avoid=b_out)
+        warnings += pwarn
+        if params.leds.kind == "bullet12":
+            ledplan = place_pixels(strokes, params, seams=cuts)
+            pixels = ledplan.pixels
+    assign_pixels(pieces, pixels)
+    return layout, ledplan, pieces, warnings
+
+
 def build(
     params: SignParams, outdir: str | Path, progress: Optional[ProgressFn] = None
 ) -> BuildResult:
