@@ -63,6 +63,24 @@ def quick_plan(params: SignParams):
             footprint, [], [], params, avoid=ring_offset(layout.fills, 4.0)
         )
         warnings += pwarn
+    elif params.style.kind == "halo":
+        from .leds import place_pixels, strip_plan
+        from .parts.halo import halo_footprint, halo_pixel_strokes
+
+        if layout.fills is None or layout.fills.is_empty:
+            raise BuildError("halo style needs filled artwork (text or filled vectors)")
+        strokes = halo_pixel_strokes(layout, params)
+        footprint = halo_footprint(layout, params)
+        pieces, cuts, pwarn = panelize(footprint, strokes, [], params)
+        warnings += pwarn
+        if len(pieces) > 1:
+            pieces, cuts = pieces[:1], []
+            warnings.append("halo faces aren't split in v1 — build letters individually")
+        if params.leds.kind == "bullet12":
+            ledplan = place_pixels(strokes, params, seams=cuts)
+            pixels = ledplan.pixels
+        elif params.leds.kind == "strip":
+            ledplan = strip_plan(strokes, params)
     else:
         from .leds import place_pixels
         from .parts.neon import neon_plate_footprint
@@ -78,6 +96,10 @@ def quick_plan(params: SignParams):
         if params.leds.kind == "bullet12":
             ledplan = place_pixels(strokes, params, seams=cuts)
             pixels = ledplan.pixels
+        elif params.leds.kind == "strip":
+            from .leds import strip_plan
+
+            ledplan = strip_plan(strokes, params)
     assign_pixels(pieces, pixels)
     return layout, ledplan, pieces, warnings
 
@@ -124,6 +146,36 @@ def build(
         pieces, cuts, pwarn = panelize(footprint, [], [], params, avoid=avoid)
         warnings += pwarn
         bodies, _fp = build_channel_bodies(layout, pixels, params)
+    elif params.style.kind == "halo":
+        from .leds import place_pixels
+        from .parts.halo import build_halo_bodies, halo_footprint, halo_pixel_strokes
+
+        strokes = halo_pixel_strokes(layout, params)
+        footprint = halo_footprint(layout, params)
+        say("panelizing")
+        pieces, cuts, pwarn = panelize(footprint, strokes, [], params)
+        warnings += pwarn
+        if len(pieces) > 1:
+            warnings.append(
+                "halo faces aren't split in v1 — build letters individually "
+                "(one build per letter) or reduce size; exporting whole"
+            )
+            pieces, cuts = pieces[:1], []
+            x0, y0, x1, y1 = footprint.bounds
+            from .geom2d import bbox_polygon
+
+            pieces[0].mask = bbox_polygon(x0 - 1, y0 - 1, x1 + 1, y1 + 1)
+            pieces[0].screws = []
+        if params.leds.kind == "bullet12":
+            ledplan = place_pixels(strokes, params, seams=cuts)
+            warnings += ledplan.audits
+            pixels = ledplan.pixels
+        elif params.leds.kind == "strip":
+            from .leds import strip_plan
+
+            ledplan = strip_plan(strokes, params)
+            warnings += ledplan.audits
+        bodies, _fp = build_halo_bodies(layout, pixels, params)
     else:
         from .leds import place_pixels
         from .parts.neon import build_neon_bodies, neon_plate_footprint
@@ -142,6 +194,11 @@ def build(
             ledplan = place_pixels(strokes, params, seams=cuts)
             warnings += ledplan.audits
             pixels = ledplan.pixels
+        elif params.leds.kind == "strip":
+            from .leds import strip_plan
+
+            ledplan = strip_plan(strokes, params)
+            warnings += ledplan.audits
         bodies, _fp = build_neon_bodies(layout, strokes, pixels, params)
         if params.output.debug_overlays and layout.fills is not None and not layout.fills.is_empty:
             from .skeleton import debug_overlay

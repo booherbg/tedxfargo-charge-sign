@@ -55,13 +55,17 @@ uv run signforge coupon -o out/coupons
 | PNG / JPG | ✓ threshold + marching-squares trace | via skeleton |
 | EPS | convert to SVG first (`gs`/`pdftocairo`) | — |
 
-## Two styles
+## Three styles
 
 - **neon** — faux-neon tube channels (the CHARGE look): 18 mm interior / 22 mm band
   cross-section, white-lined, welded textured lens, pixels along the tube.
 - **channel** — classic filled channel letters: back pan (counters never float),
   perimeter+counter walls, press-fit face lens (**-0.2 mm interference**, pre-mirrored
   for face-down printing).
+- **halo** — backlit wall-glow letters: opaque face (bed-smooth, pre-mirrored),
+  white rear flange with backward-firing pixels on a perimeter racetrack, standoff
+  bosses, optional drop-in rear diffuser. LEDs: bullet pixels, **LED strip**
+  (length+PSU planned in the BOM), or none.
 
 Backers: `tile` (billboard), `contour`, `none`. Printers: H2D (multi-nozzle zone),
 X1C, A1, A1-mini, MK4, Ender-3, or custom bed.

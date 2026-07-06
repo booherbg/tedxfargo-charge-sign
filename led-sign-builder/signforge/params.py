@@ -78,8 +78,23 @@ class ChannelSection(BaseModel):
     counter_mode: Literal["glow", "open"] = "glow"
 
 
+class HaloSection(BaseModel):
+    """Halo/backlit letters: opaque face, LEDs fire backward at the wall."""
+
+    face_t: float = Field(2.4, gt=0)
+    wall_t: float = Field(1.6, gt=0)
+    depth: float = Field(35.0, gt=5)            # face -> wall plane (halo throw)
+    flange_w: float = Field(16.0, gt=6)         # rear ring carrying the pixels
+    flange_t: float = Field(2.0, gt=0.5)        # == collar height (flush seat)
+    back_mode: Literal["open", "diffuser"] = "open"
+    diffuser_t: float = Field(1.5, gt=0.3)
+    standoff_d: float = Field(10.0, gt=3)       # wall-standoff boss diameter
+    standoff_len: float = Field(12.0, ge=0)     # boss height past the flange
+    standoff_bore: float = Field(4.2, gt=0.5)   # M4 clearance
+
+
 class StyleParams(BaseModel):
-    kind: Literal["neon", "channel"] = "neon"
+    kind: Literal["neon", "channel", "halo"] = "neon"
     backer: Literal["tile", "contour", "none"] = "tile"
     tile_margin_mm: float = Field(12.0, ge=0)
     contour_margin_mm: float = Field(8.0, ge=0)
@@ -89,10 +104,12 @@ class StyleParams(BaseModel):
     screw_midspan_mm: float = Field(160.0, gt=0)  # add mid-span screws past this
     neon: NeonSection = NeonSection()
     channel: ChannelSection = ChannelSection()
+    halo: HaloSection = HaloSection()
 
 
 class LedParams(BaseModel):
-    kind: Literal["bullet12", "none"] = "bullet12"
+    kind: Literal["bullet12", "strip", "none"] = "bullet12"
+    watts_per_m: float = Field(14.4, gt=0)        # strip mode (60/m 5050 class)
     pitch_mm: float = Field(17.0, gt=5)           # solid-tube glow (lesson: 8" native = sparse)
     min_chord_mm: float = Field(14.8, gt=1)       # chord-measured, not arc (lesson 18)
     flange_floor_mm: float = Field(14.5, gt=1)    # flange Ø13.6 + margin
@@ -210,5 +227,11 @@ PRESET_PARAMS: dict[str, dict] = {
         "style": {"kind": "neon", "backer": "contour"},
         "leds": {"kind": "none"},
         "printer": {"preset": "bambu-a1-mini"},
+    },
+    # Wall-glow letters: opaque face, backward-firing pixels, standoffs.
+    "halo-backlit": {
+        "name": "halo-backlit",
+        "style": {"kind": "halo", "backer": "none"},
+        "texture": {"mode": "none"},
     },
 }

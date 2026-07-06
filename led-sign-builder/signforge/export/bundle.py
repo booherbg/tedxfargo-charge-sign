@@ -46,6 +46,16 @@ def render_bom(
         "White interiors recycle light — never a dark interior facing the LEDs.",
     ]
 
+    if ledplan and ledplan.power.count == 0 and ledplan.power.watts > 0:
+        p = ledplan.power
+        lines += [
+            "",
+            "## Electrical (LED strip)",
+            "",
+            f"- Load: {p.watts:.0f} W ({p.amps:.1f} A @ {params.leds.volts:.0f} V) → "
+            f"**{p.psu_watts} W PSU** (kept ≤{params.leds.psu_headroom:.0%})",
+        ] + [f"- {a}" for a in ledplan.audits]
+
     if ledplan and ledplan.power.count:
         from ..leds import chain_hops, chain_length_mm
 

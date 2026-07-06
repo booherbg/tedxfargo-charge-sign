@@ -1,0 +1,8 @@
+{
+  "name": "halo-glow",
+  "content": {"mode": "text", "text": "B", "cap_height_mm": 180},
+  "style": {"kind": "halo", "halo": {"depth": 35, "back_mode": "diffuser"}},
+  "texture": {"mode": "none"},
+  "leds": {"kind": "bullet12", "pitch_mm": 20},
+  "printer": {"preset": "bambu-x1c"}
+}

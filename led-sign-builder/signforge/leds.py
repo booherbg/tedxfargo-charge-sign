@@ -96,6 +96,26 @@ def _place_stroke(s: Stroke, pitch: float, min_chord: float) -> list[Point2]:
     return [s.pts[0], s.pts[-1]] if L >= min_chord else [s.pts[0]]
 
 
+def strip_plan(strokes: list[Stroke], params: SignParams) -> LedPlan:
+    """LED strip in the channel instead of pixels: no bores, length-based power."""
+    lp = params.leds
+    length_mm = sum(s.length() for s in strokes)
+    watts = length_mm / 1000 * lp.watts_per_m
+    power = PowerPlan(
+        count=0,
+        watts=watts,
+        amps=watts / lp.volts if lp.volts else 0.0,
+        psu_watts=psu_pick(watts, lp.psu_headroom) if watts else 0,
+        strings=0,
+        budget_px=None,
+    )
+    audits = [
+        f"strip mode: {length_mm / 1000:.2f} m of channel — buy ~{length_mm / 1000 * 1.1:.1f} m "
+        f"({lp.watts_per_m} W/m); feed both ends past 3 m to avoid voltage droop"
+    ]
+    return LedPlan(pixels=[], per_stroke=[[] for _ in strokes], power=power, audits=audits)
+
+
 def _seam_dist(p: Point2, seams: list[tuple[str, float]]) -> float:
     if not seams:
         return 1e9
