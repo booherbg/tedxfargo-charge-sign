@@ -17,6 +17,25 @@ from .params import SignParams
 from .skeleton import path_len, resample
 
 
+JUMPER_MM = 101.6  # 4" pigtails between consecutive pixels
+
+
+def chain_hops(
+    pixels: list[Point2], per_stroke: list[list[int]]
+) -> list[tuple[Point2, Point2, bool]]:
+    """Wiring order (one data line): pixels within each run in placement
+    order, runs in stroke order. Returns (a, b, needs_jumper) per hop."""
+    order = [i for run in per_stroke for i in run]
+    return [
+        (pixels[a], pixels[b], math.dist(pixels[a], pixels[b]) > JUMPER_MM)
+        for a, b in zip(order, order[1:])
+    ]
+
+
+def chain_length_mm(pixels: list[Point2], per_stroke: list[list[int]]) -> float:
+    return sum(math.dist(a, b) for a, b, _ in chain_hops(pixels, per_stroke))
+
+
 def densify(poly: list[Point2], step: float = 0.25) -> list[Point2]:
     out = [tuple(poly[0])]
     for a, b in zip(poly, poly[1:]):
@@ -83,65 +102,47 @@ def _seam_dist(p: Point2, seams: list[tuple[str, float]]) -> float:
     return min(abs((p[0] if axis == "x" else p[1]) - c) for axis, c in seams)
 
 
-def _slide_off_seams(
-    stroke: Stroke,
-    placed: list[Point2],
-    seams: list[tuple[str, float]],
-    keepout: float,
-    min_chord: float,
-) -> tuple[list[Point2], list[str]]:
-    """Nudge seam-violating pixels along their own path (no collar straddles a
-    joint — lesson 17). Ends stay pinned; unresolvable pixels are dropped."""
-    notes: list[str] = []
-    if not seams:
-        return placed, notes
+def _split_at_seams(
+    stroke: Stroke, seams: list[tuple[str, float]], keepout: float
+) -> list[list[Point2]]:
+    """Cut a stroke into seam-bounded segments, each inset by the keepout.
+
+    This is the CHARGE order of operations: pixels are placed per piece-run,
+    evenly, with ends pinned at the keepout — so no collar can straddle a
+    joint BY CONSTRUCTION (vs. nudging placed pixels, which corners itself
+    when the pitch is tighter than 2× keepout)."""
     dense = densify(stroke.pts + ([stroke.pts[0]] if stroke.closed else []))
-    out = list(placed)
-    for k in range(len(out)):
-        if _seam_dist(out[k], seams) >= keepout:
-            continue
-        if k in (0, len(out) - 1) and not stroke.closed:
-            notes.append(
-                f"pixel at ({out[k][0]:.0f},{out[k][1]:.0f}) is a pinned stroke end "
-                "inside seam keepout — check the joint at install"
-            )
-            continue
-        i0 = min(range(len(dense)), key=lambda i: math.dist(dense[i], out[k]))
-        best = None
-        for di in range(1, int(keepout * 8)):
-            for sgn in (1, -1):
-                i = i0 + sgn * di
-                if not 0 <= i < len(dense):
-                    continue
-                q = dense[i]
-                if _seam_dist(q, seams) < keepout:
-                    continue
-                nbrs = [
-                    nb
-                    for nb in (
-                        out[k - 1] if k > 0 else None,
-                        out[k + 1] if k < len(out) - 1 else None,
-                    )
-                    if nb is not None
-                ]
-                if all(math.dist(q, nb) >= min_chord for nb in nbrs):
-                    best = q
-                    break
-            if best:
-                break
-        if best:
-            out[k] = (round(best[0], 2), round(best[1], 2))
-            notes.append(
-                f"pixel slid {math.dist(placed[k], best):.1f} mm off a seam "
-                f"to ({best[0]:.0f},{best[1]:.0f})"
-            )
-        else:
-            out[k] = None  # type: ignore[assignment]
-            notes.append(
-                f"pixel at ({placed[k][0]:.0f},{placed[k][1]:.0f}) dropped: "
-                "seam keepout unresolvable on its path"
-            )
-    return [p for p in out if p is not None], notes
+    if not seams:
+        return [dense]
+    keep = [_seam_dist(q, seams) >= keepout for q in dense]
+    runs: list[list[Point2]] = []
+    cur: list[Point2] = []
+    for q, ok in zip(dense, keep):
+        if ok:
+            cur.append(q)
+        elif cur:
+            runs.append(cur)
+            cur = []
+    if cur:
+        runs.append(cur)
+    # a closed loop whose start sample isn't near a seam: first+last runs are
+    # actually one continuous run across the arbitrary start point
+    if stroke.closed and len(runs) >= 2 and keep[0] and keep[-1]:
+        runs[0] = runs.pop() + runs[0]
+    return [r for r in runs if len(r) >= 2]
+
+
+def _place_segment(seg: list[Point2], pitch: float, min_chord: float) -> list[Point2]:
+    L = sum(math.dist(a, b) for a, b in zip(seg, seg[1:]))
+    if L < min_chord * 0.7:
+        return []
+    n_pts = max(2, round(L / pitch) + 1)
+    for n in range(n_pts, 1, -1):
+        cand = chord_chain(seg, n - 1) if n > 2 else [seg[0], seg[-1]]
+        chords = [math.dist(a, b) for a, b in zip(cand, cand[1:])]
+        if not chords or min(chords) >= min_chord:
+            return cand
+    return [seg[0]]
 
 
 def place_pixels(
@@ -155,16 +156,22 @@ def place_pixels(
     audits: list[str] = []
 
     for s in strokes:
-        placed = _place_stroke(s, lp.pitch_mm, lp.min_chord_mm)
+        crosses_seam = False
         if seams:
-            placed, notes = _slide_off_seams(
-                s, placed, seams, lp.seam_keepout_mm, lp.min_chord_mm
-            )
-            audits += notes
-        idx = []
-        for p in placed:
-            idx.append(len(pixels))
-            pixels.append((round(p[0], 2), round(p[1], 2)))
+            probe = densify(s.pts + ([s.pts[0]] if s.closed else []), step=2.0)
+            crosses_seam = any(_seam_dist(q, seams) < lp.seam_keepout_mm for q in probe)
+        idx: list[int] = []
+        if crosses_seam:
+            for seg in _split_at_seams(s, seams or [], lp.seam_keepout_mm):
+                placed = _place_segment(seg, lp.pitch_mm, lp.min_chord_mm)
+                for p in placed:
+                    idx.append(len(pixels))
+                    pixels.append((round(p[0], 2), round(p[1], 2)))
+        else:
+            placed = _place_stroke(s, lp.pitch_mm, lp.min_chord_mm)
+            for p in placed:
+                idx.append(len(pixels))
+                pixels.append((round(p[0], 2), round(p[1], 2)))
         per_stroke.append(idx)
 
     # pass 1: drop coincident / hard-floor violators (keep the earlier pixel)
@@ -208,14 +215,13 @@ def place_pixels(
             "flange Ø13.6, check/trim flanges at install"
         )
 
-    # wiring: stroke order; long jumps between consecutive stroke ends need jumpers
-    for a, b in zip(per_stroke, per_stroke[1:]):
-        if a and b:
-            d = math.dist(pixels[a[-1]], pixels[b[0]])
-            if d > 101.6:
-                audits.append(
-                    f"chain gap {d:.0f} mm between runs — needs an extension jumper (4\" strings)"
-                )
+    # wiring: stroke order; long hops need extension jumpers (4" pigtails)
+    for pa, pb, is_jumper in chain_hops(pixels, per_stroke):
+        if is_jumper:
+            audits.append(
+                f"chain hop {math.dist(pa, pb):.0f} mm at ({pa[0]:.0f},{pa[1]:.0f})→"
+                f"({pb[0]:.0f},{pb[1]:.0f}) — needs an extension jumper"
+            )
 
     n = len(pixels)
     watts = n * lp.watts_per_px

@@ -82,15 +82,41 @@ def render_preview(
             f'<path d="{_path_d(as_multipolygon(pc.mask))}" fill="none" '
             f'stroke="{c["seam"]}" stroke-width="0.8" stroke-dasharray="4 3"/>'
         )
-    if ledplan:
+    first_pixel = None
+    if ledplan and ledplan.pixels:
+        from ..leds import chain_hops
+
+        for pa, pb, is_jumper in chain_hops(ledplan.pixels, ledplan.per_stroke):
+            style = (
+                'stroke="#ff9d5c" stroke-dasharray="5 4" stroke-width="1.6"'
+                if is_jumper
+                else 'stroke="#66d19e" stroke-width="1.1" stroke-opacity="0.85"'
+            )
+            el.append(
+                f'<line x1="{pa[0]:.1f}" y1="{pa[1]:.1f}" x2="{pb[0]:.1f}" '
+                f'y2="{pb[1]:.1f}" {style}/>'
+            )
         r = params.leds.bore_mm / 2
         for px, py in ledplan.pixels:
             el.append(
                 f'<circle cx="{px:.2f}" cy="{py:.2f}" r="{r:.2f}" fill="{c["pixel"]}" '
                 f'fill-opacity="0.9"/>'
             )
+        order = [i for run in ledplan.per_stroke for i in run]
+        if order:
+            first_pixel = ledplan.pixels[order[0]]
+            fx, fy = first_pixel
+            el.append(
+                f'<circle cx="{fx:.2f}" cy="{fy:.2f}" r="{r + 2.5:.2f}" fill="none" '
+                f'stroke="#66d19e" stroke-width="1.6"/>'
+            )
 
     labels = ""
+    if first_pixel is not None:
+        labels += (
+            f'<text x="{first_pixel[0] + 10:.1f}" y="{-first_pixel[1] + 4:.1f}" '
+            f'fill="#66d19e" font-size="11" font-family="system-ui">DATA IN</text>'
+        )
     if len(pieces) > 1:
         for pc in pieces:
             lc = pc.mask.centroid

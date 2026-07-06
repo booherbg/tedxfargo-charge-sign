@@ -47,7 +47,12 @@ def render_bom(
     ]
 
     if ledplan and ledplan.power.count:
+        from ..leds import chain_hops, chain_length_mm
+
         p = ledplan.power
+        hops = chain_hops(ledplan.pixels, ledplan.per_stroke)
+        jumpers = [h for h in hops if h[2]]
+        chain_m = chain_length_mm(ledplan.pixels, ledplan.per_stroke) / 1000
         lines += [
             "",
             "## Electrical",
@@ -58,6 +63,16 @@ def render_bom(
             f"- Load: {p.watts:.0f} W ({p.amps:.1f} A) → **{p.psu_watts} W PSU** "
             f"(kept ≤{params.leds.psu_headroom:.0%})",
             f"- Strings of 50: {p.strings} (spares = last string's tail)",
+            f"- One data chain, {chain_m:.1f} m point-to-point (plan ~{chain_m * 1.25:.1f} m "
+            f"with slack); **{len(jumpers)} extension jumper(s)** needed"
+            + (
+                " at: "
+                + "; ".join(f"({a[0]:.0f},{a[1]:.0f})→({b[0]:.0f},{b[1]:.0f})" for a, b, _ in jumpers)
+                if jumpers
+                else ""
+            ),
+            "- Wiring order is drawn on the preview (green chain, orange dashed jumpers,",
+            "  DATA IN ring at the first pixel).",
         ]
         if ledplan.audits:
             lines += ["", "### Spacing audits", ""] + [f"- ⚠ {a}" for a in ledplan.audits]
