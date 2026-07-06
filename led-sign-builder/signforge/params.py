@@ -13,16 +13,17 @@ from pydantic import BaseModel, Field, model_validator
 
 SCHEMA_VERSION = 1
 
-# Effective printable envelope (x, y) in mm. For multi-material machines this
-# is the multi-tool zone, not the sheet size (lesson 21: the real bed is
-# smaller than the bed; H2D value was validated with a physical bedcheck part).
-PRINTER_PRESETS: dict[str, tuple[float, float]] = {
-    "bambu-h2d-dual": (316.0, 295.0),
-    "bambu-x1c": (256.0, 256.0),
-    "bambu-a1": (256.0, 256.0),
-    "bambu-a1-mini": (180.0, 180.0),
-    "prusa-mk4": (250.0, 210.0),
-    "ender-3": (220.0, 220.0),
+# Effective printable envelope (x, y) in mm plus bridging capability. The
+# envelope is the multi-tool zone, not the sheet size (lesson 21: the real bed
+# is smaller than the bed; H2D value was validated with a physical bedcheck
+# part). "weak" bridging auto-enables internal support ribs in neon channels.
+PRINTER_PRESETS: dict[str, dict] = {
+    "bambu-h2d-dual": {"bed": (316.0, 295.0), "bridging": "good"},
+    "bambu-x1c": {"bed": (256.0, 256.0), "bridging": "good"},
+    "bambu-a1": {"bed": (256.0, 256.0), "bridging": "good"},
+    "bambu-a1-mini": {"bed": (180.0, 180.0), "bridging": "weak"},
+    "prusa-mk4": {"bed": (250.0, 210.0), "bridging": "good"},
+    "ender-3": {"bed": (220.0, 220.0), "bridging": "weak"},
 }
 
 
@@ -96,8 +97,17 @@ class HaloSection(BaseModel):
 class StyleParams(BaseModel):
     kind: Literal["neon", "channel", "halo"] = "neon"
     backer: Literal["tile", "contour", "none"] = "tile"
+    backer_shape: Literal["rect", "rounded", "oval", "shield", "starburst", "scallop"] = "rect"
+    plaque_corner_radius_mm: float = Field(12.0, gt=0)
+    plaque_rays: int = Field(16, ge=8, le=48)
     tile_margin_mm: float = Field(12.0, ge=0)
     contour_margin_mm: float = Field(8.0, ge=0)
+    # internal support ribs for weak-bridging printers: thin white ribs from
+    # channel floor to lens underside — PERMANENT (removable supports inside a
+    # sealed cavity are unprintable; CHARGE optics-matrix lesson)
+    support_ribs: Literal["auto", "on", "off"] = "auto"
+    rib_spacing_mm: float = Field(28.0, gt=8)
+    rib_t_mm: float = Field(0.9, gt=0.3)
     screw_holes: bool = True                      # anti-lift + mounting (Ø4.5 rail screws)
     screw_d_mm: float = Field(4.5, gt=0)
     screw_inset_mm: float = Field(12.0, gt=0)
@@ -128,8 +138,13 @@ class LedParams(BaseModel):
 
 class TextureParams(BaseModel):
     mode: Literal["none", "random", "pyramid", "pyramid_jitter"] = "pyramid_jitter"
+    # which surfaces get the fuzzy layer: the lens top, the visible backer
+    # field around the tubes/letters, or both
+    targets: list[Literal["lens", "backer"]] = ["lens"]
     cell_mm: float = Field(2.0, gt=0.2)     # V8 winner
     height_mm: float = Field(0.6, gt=0.02)
+    backer_cell_mm: float = Field(3.0, gt=0.2)   # coarser field texture reads better
+    backer_height_mm: float = Field(0.5, gt=0.02)
     seed: int = 7
     standoff_mm: float = Field(0.02, gt=0)  # never kiss the lens plane (lesson 9)
     sample_div: int = Field(3, ge=2, le=8)  # cell/3; S=4 doubled mesh for nothing
@@ -159,19 +174,42 @@ class PrinterParams(BaseModel):
     def bed(self) -> tuple[float, float]:
         if self.bed_x_mm and self.bed_y_mm:
             return (self.bed_x_mm, self.bed_y_mm)
-        return PRINTER_PRESETS[self.preset]
+        return PRINTER_PRESETS[self.preset]["bed"]
+
+    @property
+    def bridging(self) -> str:
+        if self.preset in PRINTER_PRESETS:
+            return PRINTER_PRESETS[self.preset]["bridging"]
+        return "good"
+
+
+PALETTES: dict[str, dict[str, str]] = {
+    "charge-classic": {"shell": "#141414", "liner": "#f2f2f2", "lens": "#7ec8ff",
+                       "pixel": "#ffd24d", "seam": "#ff5470"},
+    "porcelain-diner": {"shell": "#f2ebdc", "liner": "#ffffff", "lens": "#7fd4c1",
+                        "pixel": "#ffd24d", "seam": "#c24e33"},
+    "gas-station": {"shell": "#26221b", "liner": "#f2f2f2", "lens": "#ff5a4e",
+                    "pixel": "#ffd24d", "seam": "#7fa3a1"},
+    "atomic-lounge": {"shell": "#2e5f5c", "liner": "#f2ebdc", "lens": "#e8b33c",
+                      "pixel": "#fff1c9", "seam": "#c24e33"},
+    "bakelite-brass": {"shell": "#3b3630", "liner": "#ede4d3", "lens": "#c99b3f",
+                       "pixel": "#ffe9b0", "seam": "#7fa3a1"},
+}
 
 
 class ColorParams(BaseModel):
     # body name -> 1-based extruder/filament slot (Bambu semantics, lesson 20)
     extruders: dict[str, int] = {"shell": 1, "liner": 2, "lens": 3}
-    preview: dict[str, str] = {
-        "shell": "#141414",
-        "liner": "#f2f2f2",
-        "lens": "#7ec8ff",
-        "pixel": "#ffd24d",
-        "seam": "#ff5470",
-    }
+    palette: Optional[str] = None            # named palette applies to preview
+    preview: dict[str, str] = dict(PALETTES["charge-classic"])
+
+    @model_validator(mode="after")
+    def _apply_palette(self) -> "ColorParams":
+        if self.palette:
+            if self.palette not in PALETTES:
+                raise ValueError(f"unknown palette {self.palette!r}; known: {sorted(PALETTES)}")
+            self.preview = dict(PALETTES[self.palette])   # named palette wins
+        return self
 
 
 class OutputParams(BaseModel):

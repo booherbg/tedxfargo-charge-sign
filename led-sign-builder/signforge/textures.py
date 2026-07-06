@@ -80,6 +80,43 @@ def fuzz_grid(
     return grid, step
 
 
+def textured_field(
+    region: MultiPolygon,
+    z_top: float,
+    params: SignParams,
+    piece_seed: int,
+    fuse: float,
+    cell: float | None = None,
+    hmax: float | None = None,
+) -> m3d.Manifold:
+    """A fuzzy field solid to union onto any surface whose top face is z_top
+    (lens tops, backer plates, plaque fields). Field base sinks fuse below
+    z_top (weld overlap, no tangency); heights are floored so every peak stays
+    strictly proud of the plane."""
+    t = params.texture
+    cell = cell or t.cell_mm
+    hmax = hmax or t.height_mm
+    x0, y0, x1, y1 = region.bounds
+    margin = cell
+    grid, step = fuzz_grid(
+        t.mode,
+        cell,
+        hmax,
+        piece_seed,
+        (x1 - x0 + 2 * margin, y1 - y0 + 2 * margin),
+        t.sample_div,
+    )
+    grid = grid + fuse + t.standoff_mm            # keep peaks proud after sinking
+    hf = heightfield(grid, step, (x0 - margin, y0 - margin), z_top - fuse)
+    clip = prism(region, z_top - fuse - 0.5, z_top + hmax + fuse + 1.0)
+    tex = hf ^ clip
+    if tex.is_empty():
+        from .verify import BuildError
+
+        raise BuildError("textured_field: texture∩region came up empty")
+    return tex
+
+
 def textured_lens_top(
     band: MultiPolygon,
     z_top: float,
@@ -87,27 +124,4 @@ def textured_lens_top(
     piece_seed: int,
     fuse: float,
 ) -> m3d.Manifold:
-    """The texture solid to union onto a flat lens whose top face is z_top.
-
-    Field base sinks fuse below z_top (weld overlap, no tangency); heights are
-    floored so every peak stays strictly proud of the lens plane."""
-    t = params.texture
-    x0, y0, x1, y1 = band.bounds
-    margin = t.cell_mm
-    grid, step = fuzz_grid(
-        t.mode,
-        t.cell_mm,
-        t.height_mm,
-        piece_seed,
-        (x1 - x0 + 2 * margin, y1 - y0 + 2 * margin),
-        t.sample_div,
-    )
-    grid = grid + fuse + t.standoff_mm            # keep peaks proud after sinking
-    hf = heightfield(grid, step, (x0 - margin, y0 - margin), z_top - fuse)
-    clip = prism(band, z_top - fuse - 0.5, z_top + t.height_mm + fuse + 1.0)
-    tex = hf ^ clip
-    if tex.is_empty():
-        from .verify import BuildError
-
-        raise BuildError("textured_lens_top: texture∩band came up empty")
-    return tex
+    return textured_field(band, z_top, params, piece_seed, fuse)

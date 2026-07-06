@@ -9,7 +9,7 @@ def test_defaults_are_valid_and_charge_calibrated():
     assert p.style.neon.band_outer == pytest.approx(22.0)   # 18 + 2*(0.8+1.2)
     assert p.leds.bore_mm == 12.3
     assert p.style.channel.lip_clear == -0.2
-    assert p.printer.bed == PRINTER_PRESETS["bambu-h2d-dual"]
+    assert p.printer.bed == PRINTER_PRESETS["bambu-h2d-dual"]["bed"]
 
 
 def test_json_round_trip():

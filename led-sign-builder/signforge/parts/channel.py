@@ -66,7 +66,20 @@ def build_channel_bodies(
         pan = pan - bores
     wall_band = heal(F.difference(cavity))
     walls = prism(wall_band, st.plate_t - fuse, st.plate_t + st.wall_height)
-    bodies.append(Body("shell", union_all([pan, walls]), ex["shell"], colors["shell"]))
+    shell_parts = [pan, walls]
+    if params.texture.mode != "none" and "backer" in params.texture.targets:
+        from ..textures import textured_field
+
+        field_region = heal(pan_poly.difference(ring_offset(F_solid, 2.0)))
+        if not field_region.is_empty:
+            shell_parts.append(
+                textured_field(
+                    field_region, st.plate_t, params, params.texture.seed + 101, fuse,
+                    cell=params.texture.backer_cell_mm,
+                    hmax=params.texture.backer_height_mm,
+                )
+            )
+    bodies.append(Body("shell", union_all(shell_parts), ex["shell"], colors["shell"]))
 
     # ---- liner: white floor + inner wall lining + collars (LED builds) ------
     if pixels:

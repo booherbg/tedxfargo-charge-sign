@@ -52,9 +52,22 @@ def build_neon_bodies(
         plate = plate - bores
     outer_ring = heal(b_out.difference(b_liner))
     walls = prism(outer_ring, st.plate_t - fuse, wall_top)
-    bodies.append(Body("shell", union_all([plate, walls]), ex["shell"], colors["shell"]))
+    shell_parts = [plate, walls]
+    if params.texture.mode != "none" and "backer" in params.texture.targets:
+        from ..geom2d import ring_offset as _ro
+        from ..textures import textured_field
 
-    # ---- liner (white): floor + inner wall + collars -------------------------
+        field_region = heal(plate_fp.difference(_ro(b_out, 2.0)))
+        if not field_region.is_empty:
+            shell_parts.append(
+                textured_field(
+                    field_region, st.plate_t, params, params.texture.seed + 101, fuse,
+                    cell=params.texture.backer_cell_mm, hmax=params.texture.backer_height_mm,
+                )
+            )
+    bodies.append(Body("shell", union_all(shell_parts), ex["shell"], colors["shell"]))
+
+    # ---- liner (white): floor + inner wall + collars + optional ribs ---------
     if pixels or params.leds.kind != "none":
         floor_top = st.plate_t + st.liner_floor_t
         floor = prism(b_liner, st.plate_t, floor_top)
@@ -70,11 +83,25 @@ def build_neon_bodies(
                 collar(x, y, 0.0, params.leds.collar_od_mm, params.leds.collar_h_mm)
                 for (x, y) in pixels
             ]
+        ribs_on = params.style.support_ribs == "on" or (
+            params.style.support_ribs == "auto" and params.printer.bridging == "weak"
+        )
+        if ribs_on:
+            from .ribs import support_ribs
+
+            rib_polys = support_ribs(
+                strokes, b_in, pixels,
+                spacing=params.style.rib_spacing_mm,
+                rib_t=params.style.rib_t_mm,
+                span=st.channel_interior + 2 * st.liner_wall,
+                pixel_keepout=params.leds.dome_clear_mm + 3.0,
+            )
+            parts += [prism(rp, floor_top - fuse, wall_top) for rp in rib_polys]
         bodies.append(Body("liner", union_all(parts), ex["liner"], colors["liner"]))
 
     # ---- lens (clear): welded band over the walls, baked fuzzy top -----------
     lens = prism(b_out, wall_top - fuse, wall_top + st.lens_t)
-    if params.texture.mode != "none":
+    if params.texture.mode != "none" and "lens" in params.texture.targets:
         from ..textures import textured_lens_top
 
         tex = textured_lens_top(

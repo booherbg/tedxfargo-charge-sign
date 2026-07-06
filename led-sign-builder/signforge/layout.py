@@ -31,8 +31,15 @@ def build_layout(art: Artwork, params: SignParams) -> Layout:
 
     backer = None
     if params.style.backer == "tile":
-        m = params.style.tile_margin_mm
-        backer = bbox_polygon(-m, -m, w + m, h + m)
+        from .plaques import plaque
+
+        backer = plaque(
+            params.style.backer_shape,
+            (0, 0, w, h),
+            params.style.tile_margin_mm,
+            corner_radius=params.style.plaque_corner_radius_mm,
+            rays=params.style.plaque_rays,
+        )
     elif params.style.backer == "contour" and fills is not None:
         contour = ring_offset(fills, params.style.contour_margin_mm)
         if len(contour.geoms) == 1:
