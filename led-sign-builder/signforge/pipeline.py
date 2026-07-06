@@ -277,6 +277,11 @@ def build(
         ppath = out / "preview" / "index.html"
         ppath.write_text(html)
         files.append(str(ppath))
+        from .preview.png import render_png
+
+        png_path = out / "preview" / "preview.png"
+        render_png(layout, pieces, ledplan, params, str(png_path))
+        files.append(str(png_path))
         from .preview.viewer import render_viewer
 
         vhtml = render_viewer(params.name, viewer_pieces)

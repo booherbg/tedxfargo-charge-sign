@@ -93,7 +93,10 @@ def plan_tubes(
         glyph_strokes: list[list[Stroke]] = []
         tube_ws: list[float] = []
         for g in layout.glyphs:
-            s, m = extract_centerlines(g.fills)
+            # prune relative to the GLYPH, not the tube: a 110mm bold K's lower
+            # leg is a ~40mm chain — the absolute 45mm clamp amputated it
+            gh = max(g.bbox[3] - g.bbox[1], g.bbox[2] - g.bbox[0], 1.0)
+            s, m = extract_centerlines(g.fills, min_path_mm=max(8.0, 0.22 * gh))
             glyph_strokes.append(s)
             if m["tube_w"]:
                 tube_ws.append(m["tube_w"])
@@ -169,9 +172,11 @@ def plan_tubes(
             )
         b = band(strokes, cover_w + 1.0)  # measured art width + raster tolerance
         # amputations are full-tube-sized; skeleton-vs-slab corner artifacts
-        # scale with (tube_w/2)² — thresholds scale so bold fonts don't false-fail
-        fail_mm2 = max(COVERAGE_FAIL_MM2, (0.55 * cover_w) ** 2)
-        note_mm2 = max(COVERAGE_NOTE_MM2, fail_mm2 / 2)
+        # scale with (tube_w/2)² — thresholds scale so bold fonts don't
+        # false-fail, but CAP the scaling: at slab widths an uncapped (0.55w)²
+        # (880mm² at w=54) hid a missing K-leg behind the neighbor's fat band
+        fail_mm2 = min(max(COVERAGE_FAIL_MM2, (0.55 * cover_w) ** 2), 700.0)
+        note_mm2 = min(max(COVERAGE_NOTE_MM2, fail_mm2 / 2), fail_mm2)
         fails, notes, missed = coverage_qa(
             layout.fills, b, fail_mm2, note_mm2, return_geoms=True
         )

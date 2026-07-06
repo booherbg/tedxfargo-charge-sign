@@ -214,8 +214,12 @@ def panelize(
 
                 # a corridor that wanders the full span shrinks AREA but not
                 # BOUNDS — children never fit and recursion spirals (the
-                # 27-piece M). Demand real progress on the cut axis.
-                if len(parts) == 2 and all(_extent(p) <= span - 50 for p in parts):
+                # 27-piece M). Accept only when the corridor doesn't fragment:
+                # children must fit the bed or at least ~halve the span —
+                # otherwise a crisp straight crossing (CHARGE continuous mode,
+                # print-validated) beats invisible-but-multiplying joints.
+                limit = max(max(bed), 0.62 * span)
+                if len(parts) == 2 and all(_extent(p) <= limit for p in parts):
                     seam = candidate
                     warnings.append(
                         f"corridor seam routed through the dark field "
