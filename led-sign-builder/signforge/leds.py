@@ -77,7 +77,78 @@ def _place_stroke(s: Stroke, pitch: float, min_chord: float) -> list[Point2]:
     return [s.pts[0], s.pts[-1]] if L >= min_chord else [s.pts[0]]
 
 
-def place_pixels(strokes: list[Stroke], params: SignParams) -> LedPlan:
+def _seam_dist(p: Point2, seams: list[tuple[str, float]]) -> float:
+    if not seams:
+        return 1e9
+    return min(abs((p[0] if axis == "x" else p[1]) - c) for axis, c in seams)
+
+
+def _slide_off_seams(
+    stroke: Stroke,
+    placed: list[Point2],
+    seams: list[tuple[str, float]],
+    keepout: float,
+    min_chord: float,
+) -> tuple[list[Point2], list[str]]:
+    """Nudge seam-violating pixels along their own path (no collar straddles a
+    joint — lesson 17). Ends stay pinned; unresolvable pixels are dropped."""
+    notes: list[str] = []
+    if not seams:
+        return placed, notes
+    dense = densify(stroke.pts + ([stroke.pts[0]] if stroke.closed else []))
+    out = list(placed)
+    for k in range(len(out)):
+        if _seam_dist(out[k], seams) >= keepout:
+            continue
+        if k in (0, len(out) - 1) and not stroke.closed:
+            notes.append(
+                f"pixel at ({out[k][0]:.0f},{out[k][1]:.0f}) is a pinned stroke end "
+                "inside seam keepout — check the joint at install"
+            )
+            continue
+        i0 = min(range(len(dense)), key=lambda i: math.dist(dense[i], out[k]))
+        best = None
+        for di in range(1, int(keepout * 8)):
+            for sgn in (1, -1):
+                i = i0 + sgn * di
+                if not 0 <= i < len(dense):
+                    continue
+                q = dense[i]
+                if _seam_dist(q, seams) < keepout:
+                    continue
+                nbrs = [
+                    nb
+                    for nb in (
+                        out[k - 1] if k > 0 else None,
+                        out[k + 1] if k < len(out) - 1 else None,
+                    )
+                    if nb is not None
+                ]
+                if all(math.dist(q, nb) >= min_chord for nb in nbrs):
+                    best = q
+                    break
+            if best:
+                break
+        if best:
+            out[k] = (round(best[0], 2), round(best[1], 2))
+            notes.append(
+                f"pixel slid {math.dist(placed[k], best):.1f} mm off a seam "
+                f"to ({best[0]:.0f},{best[1]:.0f})"
+            )
+        else:
+            out[k] = None  # type: ignore[assignment]
+            notes.append(
+                f"pixel at ({placed[k][0]:.0f},{placed[k][1]:.0f}) dropped: "
+                "seam keepout unresolvable on its path"
+            )
+    return [p for p in out if p is not None], notes
+
+
+def place_pixels(
+    strokes: list[Stroke],
+    params: SignParams,
+    seams: list[tuple[str, float]] | None = None,
+) -> LedPlan:
     lp = params.leds
     pixels: list[Point2] = []
     per_stroke: list[list[int]] = []
@@ -85,6 +156,11 @@ def place_pixels(strokes: list[Stroke], params: SignParams) -> LedPlan:
 
     for s in strokes:
         placed = _place_stroke(s, lp.pitch_mm, lp.min_chord_mm)
+        if seams:
+            placed, notes = _slide_off_seams(
+                s, placed, seams, lp.seam_keepout_mm, lp.min_chord_mm
+            )
+            audits += notes
         idx = []
         for p in placed:
             idx.append(len(pixels))

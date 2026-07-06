@@ -23,7 +23,22 @@ from .common import bore_stack, collar, filled, union_all
 LIP_WALL = 1.5  # lens lip ring thickness (bolt lens value)
 
 
-def build_channel_bodies(layout: Layout, pixels: list, params: SignParams) -> list[Body]:
+def channel_pan_footprint(layout: Layout, params: SignParams) -> MultiPolygon:
+    F_solid = filled(layout.fills)
+    if params.style.backer == "tile" and layout.backer is not None:
+        return heal(MultiPolygon([layout.backer]).union(F_solid))
+    if params.style.backer == "contour":
+        pan = heal(ring_offset(F_solid, params.style.contour_margin_mm))
+        if layout.backer is not None:
+            pan = heal(pan.union(MultiPolygon([layout.backer])))
+        return pan
+    return F_solid
+
+
+def build_channel_bodies(
+    layout: Layout, pixels: list, params: SignParams
+) -> tuple[list[Body], MultiPolygon]:
+    """Returns (bodies, plate footprint in sign coords)."""
     if layout.fills is None or layout.fills.is_empty:
         raise BuildError("channel style needs filled artwork (text or filled vectors)")
     st = params.style.channel
@@ -33,15 +48,7 @@ def build_channel_bodies(layout: Layout, pixels: list, params: SignParams) -> li
 
     F = layout.fills                       # letters with counter holes
     F_solid = filled(F)                    # counters filled (back pan)
-
-    if params.style.backer == "tile" and layout.backer is not None:
-        pan_poly = heal(MultiPolygon([layout.backer]).union(F_solid))
-    elif params.style.backer == "contour":
-        pan_poly = heal(ring_offset(F_solid, params.style.contour_margin_mm))
-        if layout.backer is not None:
-            pan_poly = heal(pan_poly.union(MultiPolygon([layout.backer])))
-    else:
-        pan_poly = F_solid
+    pan_poly = channel_pan_footprint(layout, params)
 
     cavity = ring_offset(F, -st.wall_t)    # channel interior (per letter, honors counters)
     if cavity.is_empty:
@@ -91,4 +98,4 @@ def build_channel_bodies(layout: Layout, pixels: list, params: SignParams) -> li
     lens = lens.mirror((1, 0, 0)).translate([2 * cx, 0, 0])   # pre-mirror about x=cx
     bodies.append(Body("lens", lens, ex["lens"], colors["lens"], plate="lens"))
 
-    return bodies
+    return bodies, pan_poly

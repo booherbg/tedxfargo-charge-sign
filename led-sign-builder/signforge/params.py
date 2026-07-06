@@ -79,6 +79,10 @@ class StyleParams(BaseModel):
     backer: Literal["tile", "contour", "none"] = "tile"
     tile_margin_mm: float = Field(12.0, ge=0)
     contour_margin_mm: float = Field(8.0, ge=0)
+    screw_holes: bool = True                      # anti-lift + mounting (Ø4.5 rail screws)
+    screw_d_mm: float = Field(4.5, gt=0)
+    screw_inset_mm: float = Field(12.0, gt=0)
+    screw_midspan_mm: float = Field(160.0, gt=0)  # add mid-span screws past this
     neon: NeonSection = NeonSection()
     channel: ChannelSection = ChannelSection()
 

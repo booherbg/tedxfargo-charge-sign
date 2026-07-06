@@ -61,24 +61,38 @@ def build(
     pieces: list[Piece] = []
 
     say(f"building {params.style.kind} bodies")
-    if params.style.kind == "channel":
-        from .parts.channel import build_channel_bodies
+    from .geom2d import band, ring_offset
+    from .panelize import assign_pixels, panelize
 
-        bodies = build_channel_bodies(layout, pixels, params)
+    strokes = []
+    if params.style.kind == "channel":
+        from .parts.channel import build_channel_bodies, channel_pan_footprint
+
+        footprint = channel_pan_footprint(layout, params)
+        avoid = ring_offset(layout.fills, 4.0)
+        say("panelizing")
+        pieces, cuts, pwarn = panelize(footprint, [], [], params, avoid=avoid)
+        warnings += pwarn
+        bodies, _fp = build_channel_bodies(layout, pixels, params)
     else:
         from .leds import place_pixels
-        from .parts.neon import build_neon_bodies
+        from .parts.neon import build_neon_bodies, neon_plate_footprint
         from .tubes import plan_tubes
 
         say("planning tubes (skeletonize + QA gates)")
         strokes, layout, tube_meta, tube_warnings = plan_tubes(layout, params)
         warnings += tube_warnings
         layout.strokes = strokes
+        b_out = band(strokes, params.style.neon.band_outer)
+        footprint = neon_plate_footprint(layout, b_out, params)
+        say("panelizing")
+        pieces, cuts, pwarn = panelize(footprint, strokes, [], params, avoid=b_out)
+        warnings += pwarn
         if params.leds.kind == "bullet12":
-            ledplan = place_pixels(strokes, params)
+            ledplan = place_pixels(strokes, params, seams=cuts)
             warnings += ledplan.audits
             pixels = ledplan.pixels
-        bodies = build_neon_bodies(layout, strokes, pixels, params)
+        bodies, _fp = build_neon_bodies(layout, strokes, pixels, params)
         if params.output.debug_overlays and layout.fills is not None and not layout.fills.is_empty:
             from .skeleton import debug_overlay
 
@@ -86,32 +100,50 @@ def build(
             debug_overlay(layout.fills, strokes, pixels, str(dpath))
             files.append(str(dpath))
 
-    body_stats: dict[str, dict] = {}
-    plates: dict[str, list[tuple[str, object, object, int]]] = {}
-    for body in bodies:
-        say(f"verifying {body.name}")
-        verts, tris = mesh_of(body.man)
-        verts, tris, notes = gated_mesh(verts, tris, f"{params.name}_{body.name}")
-        warnings += notes
-        if params.output.stl:
-            path = out / "stl" / f"{params.name}_{body.name}.stl"
-            write_stl(path, verts, tris)
-            files.append(str(path))
-        plates.setdefault(body.plate, []).append((body.name, verts, tris, body.extruder))
-        vol_mm3 = float(body.man.volume())
-        body_stats[body.name] = {
-            "tris": int(len(tris)),
-            "volume_mm3": round(vol_mm3, 1),
-            "grams_petg": round(vol_mm3 / 1000 * PETG_G_PER_CM3, 1),
-            "extruder": body.extruder,
-        }
+    assign_pixels(pieces, pixels)
+    multi = len(pieces) > 1
+    for pc in pieces:
+        if pc.rotated:
+            warnings.append(f"{pc.label}: fits the bed rotated 90° — rotate at import")
 
-    if params.output.threemf:
-        for plate, parts in plates.items():
-            path = out / "3mf" / f"{params.name}_{plate}.3mf"
-            say(f"writing {path.name}")
-            write_3mf(path, parts)
-            files.append(str(path))
+    body_stats: dict[str, dict] = {}
+    pieces_detail: list[dict] = []
+    from .export.pieces import clip_bodies_to_piece
+
+    for pi, pc in enumerate(pieces):
+        say(f"cutting + verifying {pc.label}" if multi else "verifying bodies")
+        piece_bodies, notes = clip_bodies_to_piece(bodies, pc, params, multi)
+        warnings += notes
+        plates: dict[str, list[tuple[str, object, object, int]]] = {}
+        detail = {"label": pc.label, "pixels": len(pc.pixel_idx), "grams": 0.0,
+                  "rotated": pc.rotated, "bodies": {}}
+        for bname, man, extruder, plate in piece_bodies:
+            verts, tris = mesh_of(man)
+            tag = f"{params.name}_{pc.name}_{bname}" if multi else f"{params.name}_{bname}"
+            verts, tris, gnotes = gated_mesh(verts, tris, tag)
+            warnings += gnotes
+            if params.output.stl:
+                path = out / "stl" / f"{tag}.stl"
+                write_stl(path, verts, tris)
+                files.append(str(path))
+            plates.setdefault(plate, []).append((bname, verts, tris, extruder))
+            vol = float(man.volume())
+            grams = round(vol / 1000 * PETG_G_PER_CM3, 1)
+            detail["grams"] = round(detail["grams"] + grams, 1)
+            detail["bodies"][bname] = grams
+            agg = body_stats.setdefault(
+                bname, {"tris": 0, "volume_mm3": 0.0, "grams_petg": 0.0, "extruder": extruder}
+            )
+            agg["tris"] += int(len(tris))
+            agg["volume_mm3"] = round(agg["volume_mm3"] + vol, 1)
+            agg["grams_petg"] = round(agg["grams_petg"] + grams, 1)
+        if params.output.threemf:
+            for plate, parts in plates.items():
+                suffix = f"{pc.name}_{plate}" if multi else plate
+                path = out / "3mf" / f"{params.name}_{suffix}.3mf"
+                write_3mf(path, parts)
+                files.append(str(path))
+        pieces_detail.append(detail)
 
     x0, y0, x1, y1 = layout.bbox
     stats = {
@@ -120,6 +152,7 @@ def build(
         "total_grams_petg": round(sum(b["grams_petg"] for b in body_stats.values()), 1),
         "pixels": len(pixels),
         "pieces": max(1, len(pieces)),
+        "pieces_detail": pieces_detail,
         "source": art.source,
     }
 

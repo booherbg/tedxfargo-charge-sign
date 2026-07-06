@@ -63,7 +63,8 @@ def test_neon_bodies_gated(bungee):
     lay = build_layout(art, p)
     strokes, lay, meta, _ = plan_tubes(lay, p)
     plan = place_pixels(strokes, p)
-    bodies = build_neon_bodies(lay, strokes, plan.pixels, p)
+    bodies, footprint = build_neon_bodies(lay, strokes, plan.pixels, p)
+    assert not footprint.is_empty
     assert [b.name for b in bodies] == ["shell", "liner", "lens"]
     for b in bodies:
         v, t = mesh_of(b.man)

@@ -18,9 +18,18 @@ from ..verify import BuildError
 from .common import bore_stack, collar, union_all
 
 
+def neon_plate_footprint(layout: Layout, b_out: MultiPolygon, params: SignParams) -> MultiPolygon:
+    if params.style.backer == "tile" and layout.backer is not None:
+        return heal(MultiPolygon([layout.backer]).union(b_out))
+    if params.style.backer == "contour":
+        return ring_offset(b_out, params.style.contour_margin_mm)
+    return b_out
+
+
 def build_neon_bodies(
     layout: Layout, strokes: list[Stroke], pixels: list, params: SignParams
-) -> list[Body]:
+) -> tuple[list[Body], MultiPolygon]:
+    """Returns (bodies, plate footprint in sign coords)."""
     if not strokes:
         raise BuildError("neon bodies need tube centerlines")
     st = params.style.neon
@@ -31,13 +40,7 @@ def build_neon_bodies(
     b_in = band(strokes, st.channel_interior)
     b_liner = band(strokes, st.channel_interior + 2 * st.liner_wall)
     b_out = band(strokes, st.band_outer)
-
-    if params.style.backer == "tile" and layout.backer is not None:
-        plate_fp = heal(MultiPolygon([layout.backer]).union(b_out))
-    elif params.style.backer == "contour":
-        plate_fp = ring_offset(b_out, params.style.contour_margin_mm)
-    else:
-        plate_fp = b_out
+    plate_fp = neon_plate_footprint(layout, b_out, params)
 
     wall_top = st.plate_t + st.wall_height
     bodies: list[Body] = []
@@ -79,4 +82,4 @@ def build_neon_bodies(
         )
         lens = lens + tex
     bodies.append(Body("lens", lens, ex["lens"], colors["lens"]))
-    return bodies
+    return bodies, plate_fp

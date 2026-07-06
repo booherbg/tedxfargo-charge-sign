@@ -16,7 +16,8 @@ def _bodies(bungee, text="HI", overrides=None, pixels=()):
     p = SignParams.model_validate(cfg)
     art = text_to_artwork(bungee, text, cap_height_mm=p.content.cap_height_mm)
     lay = build_layout(art, p)
-    return build_channel_bodies(lay, list(pixels), p), lay, p
+    bodies, _footprint = build_channel_bodies(lay, list(pixels), p)
+    return bodies, lay, p
 
 
 def test_bodies_exist_and_pass_gates(bungee):
