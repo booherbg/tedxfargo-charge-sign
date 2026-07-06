@@ -111,7 +111,7 @@ def render_bom(
 def zip_bundle(outdir: str | Path, name: str, files: list[str]) -> str:
     out = Path(outdir)
     zpath = out / f"{name}-kit.zip"
-    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED, compresslevel=4) as z:
         for f in files:
             fp = Path(f)
             z.write(fp, fp.relative_to(out))

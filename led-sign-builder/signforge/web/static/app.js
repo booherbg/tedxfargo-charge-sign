@@ -2,9 +2,36 @@
 const $ = id => document.getElementById(id);
 let fontToken = null, artToken = null, defaults = null, timer = null, currentJob = null;
 
+function applyPreset(cfg){
+  const merged = JSON.parse(JSON.stringify(defaults));
+  for (const [k, v] of Object.entries(cfg)){
+    if (v && typeof v === 'object' && !Array.isArray(v)) Object.assign(merged[k] = merged[k] || {}, v);
+    else merged[k] = v;
+  }
+  $('advanced').value = JSON.stringify(merged, null, 2);
+  if (merged.content){
+    if (merged.content.text) $('text').value = merged.content.text;
+    if (merged.content.cap_height_mm) $('cap').value = merged.content.cap_height_mm;
+  }
+  if (merged.style){
+    if (merged.style.kind) $('kind').value = merged.style.kind;
+    if (merged.style.backer) $('backer').value = merged.style.backer;
+  }
+  if (merged.texture && merged.texture.mode) $('texture').value = merged.texture.mode;
+  if (merged.leds && merged.leds.kind) $('leds').value = merged.leds.kind;
+  if (merged.printer && merged.printer.preset) $('printer').value = merged.printer.preset;
+  schedule();
+}
+
 async function init(){
   const r = await fetch('/api/presets'); const data = await r.json();
   defaults = data.defaults;
+  for (const [name, cfg] of Object.entries(data.presets || {})){
+    const b = document.createElement('button');
+    b.className = 'mini'; b.style.marginRight = '6px'; b.textContent = name;
+    b.onclick = () => applyPreset(cfg);
+    $('presets').appendChild(b);
+  }
   for (const p of data.printers){
     const o = document.createElement('option'); o.value = p; o.textContent = p;
     if (p === defaults.printer.preset) o.selected = true;

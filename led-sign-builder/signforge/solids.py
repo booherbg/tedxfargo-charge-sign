@@ -84,31 +84,36 @@ def heightfield(
     verts = np.concatenate([top, bot]).astype(np.float32)
     nb = ny * nx                                      # bottom index offset
 
-    def vid(i, j):                                    # top vertex index grid
-        return j * nx + i
-
-    tris: list[tuple[int, int, int]] = []
-    # top (up-facing, CCW from +Z) and bottom (mirrored winding)
-    for j in range(ny - 1):
-        for i in range(nx - 1):
-            v00, v10 = vid(i, j), vid(i + 1, j)
-            v01, v11 = vid(i, j + 1), vid(i + 1, j + 1)
-            tris += [(v00, v10, v11), (v00, v11, v01)]
-            b00, b10, b01, b11 = v00 + nb, v10 + nb, v01 + nb, v11 + nb
-            tris += [(b00, b11, b10), (b00, b01, b11)]
-    # sides: walk the top boundary CCW (viewed from +Z); quad (ta,tb) -> bottom
-    boundary: list[int] = []
-    boundary += [vid(i, 0) for i in range(nx)]                      # south, +x
-    boundary += [vid(nx - 1, j) for j in range(1, ny)]              # east,  +y
-    boundary += [vid(i, ny - 1) for i in range(nx - 2, -1, -1)]     # north, -x
-    boundary += [vid(0, j) for j in range(ny - 2, 0, -1)]           # west,  -y
-    for a, b in zip(boundary, boundary[1:] + boundary[:1]):
-        ta, tb, ba, bb = a, b, a + nb, b + nb
-        tris += [(ta, ba, bb), (ta, bb, tb)]
-
-    mesh = m3d.Mesh(
-        vert_properties=verts, tri_verts=np.asarray(tris, dtype=np.uint32)
+    # top (up-facing, CCW from +Z) and bottom (mirrored winding) — vectorized:
+    # grids this size (CHARGE lens fields are ~1M tris) need numpy, not loops
+    jj, ii = np.meshgrid(
+        np.arange(ny - 1, dtype=np.uint32), np.arange(nx - 1, dtype=np.uint32),
+        indexing="ij",
     )
+    v00 = (jj * nx + ii).ravel()
+    v10 = v00 + 1
+    v01 = v00 + nx
+    v11 = v01 + 1
+    top_tris = np.concatenate(
+        [np.stack([v00, v10, v11], 1), np.stack([v00, v11, v01], 1)]
+    )
+    bot_tris = np.concatenate(
+        [np.stack([v00 + nb, v11 + nb, v10 + nb], 1), np.stack([v00 + nb, v01 + nb, v11 + nb], 1)]
+    )
+    # sides: walk the top boundary CCW (viewed from +Z); quad (ta,tb) -> bottom
+    south = np.arange(nx, dtype=np.uint32)
+    east = nx - 1 + nx * np.arange(1, ny, dtype=np.uint32)
+    north = (ny - 1) * nx + np.arange(nx - 2, -1, -1, dtype=np.uint32)
+    west = nx * np.arange(ny - 2, 0, -1, dtype=np.uint32)
+    boundary = np.concatenate([south, east, north, west])
+    a = boundary
+    b = np.roll(boundary, -1)
+    side_tris = np.concatenate(
+        [np.stack([a, a + nb, b + nb], 1), np.stack([a, b + nb, b], 1)]
+    )
+    tris = np.concatenate([top_tris, bot_tris, side_tris]).astype(np.uint32)
+
+    mesh = m3d.Mesh(vert_properties=verts, tri_verts=tris)
     man = m3d.Manifold(mesh)
     if man.is_empty() or man.status() != m3d.Error.NoError:
         raise BuildError(f"heightfield: manifold rejected mesh ({man.status()})")

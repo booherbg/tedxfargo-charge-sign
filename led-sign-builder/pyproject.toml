@@ -34,4 +34,5 @@ packages = ["signforge"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not slow'"
+markers = ["slow: full torture-sweep builds (run with -m slow)"]
