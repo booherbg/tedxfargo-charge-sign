@@ -209,6 +209,7 @@ def place_pixels(
 
     # pass 1: drop coincident / hard-floor violators (keep the earlier pixel)
     drop: set[int] = set()
+    drop_msgs: list[str] = []
     for i in range(len(pixels)):
         if i in drop:
             continue
@@ -220,10 +221,17 @@ def place_pixels(
                 drop.add(j)  # coincident (stroke endpoints kissing)
             elif d < 13.0:
                 drop.add(j)
-                audits.append(
-                    f"dropped pixel at ({pixels[j][0]:.0f},{pixels[j][1]:.0f}): "
-                    f"{d:.1f} mm from a neighbor (< 13.0 hard floor)"
+                drop_msgs.append(
+                    f"({pixels[j][0]:.0f},{pixels[j][1]:.0f}) {d:.1f} mm"
                 )
+    if len(drop_msgs) > 4:
+        audits.append(
+            f"{len(drop_msgs)} pixels dropped below the 13.0 mm hard floor "
+            f"(tight geometry) — first at {', '.join(drop_msgs[:3])}; "
+            "consider a larger sign or sparser pitch"
+        )
+    else:
+        audits += [f"dropped pixel at {m}: < 13.0 hard floor" for m in drop_msgs]
     if drop:
         keep = [k for k in range(len(pixels)) if k not in drop]
         remap = {old: new for new, old in enumerate(keep)}
@@ -242,11 +250,18 @@ def place_pixels(
                 worst = d
             if d < lp.flange_floor_mm:
                 snug.append((i, j, round(d, 2)))
-    for i, j, d in snug:
+    if len(snug) > 4:
+        worst_snug = min(d for _, _, d in snug)
         audits.append(
-            f"snug pair {d:.1f} mm at ({pixels[i][0]:.0f},{pixels[i][1]:.0f}) — "
-            "flange Ø13.6, check/trim flanges at install"
+            f"{len(snug)} snug pairs (13.0–14.5 mm, worst {worst_snug:.1f}) — "
+            "flange Ø13.6, check/trim flanges at install (positions in the preview)"
         )
+    else:
+        for i, j, d in snug:
+            audits.append(
+                f"snug pair {d:.1f} mm at ({pixels[i][0]:.0f},{pixels[i][1]:.0f}) — "
+                "flange Ø13.6, check/trim flanges at install"
+            )
 
     # wiring: stroke order; long hops need extension jumpers (4" pigtails)
     for pa, pb, is_jumper in chain_hops(pixels, per_stroke):

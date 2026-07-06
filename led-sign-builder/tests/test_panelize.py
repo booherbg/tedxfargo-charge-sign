@@ -62,6 +62,26 @@ def test_screws_avoid_lit_channels():
         assert avoid.distance(Point((sx, sy))) >= 3.0
 
 
+def test_giant_slab_letter_splits_minimally(bungee):
+    """M @500mm: progress-first scoring → ~4 pieces, not 16 edge-slivers
+    (and corridors must not spiral: wiggly seams shrink area, not bounds)."""
+    from signforge.params import SignParams
+    from signforge.pipeline import quick_plan
+
+    p = SignParams.model_validate(
+        {
+            "content": {"text": "M", "cap_height_mm": 500.0, "font_path": bungee},
+            "style": {"kind": "neon", "backer": "tile"},
+            "texture": {"mode": "none"},
+        }
+    )
+    _, _, pieces, _ = quick_plan(p)
+    assert 3 <= len(pieces) <= 6
+    for pc in pieces:
+        x0, y0, x1, y1 = pc.mask.bounds
+        assert min(x1 - x0, y1 - y0) <= 295.6      # every piece truly fits
+
+
 def test_e2e_multi_piece_build(tmp_path, bungee):
     from signforge.pipeline import build
 

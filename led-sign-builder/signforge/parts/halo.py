@@ -33,15 +33,31 @@ def halo_footprint(layout: Layout, params: SignParams) -> MultiPolygon:
 
 
 def halo_pixel_strokes(layout: Layout, params: SignParams) -> list[Stroke]:
-    """Closed strokes along the flange centerline — the pixel racetrack."""
+    """Pixel runs on the rear flange.
+
+    Wide letters: a closed racetrack along the flange centerline. Narrow
+    letters (flange fills the whole cavity — opposing racetrack sides would
+    sit closer than the pixel floor): collapse to the cavity's skeleton
+    centerline instead, like a neon run."""
     st = params.style.halo
-    ring = ring_offset(layout.fills, -(st.wall_t + st.flange_w / 2))
+    cavity = ring_offset(layout.fills, -st.wall_t)
     strokes: list[Stroke] = []
-    for p in as_multipolygon(ring).geoms:
-        for boundary in [p.exterior, *p.interiors]:
-            pts = [(x, y) for x, y in boundary.coords[:-1]]
-            if len(pts) >= 3:
-                strokes.append(Stroke(pts=pts, width=None, closed=True))
+    for comp in as_multipolygon(cavity).geoms:
+        from shapely.geometry import MultiPolygon as _MP
+
+        inner = comp.buffer(-st.flange_w)
+        if inner.is_empty or inner.area < 4.0:
+            from ..skeleton import extract_centerlines
+
+            subs, _meta = extract_centerlines(_MP([comp]))
+            strokes += subs
+            continue
+        ring = ring_offset(_MP([comp]), -st.flange_w / 2)
+        for p in as_multipolygon(ring).geoms:
+            for boundary in [p.exterior, *p.interiors]:
+                pts = [(x, y) for x, y in boundary.coords[:-1]]
+                if len(pts) >= 3:
+                    strokes.append(Stroke(pts=pts, width=None, closed=True))
     return strokes
 
 

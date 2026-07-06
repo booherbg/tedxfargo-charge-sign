@@ -52,6 +52,33 @@ def test_halo_diffuser_is_separate_part(bungee):
     assert len(lens) == 1 and lens[0].plate == "lens"
 
 
+def test_narrow_letters_collapse_racetrack_to_skeleton(bungee):
+    """At small caps the flange fills the cavity — opposing racetrack sides
+    would violate the pixel floor. Strokes must collapse to centerlines."""
+    p = _halo_params(content={"cap_height_mm": 100.0})
+    art = text_to_artwork(bungee, "L", cap_height_mm=100)
+    lay = build_layout(art, p)
+    strokes = halo_pixel_strokes(lay, p)
+    assert strokes
+    # a racetrack would be one closed ring; the narrow 'L' gives open skeleton run(s)
+    assert any(not s.closed for s in strokes)
+
+
+def test_multiline_neon_quickplan(bungee):
+    from signforge.pipeline import quick_plan
+    from signforge.params import SignParams
+
+    p = SignParams.model_validate(
+        {
+            "content": {"text": "TWO\nLINES", "cap_height_mm": 90, "font_path": bungee},
+            "style": {"kind": "neon"},
+            "texture": {"mode": "none"},
+        }
+    )
+    layout, ledplan, pieces, warns = quick_plan(p)
+    assert ledplan.power.count > 30 and len(pieces) >= 1
+
+
 def test_e2e_halo_kit(tmp_path, bungee):
     from signforge.pipeline import build
 

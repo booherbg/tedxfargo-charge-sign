@@ -47,10 +47,17 @@ def _rescue_clusters(missed: list, tube_w: float) -> list[Stroke]:
             continue
         # compact blob: fall back to the midline of its oriented bbox,
         # trimmed so the round band caps land on the ink boundary
-        rect = cluster.minimum_rotated_rectangle
+        if cluster.area < 4.0:
+            continue
         try:
+            import numpy as _np
+
+            with _np.errstate(divide="ignore", invalid="ignore"):
+                rect = cluster.minimum_rotated_rectangle
             cs = list(rect.exterior.coords)[:4]
-        except AttributeError:
+        except Exception:
+            continue
+        if len(cs) < 4:
             continue
         import math as _m
 

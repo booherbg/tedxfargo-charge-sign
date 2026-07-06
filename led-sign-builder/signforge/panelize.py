@@ -83,23 +83,41 @@ def _pixel_min_dist(pixels: list[Point2], axis: str, c: float) -> float:
 def _best_cut(
     region: _Region, strokes: list[Stroke], pixels: list[Point2], params: SignParams
 ) -> tuple[str, float, int] | None:
-    """Best straight cut: (axis, coordinate, n_tube_crossings)."""
+    """Best straight cut: (axis, coordinate, n_tube_crossings).
+
+    PROGRESS comes first: k pieces need cuts near the S/k grid — a
+    zero-crossing cut that shaves an 85 mm sliver is worse than a crisp
+    crossing at the middle (the M-at-500mm lesson). Within 25 mm progress
+    bands, fewer/crisper crossings and pixel breathing room win.
+    """
     rx0, ry0, rx1, ry1 = region.bounds
     axis = "x" if region.w >= region.h else "y"
-    lo = (rx0 if axis == "x" else ry0) + EDGE_KEEPOUT_MM
-    hi = (rx1 if axis == "x" else ry1) - EDGE_KEEPOUT_MM
+    lo0, hi0 = (rx0, rx1) if axis == "x" else (ry0, ry1)
+    lo = lo0 + EDGE_KEEPOUT_MM
+    hi = hi0 - EDGE_KEEPOUT_MM
     if hi <= lo:
         return None
+    span = hi0 - lo0
+    bed = params.printer.bed
+    bed_axis = max(bed)  # rotate-to-fit means the long bed side is available
+    k = max(2, math.ceil(span / bed_axis))
+    ideals = [lo0 + span * i / k for i in range(1, k)]
+    min_child = min(60.0, 0.4 * span / k)
     mid = (lo + hi) / 2
     keep = params.leds.seam_keepout_mm
     best = None
     c = lo
     while c <= hi:
+        if min(c - lo0, hi0 - c) < min_child:
+            c += CUT_GRID_MM
+            continue
         angles = _crossings(strokes, axis, c)
         pxd = _pixel_min_dist(pixels, axis, c)
         if pxd >= keep:
             worst_angle = min(angles) if angles else 90.0
+            progress = round(min(abs(c - i) for i in ideals) / 25.0)
             score = (
+                progress,                                      # cut where it counts
                 len(angles),                                   # fewest tube crossings
                 0 if worst_angle >= CRISP_MIN_DEG else 1,      # never graze
                 -pxd if pxd < 25 else -25,                     # pixel breathing room
@@ -110,7 +128,7 @@ def _best_cut(
         c += CUT_GRID_MM
     if best is None:
         return None
-    return axis, best[1], best[0][0]
+    return axis, best[1], best[0][1]
 
 
 def _seam_line(region: _Region, axis: str, c: float) -> LineString:
@@ -127,6 +145,7 @@ def _split_region(r: _Region, seam: LineString) -> list[_Region]:
         for g in parts.geoms
         if isinstance(g, Polygon) and g.area > 25.0
     ]
+    out.sort(key=lambda x: x.poly.area, reverse=True)
     return out
 
 
@@ -166,10 +185,18 @@ def panelize(
             )
             continue
         axis, c, crossings = cut
-        seam = _seam_line(r, axis, c)
-        if crossings > 0 and avoid is not None and not avoid.is_empty:
+        straight = _seam_line(r, axis, c)
+        seam = straight
+        slab_ish = (
+            avoid is not None
+            and not avoid.is_empty
+            and avoid.intersection(r.poly).area > 0.45 * r.poly.area
+        )
+        if crossings > 0 and avoid is not None and not avoid.is_empty and not slab_ish:
             # a zero-crossing corridor beats any straight cut through a tube;
-            # search the full legal span — the dark snake may be far from c
+            # search the full legal span — the dark snake may be far from c.
+            # (Slab-heavy art skips corridors: crisp straight crossings are the
+            # CHARGE continuous-mode answer, and corridors just fragment.)
             from .corridors import route_corridor
 
             rx0, ry0, rx1, ry1 = r.bounds
@@ -177,11 +204,23 @@ def panelize(
             hi = (rx1 if axis == "x" else ry1) - EDGE_KEEPOUT_MM
             corridor_pts = route_corridor(r.bounds, avoid, axis, (lo, hi))
             if corridor_pts:
-                seam = LineString(corridor_pts)
-                warnings.append(
-                    f"corridor seam routed through the dark field "
-                    f"(straight cut would cross {crossings} tube(s))"
-                )
+                candidate = LineString(corridor_pts)
+                parts = _split_region(r, candidate)
+                span = (hi + EDGE_KEEPOUT_MM) - (lo - EDGE_KEEPOUT_MM)
+
+                def _extent(reg: _Region) -> float:
+                    b = reg.bounds
+                    return (b[2] - b[0]) if axis == "x" else (b[3] - b[1])
+
+                # a corridor that wanders the full span shrinks AREA but not
+                # BOUNDS — children never fit and recursion spirals (the
+                # 27-piece M). Demand real progress on the cut axis.
+                if len(parts) == 2 and all(_extent(p) <= span - 50 for p in parts):
+                    seam = candidate
+                    warnings.append(
+                        f"corridor seam routed through the dark field "
+                        f"(straight cut would cross {crossings} tube(s))"
+                    )
         children = _split_region(r, seam)
         if len(children) < 2:
             regions.append(r)
@@ -189,6 +228,13 @@ def panelize(
                 f"seam near {axis}={c:.0f} failed to split the region — exported oversized"
             )
             continue
+        if len(children) > 2:
+            dropped = sum(x.poly.area for x in children[2:])
+            children = children[:2]
+            warnings.append(
+                f"cut produced {len(children)} main pieces + sliver fragment(s) "
+                f"({dropped:.0f} mm² dropped from the plate margin)"
+            )
         seams.append(seam)
         queue.extend(children)
 
