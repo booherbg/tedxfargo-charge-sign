@@ -97,3 +97,53 @@ def rings(mpoly: MultiPolygon) -> list[np.ndarray]:
 
 def bbox_polygon(x0: float, y0: float, x1: float, y1: float) -> Polygon:
     return Polygon([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+
+
+def fill_contours(
+    contours: Iterable[Iterable[tuple[float, float]]],
+    rule: str = "nonzero",
+    min_area: float = 0.01,
+) -> MultiPolygon:
+    """Resolve raw contours into filled polygons under a fill rule.
+
+    Fonts use NONZERO winding (counters are opposite-oriented contours; naive
+    unioning fills the 'O'); SVG may use evenodd. Clipper2 (via manifold3d's
+    CrossSection) implements both exactly; output is CCW shells / CW holes.
+    """
+    import manifold3d as m3d
+
+    ctrs = [np.asarray(list(c), dtype=np.float64) for c in contours]
+    ctrs = [c for c in ctrs if len(c) >= 3]
+    if not ctrs:
+        return MultiPolygon([])
+    fr = m3d.FillRule.NonZero if rule == "nonzero" else m3d.FillRule.EvenOdd
+    out_rings = m3d.CrossSection(ctrs, fr).to_polygons()
+
+    def signed_area(r: np.ndarray) -> float:
+        x, y = r[:, 0], r[:, 1]
+        return 0.5 * float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+
+    shells: list[tuple[Polygon, float]] = []
+    holes: list[np.ndarray] = []
+    for r in out_rings:
+        r = np.asarray(r, dtype=np.float64)
+        if len(r) < 3:
+            continue
+        a = signed_area(r)
+        if a > 0:
+            shells.append((Polygon(r), a))
+        elif a < 0:
+            holes.append(r)
+
+    # each hole belongs to the smallest shell containing it
+    assigned: dict[int, list[np.ndarray]] = {i: [] for i in range(len(shells))}
+    for h in holes:
+        probe = Point(h[0])
+        best, best_area = None, None
+        for i, (shell, a) in enumerate(shells):
+            if shell.contains(probe) and (best_area is None or a < best_area):
+                best, best_area = i, a
+        if best is not None:
+            assigned[best].append(h)
+    polys = [Polygon(shell.exterior, assigned[i]) for i, (shell, _) in enumerate(shells)]
+    return heal(MultiPolygon(polys), min_area=min_area)
