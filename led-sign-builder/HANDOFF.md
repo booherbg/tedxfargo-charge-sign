@@ -24,9 +24,25 @@ Extract the CHARGE pipeline into a generic, launchable "LED Sign Builder": web U
 - The 3D viewer is custom WebGL because ES-module three.js won't load from file://.
 - Web trust boundary: uploads are tokens; client font_path/art_path are stripped.
 
-## Next candidates (P2, none blocking)
-Corridor/piecewise seams · halo style · keyholes · relaxation parity · strip LEDs
-· wiring diagram SVG · presets gallery UI · hosted hardening · PyPI packaging.
+## P2 progress (evening day 1, 107 tests green)
+- [x] #18 seam-segment pixel placement (replaces slide-nudging; keepout by
+      construction) + wiring diagram (chain/jumpers/DATA IN on dashboard, BOM section)
+- [x] #20 halo/backlit style (face-down pre-mirrored, rear flange pixel racetrack,
+      standoffs, optional diffuser; unpanelized v1) + LED-strip mode (BOM power plan).
+      Keyholes deferred: standoff bosses are the natural halo mount.
+- [ ] **#19 corridor/piecewise seams ← NEXT.** Porting notes:
+      source `tools/panelize.py` (parent repo): coarse clearance grid over the
+      footprint (distance to band), route cut as a polyline through dark field
+      (widest-then-shortest, Dijkstra), graze/corner rejection. Integration plan:
+      (a) standalone `signforge/corridors.py` router: route(footprint, obstacle
+      MultiPolygon, axis, x_window) -> polyline|None, maximizing min-clearance;
+      (b) panelize._best_cut falls back to corridor when every straight cut
+      crosses tubes; masks become general polygons (region minus seam buffer);
+      (c) generalize leds seam keepout from (axis,c) lines to polylines
+      (_seam_dist → distance-to-polyline; seams param type widens).
+      Corridor cuts avoid bands entirely → pixel keepout is automatic there.
+- [ ] #21 launch prep remainder: screenshots/gallery, PyPI dry run (wheel already
+      builds), name decision (user's call).
 
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`

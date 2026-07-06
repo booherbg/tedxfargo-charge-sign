@@ -116,14 +116,27 @@ def strip_plan(strokes: list[Stroke], params: SignParams) -> LedPlan:
     return LedPlan(pixels=[], per_stroke=[[] for _ in strokes], power=power, audits=audits)
 
 
-def _seam_dist(p: Point2, seams: list[tuple[str, float]]) -> float:
+def _seam_dist(p: Point2, seams: list) -> float:
+    """Distance to the nearest seam. Seams may be ('x'|'y', coord) axis lines
+    or shapely LineStrings (corridor seams)."""
     if not seams:
         return 1e9
-    return min(abs((p[0] if axis == "x" else p[1]) - c) for axis, c in seams)
+    best = 1e9
+    for s in seams:
+        if isinstance(s, tuple):
+            axis, c = s
+            d = abs((p[0] if axis == "x" else p[1]) - c)
+        else:
+            from shapely.geometry import Point as _P
+
+            d = s.distance(_P(p))
+        if d < best:
+            best = d
+    return best
 
 
 def _split_at_seams(
-    stroke: Stroke, seams: list[tuple[str, float]], keepout: float
+    stroke: Stroke, seams: list, keepout: float
 ) -> list[list[Point2]]:
     """Cut a stroke into seam-bounded segments, each inset by the keepout.
 
@@ -168,7 +181,7 @@ def _place_segment(seg: list[Point2], pitch: float, min_chord: float) -> list[Po
 def place_pixels(
     strokes: list[Stroke],
     params: SignParams,
-    seams: list[tuple[str, float]] | None = None,
+    seams: list | None = None,
 ) -> LedPlan:
     lp = params.leds
     pixels: list[Point2] = []

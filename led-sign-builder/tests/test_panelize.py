@@ -26,6 +26,8 @@ def test_rotate_to_fit():
 
 
 def test_long_word_splits_and_pixels_dodge_seams():
+    from shapely.geometry import Point
+
     from signforge.leds import place_pixels
 
     foot = bbox_polygon(0, 0, 700, 200)
@@ -41,8 +43,8 @@ def test_long_word_splits_and_pixels_dodge_seams():
     plan = place_pixels(strokes, p, seams=cuts)
     keep = p.leds.seam_keepout_mm
     for px in plan.pixels:
-        for axis, c in cuts:
-            assert abs((px[0] if axis == "x" else px[1]) - c) >= keep - 0.01
+        for seam in cuts:
+            assert seam.distance(Point(px)) >= keep - 0.3   # densify quantum
 
     assign_pixels(pieces, plan.pixels)
     assigned = sorted(i for pc in pieces for i in pc.pixel_idx)
@@ -80,4 +82,8 @@ def test_e2e_multi_piece_build(tmp_path, bungee):
     assert sum(d["pixels"] for d in result.stats["pieces_detail"]) == result.stats["pixels"]
     with zipfile.ZipFile(tmp_path / "out" / "big-kit.zip") as z:
         stls = [m for m in z.namelist() if m.endswith(".stl")]
-        assert len(stls) >= result.stats["pieces"] * 2
+        shells = [m for m in stls if "_shell" in m]
+        # every piece has a shell; empty clipped bodies (cornerpieces without
+        # tube content) are correctly skipped, so total is >= pieces + extras
+        assert len(shells) == result.stats["pieces"]
+        assert len(stls) > result.stats["pieces"]

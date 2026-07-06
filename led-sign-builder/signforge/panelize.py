@@ -12,11 +12,13 @@ v1 cuts are straight; corridor/piecewise seams are the documented P2 upgrade.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import split as shapely_split
+from shapely.ops import unary_union
 
-from .geom2d import bbox_polygon
+from .geom2d import as_multipolygon, bbox_polygon, heal
 from .model import Piece, Point2, Stroke
 from .params import SignParams
 
@@ -27,19 +29,21 @@ CRISP_MIN_DEG = 25.0
 
 @dataclass
 class _Region:
-    x0: float
-    y0: float
-    x1: float
-    y1: float
-    cuts: list[str] = field(default_factory=list)  # which sides are cut faces
+    poly: Polygon
+
+    @property
+    def bounds(self):
+        return self.poly.bounds
 
     @property
     def w(self) -> float:
-        return self.x1 - self.x0
+        b = self.bounds
+        return b[2] - b[0]
 
     @property
     def h(self) -> float:
-        return self.y1 - self.y0
+        b = self.bounds
+        return b[3] - b[1]
 
 
 def _fits(w: float, h: float, bed: tuple[float, float]) -> tuple[bool, bool]:
@@ -78,10 +82,12 @@ def _pixel_min_dist(pixels: list[Point2], axis: str, c: float) -> float:
 
 def _best_cut(
     region: _Region, strokes: list[Stroke], pixels: list[Point2], params: SignParams
-) -> tuple[str, float] | None:
+) -> tuple[str, float, int] | None:
+    """Best straight cut: (axis, coordinate, n_tube_crossings)."""
+    rx0, ry0, rx1, ry1 = region.bounds
     axis = "x" if region.w >= region.h else "y"
-    lo = (region.x0 if axis == "x" else region.y0) + EDGE_KEEPOUT_MM
-    hi = (region.x1 if axis == "x" else region.y1) - EDGE_KEEPOUT_MM
+    lo = (rx0 if axis == "x" else ry0) + EDGE_KEEPOUT_MM
+    hi = (rx1 if axis == "x" else ry1) - EDGE_KEEPOUT_MM
     if hi <= lo:
         return None
     mid = (lo + hi) / 2
@@ -104,7 +110,24 @@ def _best_cut(
         c += CUT_GRID_MM
     if best is None:
         return None
-    return axis, best[1]
+    return axis, best[1], best[0][0]
+
+
+def _seam_line(region: _Region, axis: str, c: float) -> LineString:
+    rx0, ry0, rx1, ry1 = region.bounds
+    if axis == "x":
+        return LineString([(c, ry0 - 5), (c, ry1 + 5)])
+    return LineString([(rx0 - 5, c), (rx1 + 5, c)])
+
+
+def _split_region(r: _Region, seam: LineString) -> list[_Region]:
+    parts = shapely_split(r.poly, seam)
+    out = [
+        _Region(heal(g).geoms[0] if len(heal(g).geoms) == 1 else g)
+        for g in parts.geoms
+        if isinstance(g, Polygon) and g.area > 25.0
+    ]
+    return out
 
 
 def panelize(
@@ -113,21 +136,24 @@ def panelize(
     pixels: list[Point2],
     params: SignParams,
     avoid=None,
-) -> tuple[list[Piece], list[tuple[str, float]], list[str]]:
-    """Split the sign footprint into bed-fitting rectangular pieces.
+) -> tuple[list[Piece], list[LineString], list[str]]:
+    """Split the sign footprint into bed-fitting pieces.
 
-    Returns (pieces, cut_lines, warnings). Call BEFORE pixel placement and
-    feed cut_lines to leds.place_pixels(seams=...) — pixels dodge seams, not
-    the other way around (CHARGE panelizer order)."""
+    Straight cuts where the dark field allows; when every straight candidate
+    would cross a tube, a corridor seam is routed through the field between
+    channels (lesson 17 — piecewise seams on real artwork). Returns
+    (pieces, seam_lines, warnings); call BEFORE pixel placement and feed
+    seam_lines to leds.place_pixels(seams=...)."""
     warnings: list[str] = []
-    fx0, fy0, fx1, fy1 = footprint.bounds
     bed = params.printer.bed
     regions: list[_Region] = []
-    cut_lines: list[tuple[str, float]] = []
-    queue = [_Region(fx0, fy0, fx1, fy1)]
+    seams: list[LineString] = []
+    fp = heal(footprint if not hasattr(footprint, "geoms") else footprint)
+    start_poly = fp.geoms[0] if len(fp.geoms) == 1 else fp.convex_hull
+    queue = [_Region(start_poly)]
     while queue:
         r = queue.pop(0)
-        fits, rot = _fits(r.w, r.h, bed)
+        fits, _rot = _fits(r.w, r.h, bed)
         if fits:
             regions.append(r)
             continue
@@ -139,93 +165,96 @@ def panelize(
                 "was found — reduce size or use a larger printer preset"
             )
             continue
-        axis, c = cut
-        cut_lines.append((axis, c))
-        if axis == "x":
-            queue.append(_Region(r.x0, r.y0, c, r.y1, r.cuts + ["x1"]))
-            queue.append(_Region(c, r.y0, r.x1, r.y1, r.cuts + ["x0"]))
-        else:
-            queue.append(_Region(r.x0, r.y0, r.x1, c, r.cuts + ["y1"]))
-            queue.append(_Region(r.x0, c, r.x1, r.y1, r.cuts + ["y0"]))
+        axis, c, crossings = cut
+        seam = _seam_line(r, axis, c)
+        if crossings > 0 and avoid is not None and not avoid.is_empty:
+            # a zero-crossing corridor beats any straight cut through a tube;
+            # search the full legal span — the dark snake may be far from c
+            from .corridors import route_corridor
 
-    regions.sort(key=lambda r: (r.y0, r.x0))
+            rx0, ry0, rx1, ry1 = r.bounds
+            lo = (rx0 if axis == "x" else ry0) + EDGE_KEEPOUT_MM
+            hi = (rx1 if axis == "x" else ry1) - EDGE_KEEPOUT_MM
+            corridor_pts = route_corridor(r.bounds, avoid, axis, (lo, hi))
+            if corridor_pts:
+                seam = LineString(corridor_pts)
+                warnings.append(
+                    f"corridor seam routed through the dark field "
+                    f"(straight cut would cross {crossings} tube(s))"
+                )
+        children = _split_region(r, seam)
+        if len(children) < 2:
+            regions.append(r)
+            warnings.append(
+                f"seam near {axis}={c:.0f} failed to split the region — exported oversized"
+            )
+            continue
+        seams.append(seam)
+        queue.extend(children)
+
+    regions.sort(key=lambda r: (round(r.bounds[1]), round(r.bounds[0])))
     sc = params.fit.seam_clearance_mm
-    keep = params.leds.seam_keepout_mm
+    seam_relief = unary_union([s.buffer(sc) for s in seams]) if seams else None
     pieces: list[Piece] = []
     for i, r in enumerate(regions):
-        # seam clearance only on CUT faces; outer faces stay exact
-        x0 = r.x0 + (sc if "x0" in r.cuts else -1.0)
-        x1 = r.x1 - (sc if "x1" in r.cuts else -1.0)
-        y0 = r.y0 + (sc if "y0" in r.cuts else -1.0)
-        y1 = r.y1 - (sc if "y1" in r.cuts else -1.0)
-        mask = bbox_polygon(x0, y0, x1, y1)
+        mask_geom = r.poly if seam_relief is None else r.poly.difference(seam_relief)
+        mask_mp = as_multipolygon(mask_geom)
+        mask = max(mask_mp.geoms, key=lambda g: g.area) if len(mask_mp.geoms) else r.poly
         _, rotated = _fits(r.w, r.h, bed)
-        label = f"P{i + 1}"
-        pix_idx = [
-            k
-            for k, p in enumerate(pixels)
-            if r.x0 - 0.01 <= p[0] < r.x1 + (0.01 if "x1" not in r.cuts else 0)
-            and r.y0 - 0.01 <= p[1] < r.y1 + (0.01 if "y1" not in r.cuts else 0)
-        ]
-        for k in pix_idx:
-            p = pixels[k]
-            d_cut = min(
-                [abs(p[0] - r.x1)] * ("x1" in r.cuts)
-                + [abs(p[0] - r.x0)] * ("x0" in r.cuts)
-                + [abs(p[1] - r.y1)] * ("y1" in r.cuts)
-                + [abs(p[1] - r.y0)] * ("y0" in r.cuts)
-                + [1e9]
-            )
-            if d_cut < keep:
-                warnings.append(
-                    f"pixel at ({p[0]:.0f},{p[1]:.0f}) is {d_cut:.1f} mm from a seam "
-                    f"(< {keep} keepout) — collar may straddle the joint"
-                )
         pieces.append(
             Piece(
                 name=f"piece{i + 1}",
-                label=label,
+                label=f"P{i + 1}",
                 mask=mask,
                 rotated=rotated,
                 screws=_screws(r, params, avoid),
-                pixel_idx=pix_idx,
+                pixel_idx=[],
             )
         )
-    return pieces, cut_lines, warnings
+    return pieces, seams, warnings
 
 
 def assign_pixels(pieces: list[Piece], pixels: list[Point2]) -> None:
-    """Assign each pixel to exactly one piece (first mask whose bounds hold it)."""
+    """Assign each pixel to exactly one piece (covering mask wins; bounds fallback)."""
     for pc in pieces:
         pc.pixel_idx = []
     taken: set[int] = set()
     for k, p in enumerate(pixels):
+        pt = Point(p)
+        home = None
         for pc in pieces:
-            x0, y0, x1, y1 = pc.mask.bounds
-            if x0 - 0.5 <= p[0] <= x1 + 0.5 and y0 - 0.5 <= p[1] <= y1 + 0.5 and k not in taken:
-                pc.pixel_idx.append(k)
-                taken.add(k)
+            if pc.mask.buffer(0.5).covers(pt):
+                home = pc
                 break
+        if home is None:
+            for pc in pieces:
+                x0, y0, x1, y1 = pc.mask.bounds
+                if x0 - 0.5 <= p[0] <= x1 + 0.5 and y0 - 0.5 <= p[1] <= y1 + 0.5:
+                    home = pc
+                    break
+        if home is not None and k not in taken:
+            home.pixel_idx.append(k)
+            taken.add(k)
 
 
 def _screws(r: _Region, params: SignParams, avoid=None) -> list[Point2]:
     if not params.style.screw_holes or params.style.backer == "none":
         return []
+    rx0, ry0, rx1, ry1 = r.bounds
     inset = params.style.screw_inset_mm
-    xs = [r.x0 + inset, r.x1 - inset]
-    ys = [r.y0 + inset, r.y1 - inset]
+    xs = [rx0 + inset, rx1 - inset]
+    ys = [ry0 + inset, ry1 - inset]
     if xs[1] <= xs[0] or ys[1] <= ys[0]:
         return []
     pts = [(x, y) for x in xs for y in ys]
     span = params.style.screw_midspan_mm
     if r.w > span:
-        pts += [((r.x0 + r.x1) / 2, ys[0]), ((r.x0 + r.x1) / 2, ys[1])]
+        pts += [((rx0 + rx1) / 2, ys[0]), ((rx0 + rx1) / 2, ys[1])]
     if r.h > span:
-        pts += [(xs[0], (r.y0 + r.y1) / 2), (xs[1], (r.y0 + r.y1) / 2)]
+        pts += [(xs[0], (ry0 + ry1) / 2), (xs[1], (ry0 + ry1) / 2)]
+    # stay on this piece and out of lit channels (light-leak law)
+    pts = [p for p in pts if r.poly.buffer(0.5).covers(Point(p))]
     if avoid is not None and not avoid.is_empty:
-        # a screw through a lit channel is a light leak (lesson 8) — drop it
-        from shapely.geometry import Point
-
         clear = params.style.screw_d_mm / 2 + 1.0
         pts = [p for p in pts if avoid.distance(Point(p)) >= clear]
     return pts
