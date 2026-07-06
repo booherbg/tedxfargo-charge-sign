@@ -32,10 +32,10 @@ def _label_solid(pc: Piece, params: SignParams) -> m3d.Manifold | None:
 
 def clip_bodies_to_piece(
     bodies: list[Body], pc: Piece, params: SignParams, multi: bool
-) -> tuple[list[tuple[str, m3d.Manifold, int, str]], list[str]]:
-    """Returns ([(body_name, manifold, extruder, plate)], notes) for one piece."""
+) -> tuple[list[tuple[str, m3d.Manifold, int, str, str]], list[str]]:
+    """Returns ([(body_name, manifold, extruder, plate, color)], notes) for one piece."""
     notes: list[str] = []
-    out: list[tuple[str, m3d.Manifold, int, str]] = []
+    out: list[tuple[str, m3d.Manifold, int, str, str]] = []
     clip = prism(as_multipolygon(pc.mask), -2.0, 800.0) if multi else None
 
     for body in bodies:
@@ -47,7 +47,7 @@ def clip_bodies_to_piece(
                     "split manually if it exceeds the bed"
                 )
             if pc.name == "piece1":  # emit un-panelized plates exactly once
-                out.append((body.name, man, body.extruder, body.plate))
+                out.append((body.name, man, body.extruder, body.plate, body.color))
             continue
         if clip is not None:
             man = man ^ clip
@@ -70,5 +70,5 @@ def clip_bodies_to_piece(
                     labeled = man - lab
                     if not labeled.is_empty():
                         man = labeled
-        out.append((body.name, man, body.extruder, body.plate))
+        out.append((body.name, man, body.extruder, body.plate, body.color))
     return out, notes

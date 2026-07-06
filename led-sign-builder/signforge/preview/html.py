@@ -90,11 +90,23 @@ def render_preview(
                 f'fill-opacity="0.9"/>'
             )
 
+    labels = ""
+    if len(pieces) > 1:
+        for pc in pieces:
+            lc = pc.mask.centroid
+            labels += (
+                f'<text x="{lc.x:.1f}" y="{-(pc.mask.bounds[1] + 8):.1f}" fill="{c["seam"]}" '
+                f'font-size="14" text-anchor="middle" font-family="system-ui">{pc.label}'
+                + (" ⟳" if pc.rotated else "")
+                + "</text>"
+            )
     svg = (
         f'<svg viewBox="{x0 - pad:.1f} {-(y1 + pad):.1f} {vw:.1f} {vh:.1f}" '
         f'xmlns="http://www.w3.org/2000/svg"><g transform="scale(1,-1)">'
         + "".join(el)
-        + "</g></svg>"
+        + "</g>"
+        + labels
+        + "</svg>"
     )
 
     rows = []
@@ -130,6 +142,19 @@ def render_preview(
                 f'<li class="warn">{a}</li>' for a in ledplan.audits
             ) + "</ul>"
 
+    pieces_html = ""
+    detail = stats.get("pieces_detail", [])
+    if len(detail) > 1:
+        rows = "".join(
+            f"<tr><td>{d['label']}{' ⟳ rotate on bed' if d['rotated'] else ''}</td>"
+            f"<td>{d['pixels']}</td><td>{d['grams']:.0f}</td></tr>"
+            for d in detail
+        )
+        pieces_html = (
+            "<h2>Pieces</h2><table><tr><th>piece</th><th>pixels</th>"
+            f"<th>grams</th></tr>{rows}</table>"
+        )
+
     notes_html = ""
     if body_notes:
         notes_html = "<h2>Build notes</h2><ul>" + "".join(
@@ -143,7 +168,9 @@ def render_preview(
 <h1>{params.name}</h1>
 <p class="sub">{params.style.kind} style · {w_mm:.0f} × {h_mm:.0f} mm ·
 {len(pieces) or 1} piece(s) · {stats.get("source", "")}</p>
+<p><a href="viewer.html" style="color:#7ec8ff">open the 3D viewer →</a></p>
 <figure>{svg}</figure>
+{pieces_html}
 <h2>Bodies</h2>{body_table}
 {power_html}
 {notes_html}

@@ -11,7 +11,7 @@ from ..solids import mesh_of
 from ..verify import gated_mesh
 
 
-def write_stl(path: str | Path, verts: np.ndarray, tris: np.ndarray) -> None:
+def stl_bytes(verts: np.ndarray, tris: np.ndarray) -> bytes:
     v = np.asarray(verts, dtype=np.float32)
     t = np.asarray(tris, dtype=np.int64)
     p0, p1, p2 = v[t[:, 0]], v[t[:, 1]], v[t[:, 2]]
@@ -22,10 +22,11 @@ def write_stl(path: str | Path, verts: np.ndarray, tris: np.ndarray) -> None:
     rec = np.zeros(len(t), dtype=[("n", "<f4", 3), ("v", "<f4", (3, 3)), ("attr", "<u2")])
     rec["n"] = n
     rec["v"][:, 0], rec["v"][:, 1], rec["v"][:, 2] = p0, p1, p2
-    with open(path, "wb") as f:
-        f.write(b"signforge".ljust(80, b"\0"))
-        f.write(struct.pack("<I", len(t)))
-        f.write(rec.tobytes())
+    return b"signforge".ljust(80, b"\0") + struct.pack("<I", len(t)) + rec.tobytes()
+
+
+def write_stl(path: str | Path, verts: np.ndarray, tris: np.ndarray) -> None:
+    Path(path).write_bytes(stl_bytes(verts, tris))
 
 
 def read_stl(path: str | Path) -> tuple[np.ndarray, np.ndarray]:

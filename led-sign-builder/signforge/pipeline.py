@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from .export.bundle import render_bom, zip_bundle
-from .export.stl import write_stl
+from .export.stl import stl_bytes
 from .export.threemf import write_3mf
 from .ingest.fonts import text_to_artwork
 from .layout import build_layout
@@ -110,6 +110,7 @@ def build(
     pieces_detail: list[dict] = []
     from .export.pieces import clip_bodies_to_piece
 
+    viewer_pieces: list[dict] = []
     for pi, pc in enumerate(pieces):
         say(f"cutting + verifying {pc.label}" if multi else "verifying bodies")
         piece_bodies, notes = clip_bodies_to_piece(bodies, pc, params, multi)
@@ -117,15 +118,20 @@ def build(
         plates: dict[str, list[tuple[str, object, object, int]]] = {}
         detail = {"label": pc.label, "pixels": len(pc.pixel_idx), "grams": 0.0,
                   "rotated": pc.rotated, "bodies": {}}
-        for bname, man, extruder, plate in piece_bodies:
+        vc = pc.mask.centroid
+        vpc = {"label": pc.label, "center": (vc.x, vc.y), "bodies": []}
+        for bname, man, extruder, plate, color in piece_bodies:
             verts, tris = mesh_of(man)
             tag = f"{params.name}_{pc.name}_{bname}" if multi else f"{params.name}_{bname}"
             verts, tris, gnotes = gated_mesh(verts, tris, tag)
             warnings += gnotes
+            data = stl_bytes(verts, tris)
             if params.output.stl:
                 path = out / "stl" / f"{tag}.stl"
-                write_stl(path, verts, tris)
+                path.write_bytes(data)
                 files.append(str(path))
+            if plate == "main" and params.output.preview:
+                vpc["bodies"].append({"name": bname, "color": color, "stl": data})
             plates.setdefault(plate, []).append((bname, verts, tris, extruder))
             vol = float(man.volume())
             grams = round(vol / 1000 * PETG_G_PER_CM3, 1)
@@ -144,6 +150,8 @@ def build(
                 write_3mf(path, parts)
                 files.append(str(path))
         pieces_detail.append(detail)
+        if vpc["bodies"]:
+            viewer_pieces.append(vpc)
 
     x0, y0, x1, y1 = layout.bbox
     stats = {
@@ -162,6 +170,15 @@ def build(
         ppath = out / "preview" / "index.html"
         ppath.write_text(html)
         files.append(str(ppath))
+        from .preview.viewer import render_viewer
+
+        vhtml = render_viewer(params.name, viewer_pieces)
+        if vhtml is not None:
+            vpath = out / "preview" / "viewer.html"
+            vpath.write_text(vhtml)
+            files.append(str(vpath))
+        else:
+            warnings.append("kit too large to embed in the 3D viewer — use the web UI")
 
     if params.output.bom:
         bpath = out / "BOM.md"
