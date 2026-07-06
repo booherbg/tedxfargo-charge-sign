@@ -77,13 +77,14 @@ module body_white() {
 module body_clear() {
     z0  = plate_t + pb_wall_h - pb_fuse;
     top = plate_t + pb_wall_h + pb_lens_t;
-    // one global fuzz field centered on the BOARD (not the plate): texture is
-    // continuous across the plate joints that the channels now cross
+    // per-plate CROP of the one global fuzz field (identical values -> texture
+    // continuous across the joints; cropping keeps surface() meshes small)
     clip() union() {
         translate([0,0,z0]) linear_extrude(top - z0) band(pb_band_out);
         intersection() {
-            translate([bb_face[0]/2, bb_face[1]/2, top-0.1504]) scale([0.6667,0.6667,1])  // V8: dat sampled at cell/3 = 0.667mm
-                surface(file = "fuzz_board_global.dat", center = true, convexity = 8);
+            translate([bb_fuzz_ctr[PIECE-1][0], bb_fuzz_ctr[PIECE-1][1], top-0.1504])
+                scale([0.6667,0.6667,1])  // V8: dat sampled at cell/3 = 0.667mm
+                surface(file = str("fuzz_board_p", PIECE, ".dat"), center = true, convexity = 8);
             translate([0,0,top-0.3]) linear_extrude(3) band(pb_band_out);
         }
     }

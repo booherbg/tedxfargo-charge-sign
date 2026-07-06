@@ -51,17 +51,25 @@ if MODE in ("pyramid", "pyramid-jitter"):
     # Min value 0.1704 keeps every triangle strictly above the plane; peaks
     # still reach ~hmax above the lens top.
     F0 = 0.1704
+    # MAX-UNION of the 3x3 neighboring cells' tents: per-cell-only evaluation
+    # leaves height CLIFFS between adjacent samples at cell borders (jittered
+    # neighbors disagree) -> populations of near-degenerate thin triangles ->
+    # recurring 1-3 non-manifold slivers in the booleans. Union of overlapping
+    # tents is continuous; prints identically (cliffs were sub-nozzle).
     grid = []
     for j in range(NY):
         row = []
         for i in range(NX):
-            cx, cy = i // S, j // S
-            h0, ox, oy = peaks[cy][cx]
-            fx = (i % S) / S - 0.5 - ox       # position within cell, peak-relative
-            fy = (j % S) / S - 0.5 - oy
-            t = max(abs(fx), abs(fy)) * 2.0   # 0 at peak -> 1 at cell edge
-            frac = (h0 / hmax) * max(0.0, 1.0 - t)
-            row.append(F0 + frac * (hmax - 0.02))
+            gx, gy = i / S, j / S             # sample position in cell units
+            best = 0.0
+            for cy in range(max(0, int(gy) - 1), min(len(peaks) - 1, int(gy) + 1) + 1):
+                for cx in range(max(0, int(gx) - 1), min(len(peaks[0]) - 1, int(gx) + 1) + 1):
+                    h0, ox, oy = peaks[cy][cx]
+                    fx = gx - (cx + 0.5 + ox)
+                    fy = gy - (cy + 0.5 + oy)
+                    t = max(abs(fx), abs(fy)) * 2.0
+                    best = max(best, (h0 / hmax) * max(0.0, 1.0 - t))
+            row.append(F0 + best * (hmax - 0.02))
         grid.append(row)
 else:
     grid = [[max(0.02, random.uniform(0.0, hmax)) for _ in range(NX)] for _ in range(NY)]

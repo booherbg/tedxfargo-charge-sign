@@ -28,8 +28,9 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
 - Word: cap 250 mm uniform; face 1597×295; 6 pieces, corridor cuts through black only; auto-kern
   applied (A|R +1.2, R|G +5.9). Letters @17 mm pitch.
 - Cross-section (word AND board): black 2 mm plate + 1.2 black outer wall / 0.4 white liner +
-  0.8 white inner wall / 19 mm channel (18 interior) / 1.2 clear lens + baked V3 fuzz
-  (dead-banded ±50 µm). ALL-PETG, 3 colors.
+  0.8 white inner wall / 19 mm channel (18 interior) / 1.2 clear lens + baked **V8 texture**
+  (jittered pyramid facets 2.0/0.6 mm, max-union tents, FLOATED 0.02 mm above the lens plane —
+  no dead-band pass; see make_fuzz.py --mode=pyramid-jitter). ALL-PETG, 3 colors.
 - Pixels: Ø12 bullets, flange Ø13.6 (**14.5 mm min spacing; 13.0–14.5 = snug/flange-snip**),
   collar `assets/bullet-collar.stl`. 4-inch strings.
 - Bed truth (H2D, validated `stl/bedcheck_316x295.stl`): both-nozzle zone 316×295; place 295

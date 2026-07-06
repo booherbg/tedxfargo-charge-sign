@@ -88,29 +88,19 @@ for si, p in enumerate(paths):
             piece_ties[pi].append([round(hx, 1), round(hy, 1)])
         t += TIE_STEP
 
-# fuzzy-top grids per piece. Dead-band post-pass: with the fuzz base 0.1504 below
-# the lens top, any bump height in (0.100, 0.201) peaks within ~50um of the lens
-# top plane -> CGAL/STL-export micro-slivers (non-manifold). Snap that band to its
-# edges: bumps are then either safely swallowed or solidly proud. Sub-layer, invisible.
+# fuzzy-top grids per piece. V8 texture (PETG bake-off winner 2026-07-05):
+# jittered pyramid facets, 2.0mm cells / 0.6mm peaks, max-union tents, sampled
+# at cell/3 (piece.scad surface scale 0.6667). NO dead-band post-pass: pyramid
+# fields are FLOATED 0.02mm above the lens plane inside make_fuzz (min value
+# 0.1704), so nothing approaches the plane — and snapping floated ramps onto
+# the 0.201 plane was itself creating coplanar micro-slivers.
 for i, pc in enumerate(pieces):
     ax, ay = pc["x1"] - pc["x0"] + 6, fy1 - fy0 + 6
     dat = "src/parts/fuzz_piece_%d.dat" % (i+1)
-    # V8 texture (PETG bake-off winner 2026-07-05): jittered pyramid facets,
-    # 2.0mm cells / 0.6mm peaks, sampled at cell/4 = 0.5mm (piece.scad scale 0.5)
     subprocess.run(["python3", "tools/make_fuzz.py", dat,
-                    "2.0", "0.6", str(7 + i), "0", "0", "%.0f" % ax, "%.0f" % ay,
-                    "--mode=pyramid-jitter"], check=True)   # per-piece seed: dodge
-                                                            # grid-luck sliver draws
-    rows = []
-    for line in open(dat):
-        vals = []
-        for v in line.split():
-            f = float(v)
-            if 0.100 < f < 0.201:
-                f = 0.100 if f < 0.1504 else 0.201
-            vals.append("%.3f" % f)
-        rows.append(" ".join(vals))
-    open(dat, "w").write("\n".join(rows) + "\n")
+                    "2.0", "0.6", str(7 + i), "0", "0",
+                    "%.0f" % ax, "%.0f" % ay,
+                    "--mode=pyramid-jitter"], check=True)
 
 fmt = lambda pts: "[" + ",".join("[%.2f,%.2f]" % (x, y) for x, y in pts) + "]"
 with open("src/parts/word_layout.scad", "w") as f:

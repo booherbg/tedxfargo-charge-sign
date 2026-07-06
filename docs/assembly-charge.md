@@ -14,13 +14,13 @@ The 2026-07-05 bridging experiment was reverted at the user's direction — the
 
 | # | letter | footprint (mm) | black | white | clear | total | pixels |
 |---|--------|----------------|-------|-------|-------|-------|--------|
-| 1 | C | 295 × 295 | 225 g | 60 g | 47 g | 332 g | 62 |
-| 2 | H | 316 × 295 | 234 g | 78 g | 61 g | 373 g | 81 |
-| 3 | A | 296 × 295 | 222 g | 63 g | 50 g | 335 g | 67 |
-| 4 | R | 292 × 295 | 252 g | 80 g | 62 g | 394 g | 82 |
-| 5 | G | 300 × 295 | 235 g | 79 g | 62 g | 376 g | 82 |
-| 6 | E | 290 × 295 | 240 g | 78 g | 61 g | 379 g | 80 |
-| | **total** | face 1597 × 295 | 1408 g | 438 g | 343 g | **2189 g** | **454** |
+| 1 | C | 295 × 295 | 225 g | 60 g | 43 g | 328 g | 62 |
+| 2 | H | 316 × 295 | 234 g | 78 g | 56 g | 368 g | 81 |
+| 3 | A | 296 × 295 | 222 g | 63 g | 46 g | 331 g | 67 |
+| 4 | R | 292 × 295 | 252 g | 80 g | 57 g | 389 g | 82 |
+| 5 | G | 300 × 295 | 235 g | 79 g | 57 g | 371 g | 82 |
+| 6 | E | 290 × 295 | 240 g | 78 g | 56 g | 374 g | 80 |
+| | **total** | face 1597 × 295 | 1408 g | 438 g | 315 g | **2161 g** | **454** |
 
 Pixel layout is relaxation-solved: min spacing 14.2 mm (flange is 13.6). Three snug pairs
 sit in the R's lower leg (~x 957–989) — press those firmly; no trimming needed. One pixel
@@ -37,11 +37,11 @@ chain position (136 links; extension jumpers at chain 87 and 108).
 
 | plate | position | footprint (mm) | black | white | clear | total | pixels |
 |-------|----------|----------------|-------|-------|-------|-------|--------|
-| B1 | bottom-left | 153 × 255 | 112 g | 22 g | 18 g | 152 g | 19 |
-| B2 | bottom-right | 257 × 255 | 192 g | 44 g | 35 g | 271 g | 39 |
-| B3 | top-left | 126 × 295 | 102 g | 13 g | 11 g | 126 g | 11 |
-| B4 | top-right | 284 × 295 | 258 g | 78 g | 61 g | 397 g | 68 |
-| | **total** | board 410 × 550 | 664 g | 157 g | 125 g | **946 g** | **137** |
+| B1 | bottom-left | 153 × 255 | 112 g | 22 g | 17 g | 151 g | 19 |
+| B2 | bottom-right | 257 × 255 | 192 g | 44 g | 33 g | 269 g | 39 |
+| B3 | top-left | 126 × 295 | 102 g | 13 g | 10 g | 125 g | 11 |
+| B4 | top-right | 284 × 295 | 258 g | 78 g | 58 g | 394 g | 68 |
+| | **total** | board 410 × 550 | 664 g | 157 g | 118 g | **939 g** | **137** |
 
 Same 0.20 Standard process and filament layout as the word pieces (all plates are
 smaller than the worst word piece; 295 side across the bed). Plates butt on the wood
@@ -76,6 +76,11 @@ bed faces (B1–B4).
 - 0.16 mm layer · 0.42 line · 2 walls · 10% gyroid · 6 top / **7 bottom** (the +1 kills the
   fuzzy-top shell islands) · concentric top · supports OFF · **brim OFF** · bridge fan ON ·
   **prime tower OFF, purge to chute**.
+- Lens texture is **V8** (PETG bake-off winner): jittered pyramid facets, 2.0 mm cells /
+  0.6 mm peaks — "uniform but scattered," brighter and clearer than the old V3 frost.
+- **Import note:** R, G, E and board B4 may trigger Bambu's "model has issues → Fix?" on
+  import — click **Fix** (it welds the µm-scale export slivers; validated benign class).
+  C, H, A and B1–B3 import clean.
 - Label (piece # + letter) is debossed on the bed face of each black body.
 
 ## Assembly
