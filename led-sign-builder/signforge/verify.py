@@ -144,8 +144,14 @@ def heal_pinch_edges(
 def gated_mesh(
     verts: np.ndarray, tris: np.ndarray, name: str = "mesh"
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Audit; on pinch-only failure attempt the principled heal, re-audit.
-    Returns export-ready (verts, tris, notes). Raises BuildError if unhealable."""
+    """Audit; heal what is principled to heal; hard-fail the rest.
+
+    Returns export-ready (verts, tris, notes) — position-welded and free of
+    zero-area facets. Degenerate tris that collapse UNDER THE WELD carry no
+    surface (unlike dropping small-but-real soup triangles, which punches
+    holes — deleted-healer lesson); we drop them and then REQUIRE the result
+    to be 2-manifold. Pinch edges get the CHARGE fan-split. Anything else
+    (boundary edges) is unshippable."""
     notes: list[str] = []
     r = edge_report(verts, tris)
     if r["pinch"] and not r["boundary"]:
@@ -156,8 +162,18 @@ def gated_mesh(
         if er["boundary"] or er["pinch"] or er["degenerate"]:
             raise BuildError(f"FAIL {name}: unhealable after fan-split ({er})")
         return verts, tris, notes
-    audit_mesh(verts, tris, name)
-    return verts, tris, notes
+    if r["boundary"] or r["pinch"]:
+        audit_mesh(verts, tris, name)  # raises with the full message
+    wverts, wtris = _weld(verts, tris)
+    if r["degenerate"]:
+        er = edge_report_indexed(wtris)
+        if er["boundary"] or er["pinch"] or er["degenerate"]:
+            raise BuildError(f"FAIL {name}: not manifold after weld ({er})")
+        notes.append(
+            f"welded {name}: {r['degenerate']} zero-area sliver tri(s) collapsed "
+            "(sub-µm boolean seams; surface unchanged)"
+        )
+    return wverts, wtris, notes
 
 
 def clearance_audit(

@@ -69,7 +69,14 @@ def build_neon_bodies(
             ]
         bodies.append(Body("liner", union_all(parts), ex["liner"], colors["liner"]))
 
-    # ---- lens (clear): welded band over the walls ----------------------------
+    # ---- lens (clear): welded band over the walls, baked fuzzy top -----------
     lens = prism(b_out, wall_top - fuse, wall_top + st.lens_t)
+    if params.texture.mode != "none":
+        from ..textures import textured_lens_top
+
+        tex = textured_lens_top(
+            b_out, wall_top + st.lens_t, params, params.texture.seed, fuse
+        )
+        lens = lens + tex
     bodies.append(Body("lens", lens, ex["lens"], colors["lens"]))
     return bodies
