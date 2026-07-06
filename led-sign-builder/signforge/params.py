@@ -56,6 +56,10 @@ class NeonSection(BaseModel):
     liner_floor_t: float = Field(0.4, gt=0)       # white floor lining
     wall_height: float = Field(19.0, gt=2)        # dome_clear 4 + air gap 15
     lens_t: float = Field(1.2, gt=0.3)
+    # coverage QA severity: None = auto (strict for text/glyphs — the
+    # A-amputation class; warn for arbitrary shapes, where skeleton neon is an
+    # interpretation and sharp wedge tips always lose a little area)
+    coverage_strict: Optional[bool] = None
 
     @property
     def band_outer(self) -> float:

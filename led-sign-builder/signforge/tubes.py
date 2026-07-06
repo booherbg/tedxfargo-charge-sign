@@ -131,10 +131,17 @@ def plan_tubes(
         fails, notes = coverage_qa(layout.fills, b, fail_mm2, note_mm2)
         warnings += [f"coverage note: {n}" for n in notes]
         if fails:
-            raise BuildError(
-                "coverage QA FAILED — tube layout misses source ink "
-                "(the A-amputation class): " + "; ".join(fails)
-            )
+            strict = params.style.neon.coverage_strict
+            if strict is None:
+                strict = meta["source"] == "skeleton:per-glyph"  # letterforms are law
+            if strict:
+                raise BuildError(
+                    "coverage QA FAILED — tube layout misses source ink "
+                    "(the A-amputation class): " + "; ".join(fails)
+                )
+            warnings += [
+                f"coverage warning (shape art, tips are approximate): {f}" for f in fails
+            ]
 
     min_gap = st.band_outer + 4.0
     violations = clearance_audit(strokes, min_gap=min_gap)

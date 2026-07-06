@@ -53,6 +53,11 @@ def quick_plan(params: SignParams):
     if params.style.kind == "channel":
         from .parts.channel import channel_pan_footprint
 
+        if layout.fills is None or layout.fills.is_empty:
+            raise BuildError(
+                "channel style needs filled artwork (text or filled vectors) — "
+                "stroke-only art suits the neon style"
+            )
         footprint = channel_pan_footprint(layout, params)
         pieces, cuts, pwarn = panelize(
             footprint, [], [], params, avoid=ring_offset(layout.fills, 4.0)
@@ -108,6 +113,11 @@ def build(
     if params.style.kind == "channel":
         from .parts.channel import build_channel_bodies, channel_pan_footprint
 
+        if layout.fills is None or layout.fills.is_empty:
+            raise BuildError(
+                "channel style needs filled artwork (text or filled vectors) — "
+                "stroke-only art suits the neon style"
+            )
         footprint = channel_pan_footprint(layout, params)
         avoid = ring_offset(layout.fills, 4.0)
         say("panelizing")
