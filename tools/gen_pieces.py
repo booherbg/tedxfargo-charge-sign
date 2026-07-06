@@ -98,8 +98,9 @@ for i, pc in enumerate(pieces):
     # V8 texture (PETG bake-off winner 2026-07-05): jittered pyramid facets,
     # 2.0mm cells / 0.6mm peaks, sampled at cell/4 = 0.5mm (piece.scad scale 0.5)
     subprocess.run(["python3", "tools/make_fuzz.py", dat,
-                    "2.0", "0.6", "7", "0", "0", "%.0f" % ax, "%.0f" % ay,
-                    "--mode=pyramid-jitter"], check=True)
+                    "2.0", "0.6", str(7 + i), "0", "0", "%.0f" % ax, "%.0f" % ay,
+                    "--mode=pyramid-jitter"], check=True)   # per-piece seed: dodge
+                                                            # grid-luck sliver draws
     rows = []
     for line in open(dat):
         vals = []

@@ -79,7 +79,7 @@ module body_clear() {
             // base offset 0.1504: OFF the 3-decimal height lattice, so no bump top
             // can be exactly coplanar with the lens top (CGAL emits non-manifold
             // micro-slivers at such tangencies — Bambu flags them)
-            translate([ctr[0], ctr[1], top-0.1504]) scale([0.5, 0.5, 1])  // V8: dat sampled at 0.5mm
+            translate([ctr[0], ctr[1], top-0.1504]) scale([0.6667, 0.6667, 1])  // V8: dat sampled at cell/3 = 0.667mm
                 surface(file = str("fuzz_piece_", PIECE, ".dat"), center = true, convexity = 8);
             translate([0,0,top-0.3]) linear_extrude(3) band(pc_band_out);
         }

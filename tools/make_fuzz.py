@@ -33,7 +33,10 @@ random.seed(seed)
 # floor at 0.02: cells that hit exactly 0.000 make the heightfield touch its own
 # base plane -> non-manifold pinch edges in the CGAL union (Bambu flags them)
 if MODE in ("pyramid", "pyramid-jitter"):
-    S = 4                                     # samples per cell edge
+    S = 3                                     # samples per cell edge (0.67mm at cell
+                                              # 2.0 -- the 0.4 nozzle is the real
+                                              # resolution limit; S=4 was 2x the mesh
+                                              # for no printable difference)
     NX, NY = int(AREA_X / cell * S) + 2, int(AREA_Y / cell * S) + 2
     ncx, ncy = NX // S + 2, NY // S + 2
     peaks = [[(hmax, 0.0, 0.0) for _ in range(ncx)] for _ in range(ncy)]
@@ -41,6 +44,13 @@ if MODE in ("pyramid", "pyramid-jitter"):
         peaks = [[(hmax * random.uniform(0.6, 1.0),
                    random.uniform(-0.25, 0.25), random.uniform(-0.25, 0.25))
                   for _ in range(ncx)] for _ in range(ncy)]
+    # Float the whole faceted field 0.02mm PROUD of the lens plane: the .scad
+    # places the surface base at top-0.1504, so values below 0.1504 dip under
+    # the lens top and every ramp crossing that plane leaves a tangency line ->
+    # non-manifold edges (dead-band snaps samples, not the interpolated ramps).
+    # Min value 0.1704 keeps every triangle strictly above the plane; peaks
+    # still reach ~hmax above the lens top.
+    F0 = 0.1704
     grid = []
     for j in range(NY):
         row = []
@@ -50,7 +60,8 @@ if MODE in ("pyramid", "pyramid-jitter"):
             fx = (i % S) / S - 0.5 - ox       # position within cell, peak-relative
             fy = (j % S) / S - 0.5 - oy
             t = max(abs(fx), abs(fy)) * 2.0   # 0 at peak -> 1 at cell edge
-            row.append(max(0.02, h0 * max(0.0, 1.0 - t)))
+            frac = (h0 / hmax) * max(0.0, 1.0 - t)
+            row.append(F0 + frac * (hmax - 0.02))
         grid.append(row)
 else:
     grid = [[max(0.02, random.uniform(0.0, hmax)) for _ in range(NX)] for _ in range(NY)]
