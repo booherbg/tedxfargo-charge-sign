@@ -40,13 +40,21 @@ Extract the CHARGE pipeline into a generic, launchable "LED Sign Builder": web U
       (gentle pruning, blob-midline fallback) and added as tubes; unblocks
       script fonts (Pacifico) and improves shape tips. The automated make_repairs.
 
-## ALL QUEUED WORK COMPLETE (112 tests green, 17 commits)
-**Loop discipline for future pings:** if the task queue is empty — run
+## Hardening round (loop iteration 2 — 115 tests green, 19 commits)
+17-case torture sweep (script in session scratchpad `torture.py`): **0 crashes**,
+every case builds or gates with a clear message. Drove 4 real fixes: progress-first
+cut scoring (M@500 16→4 pieces), corridor bounds-progress guard (kills the
+27-piece spiral), narrow-halo racetrack→skeleton collapse, audit aggregation.
+
+**Loop discipline for future pings:** if nothing is queued — run
 `uv run pytest`, confirm green, give a one-line status, and STOP. Do not
-invent churn. Real P3 candidates (pick up only with fresh judgment or user
-input): web preset-picker buttons, param-schema-driven advanced UI, hosted
-hardening (rate limits, sandboxed parsers), PyPI publish + name decision
-(user's call), physical print validation of a kit (user's printer).
+invent churn. Remaining P3 candidates (fresh judgment or user input):
+- expand torture sweep dimensions (fonts × sizes × styles) and/or promote to a
+  slow-marked test module
+- performance profile (CHARGE.svg 13s: skeleton ZS passes + texture booleans)
+- web preset-picker buttons; param-schema-driven advanced UI
+- hosted hardening (rate limits, parser sandboxing); PyPI publish + product
+  name (USER decisions); physical print validation on the H2D (USER).
 
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`
