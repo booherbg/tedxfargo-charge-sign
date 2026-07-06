@@ -77,6 +77,7 @@ class Body:
     man: "manifold3d.Manifold"
     extruder: int
     color: str
+    plate: str = "main"                  # co-printed bodies share a plate/3MF
 
 
 @dataclass

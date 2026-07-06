@@ -89,6 +89,6 @@ def build_channel_bodies(layout: Layout, pixels: list, params: SignParams) -> li
     lens = union_all(lens_parts)
     cx = (layout.bbox[0] + layout.bbox[2]) / 2
     lens = lens.mirror((1, 0, 0)).translate([2 * cx, 0, 0])   # pre-mirror about x=cx
-    bodies.append(Body("lens", lens, ex["lens"], colors["lens"]))
+    bodies.append(Body("lens", lens, ex["lens"], colors["lens"], plate="lens"))
 
     return bodies
