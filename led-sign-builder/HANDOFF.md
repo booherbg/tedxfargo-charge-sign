@@ -46,15 +46,18 @@ every case builds or gates with a clear message. Drove 4 real fixes: progress-fi
 cut scoring (M@500 16→4 pieces), corridor bounds-progress guard (kills the
 27-piece spiral), narrow-halo racetrack→skeleton collapse, audit aggregation.
 
+**Loop iteration 3:** heightfield mesh vectorized (the one profiled hot spot we
+control; CHARGE stays ~12s — boolean-bound, fine for a 1.6m kit), web preset
+buttons, torture sweep promoted to `tests/test_torture.py` behind `-m slow`
+(fast suite 115 / slow 13, all green).
+
 **Loop discipline for future pings:** if nothing is queued — run
 `uv run pytest`, confirm green, give a one-line status, and STOP. Do not
-invent churn. Remaining P3 candidates (fresh judgment or user input):
-- expand torture sweep dimensions (fonts × sizes × styles) and/or promote to a
-  slow-marked test module
-- performance profile (CHARGE.svg 13s: skeleton ZS passes + texture booleans)
-- web preset-picker buttons; param-schema-driven advanced UI
-- hosted hardening (rate limits, parser sandboxing); PyPI publish + product
-  name (USER decisions); physical print validation on the H2D (USER).
+invent churn. Remaining candidates:
+- hosted hardening basics (simple rate limit, upload-count and job-count caps)
+- param-schema-driven advanced UI (generate controls from pydantic schema)
+- USER-gated: product name, PyPI publish, physical H2D print of a kit
+  (fit ladder first: `uv run signforge coupon -o out/coupons`).
 
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`
