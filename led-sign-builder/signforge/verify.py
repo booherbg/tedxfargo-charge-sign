@@ -268,17 +268,23 @@ def clearance_audit(
 
 
 def coverage_qa(
-    source_fills, band, max_mm2: float = 100.0, note_mm2: float = 60.0
-) -> tuple[list[str], list[str]]:
+    source_fills, band, max_mm2: float = 100.0, note_mm2: float = 60.0,
+    return_geoms: bool = False,
+):
     """Does the tube layout actually cover the source art? (Port of
     tools/qa_coverage.py intent, exact-geometry version.) The check the
-    extractor never had: it validates against the ART, not its own graph."""
+    extractor never had: it validates against the ART, not its own graph.
+
+    Returns (fails, notes) — or (fails, notes, cluster_polys) with
+    return_geoms=True, where cluster_polys are the uncovered regions ≥
+    note_mm2 (feedstock for terminal rescue)."""
     from .geom2d import as_multipolygon
 
     fails: list[str] = []
     notes: list[str] = []
+    geoms: list = []
     if source_fills is None or source_fills.is_empty:
-        return fails, notes
+        return (fails, notes, geoms) if return_geoms else (fails, notes)
     missed = as_multipolygon(source_fills.difference(band))
     for p in missed.geoms:
         a = p.area
@@ -287,7 +293,8 @@ def coverage_qa(
         c = p.centroid
         msg = f"{a:.0f} mm² of source ink uncovered near ({c.x:.0f},{c.y:.0f})"
         (fails if a > max_mm2 else notes).append(msg)
-    return fails, notes
+        geoms.append(p)
+    return (fails, notes, geoms) if return_geoms else (fails, notes)
 
 
 def edge_report_indexed(tris: np.ndarray) -> dict:

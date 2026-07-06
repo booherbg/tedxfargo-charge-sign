@@ -71,6 +71,19 @@ def test_neon_bodies_gated(bungee):
         gated_mesh(v, t, b.name)
 
 
+def test_script_font_terminal_rescue(pacifico):
+    """Pacifico terminals (the w's teardrop, o's connector tail) prune as
+    spurs; terminal rescue must recover them or the strict gate fails."""
+    from signforge.tubes import plan_tubes
+
+    p = _neon_params(text="glow")
+    art = text_to_artwork(pacifico, "glow", cap_height_mm=140)
+    lay = build_layout(art, p)
+    strokes, lay2, meta, warnings = plan_tubes(lay, p)   # raises without rescue
+    assert any("terminal rescue" in w for w in warnings)
+    assert len(strokes) >= 7                              # base tubes + rescued bits
+
+
 def test_e2e_neon_kit(tmp_path, bungee):
     from signforge.pipeline import build
 

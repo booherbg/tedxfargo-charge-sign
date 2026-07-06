@@ -32,6 +32,43 @@ def _shift_stroke(s: Stroke, dx: float) -> Stroke:
     return Stroke(pts=[(x + dx, y) for x, y in s.pts], width=s.width, closed=s.closed)
 
 
+def _rescue_clusters(missed: list, tube_w: float) -> list[Stroke]:
+    """Recover centerlines from uncovered ink clusters (script terminals)."""
+    rescued: list[Stroke] = []
+    for poly in missed:
+        cluster = heal(poly)
+        if cluster.is_empty:
+            continue
+        subs, _meta = extract_centerlines(
+            cluster, spur_mm=2.5, rung_mm=4.0, min_path_mm=5.0, step_mm=3.0
+        )
+        if subs:
+            rescued += subs
+            continue
+        # compact blob: fall back to the midline of its oriented bbox,
+        # trimmed so the round band caps land on the ink boundary
+        rect = cluster.minimum_rotated_rectangle
+        try:
+            cs = list(rect.exterior.coords)[:4]
+        except AttributeError:
+            continue
+        import math as _m
+
+        e1 = (_m.dist(cs[0], cs[1]), (cs[0], cs[1]), (cs[3], cs[2]))
+        e2 = (_m.dist(cs[1], cs[2]), (cs[1], cs[2]), (cs[0], cs[3]))
+        _, (a0, a1), (b0, b1) = max(e1, e2)
+        mid0 = ((a0[0] + b0[0]) / 2, (a0[1] + b0[1]) / 2)
+        mid1 = ((a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2)
+        L = _m.dist(mid0, mid1)
+        if L < 2.0:
+            continue
+        trim = min(tube_w / 2, L * 0.35) / L
+        p0 = (mid0[0] + (mid1[0] - mid0[0]) * trim, mid0[1] + (mid1[1] - mid0[1]) * trim)
+        p1 = (mid1[0] + (mid0[0] - mid1[0]) * trim, mid1[1] + (mid0[1] - mid1[1]) * trim)
+        rescued.append(Stroke(pts=[p0, p1], width=None, closed=False))
+    return rescued
+
+
 def plan_tubes(
     layout: Layout, params: SignParams
 ) -> tuple[list[Stroke], Layout, dict, list[str]]:
@@ -128,7 +165,22 @@ def plan_tubes(
         # scale with (tube_w/2)² — thresholds scale so bold fonts don't false-fail
         fail_mm2 = max(COVERAGE_FAIL_MM2, (0.55 * cover_w) ** 2)
         note_mm2 = max(COVERAGE_NOTE_MM2, fail_mm2 / 2)
-        fails, notes = coverage_qa(layout.fills, b, fail_mm2, note_mm2)
+        fails, notes, missed = coverage_qa(
+            layout.fills, b, fail_mm2, note_mm2, return_geoms=True
+        )
+        if missed:
+            # TERMINAL RESCUE — the automated make_repairs.py: script fonts end
+            # in blobs/tails whose skeletons prune as spurs. Re-skeletonize each
+            # uncovered cluster with gentle pruning and add the recovered tubes.
+            rescued = _rescue_clusters(missed, cover_w)
+            if rescued:
+                strokes = strokes + rescued
+                warnings.append(
+                    f"terminal rescue: {len(rescued)} tube(s) recovered from "
+                    f"{len(missed)} uncovered cluster(s) (script terminals/tails)"
+                )
+                b = band(strokes, cover_w + 1.0)
+                fails, notes = coverage_qa(layout.fills, b, fail_mm2, note_mm2)
         warnings += [f"coverage note: {n}" for n in notes]
         if fails:
             strict = params.style.neon.coverage_strict
