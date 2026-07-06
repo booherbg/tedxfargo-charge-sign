@@ -30,19 +30,23 @@ Extract the CHARGE pipeline into a generic, launchable "LED Sign Builder": web U
 - [x] #20 halo/backlit style (face-down pre-mirrored, rear flange pixel racetrack,
       standoffs, optional diffuser; unpanelized v1) + LED-strip mode (BOM power plan).
       Keyholes deferred: standoff bosses are the natural halo mount.
-- [ ] **#19 corridor/piecewise seams ← NEXT.** Porting notes:
-      source `tools/panelize.py` (parent repo): coarse clearance grid over the
-      footprint (distance to band), route cut as a polyline through dark field
-      (widest-then-shortest, Dijkstra), graze/corner rejection. Integration plan:
-      (a) standalone `signforge/corridors.py` router: route(footprint, obstacle
-      MultiPolygon, axis, x_window) -> polyline|None, maximizing min-clearance;
-      (b) panelize._best_cut falls back to corridor when every straight cut
-      crosses tubes; masks become general polygons (region minus seam buffer);
-      (c) generalize leds seam keepout from (axis,c) lines to polylines
-      (_seam_dist → distance-to-polyline; seams param type widens).
-      Corridor cuts avoid bands entirely → pixel keepout is automatic there.
-- [ ] #21 launch prep remainder: screenshots/gallery, PyPI dry run (wheel already
-      builds), name decision (user's call).
+- [x] #19 corridor/piecewise seams: corridors.py (chamfer clearance field +
+      widest-then-shortest Dijkstra), polygon regions split by seam LineStrings,
+      full-span corridor fallback when straight cuts cross tubes, polyline seam
+      keepout in the LED planner.
+- [x] #21 launch prep: MIT LICENSE, wheel+sdist build verified, demo gallery
+      (scripts/make_gallery.py → docs/gallery/, 5 real builds), README linked.
+- [x] BONUS: **terminal rescue** — uncovered coverage clusters re-skeletonized
+      (gentle pruning, blob-midline fallback) and added as tubes; unblocks
+      script fonts (Pacifico) and improves shape tips. The automated make_repairs.
+
+## ALL QUEUED WORK COMPLETE (112 tests green, 17 commits)
+**Loop discipline for future pings:** if the task queue is empty — run
+`uv run pytest`, confirm green, give a one-line status, and STOP. Do not
+invent churn. Real P3 candidates (pick up only with fresh judgment or user
+input): web preset-picker buttons, param-schema-driven advanced UI, hosted
+hardening (rate limits, sandboxed parsers), PyPI publish + name decision
+(user's call), physical print validation of a kit (user's printer).
 
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`

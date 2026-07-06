@@ -30,6 +30,8 @@ pip-installable Python package with a web UI.
 - **BOM.md** print card with slicer notes, and **params.json** — every kit rebuilds
   exactly with `signforge build --params params.json`
 
+**[→ Gallery](docs/gallery/README.md)** — real builds' production dashboards (neon, channel, halo, shape art, script).
+
 ## Quickstart
 
 ```bash
