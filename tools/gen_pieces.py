@@ -95,8 +95,11 @@ for si, p in enumerate(paths):
 for i, pc in enumerate(pieces):
     ax, ay = pc["x1"] - pc["x0"] + 6, fy1 - fy0 + 6
     dat = "src/parts/fuzz_piece_%d.dat" % (i+1)
+    # V8 texture (PETG bake-off winner 2026-07-05): jittered pyramid facets,
+    # 2.0mm cells / 0.6mm peaks, sampled at cell/4 = 0.5mm (piece.scad scale 0.5)
     subprocess.run(["python3", "tools/make_fuzz.py", dat,
-                    "1.5", "0.8", "7", "0", "0", "%.0f" % ax, "%.0f" % ay], check=True)
+                    "2.0", "0.6", "7", "0", "0", "%.0f" % ax, "%.0f" % ay,
+                    "--mode=pyramid-jitter"], check=True)
     rows = []
     for line in open(dat):
         vals = []

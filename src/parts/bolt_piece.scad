@@ -82,7 +82,7 @@ module body_clear() {
     clip() union() {
         translate([0,0,z0]) linear_extrude(top - z0) band(pb_band_out);
         intersection() {
-            translate([bb_face[0]/2, bb_face[1]/2, top-0.1504]) scale([1.5,1.5,1])
+            translate([bb_face[0]/2, bb_face[1]/2, top-0.1504]) scale([0.5,0.5,1])  // V8: dat sampled at 0.5mm
                 surface(file = "fuzz_board_global.dat", center = true, convexity = 8);
             translate([0,0,top-0.3]) linear_extrude(3) band(pb_band_out);
         }

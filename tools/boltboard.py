@@ -247,8 +247,11 @@ json.dump({"pitch": PITCH,
 # across the plate joints (channels cross seams now; a per-plate field would
 # print a visible texture discontinuity along each joint).
 dat = "src/parts/fuzz_board_global.dat"
-subprocess.run(["python3", "tools/make_fuzz.py", dat, "1.5", "0.8", "7",
-                "0", "0", "%.0f" % (FW + 4), "%.0f" % (FH + 4)], check=True)
+# V8 texture (PETG bake-off winner 2026-07-05): jittered pyramid facets,
+# 2.0mm cells / 0.6mm peaks, sampled at cell/4 = 0.5mm (bolt_piece.scad scale 0.5)
+subprocess.run(["python3", "tools/make_fuzz.py", dat, "2.0", "0.6", "7",
+                "0", "0", "%.0f" % (FW + 4), "%.0f" % (FH + 4),
+                "--mode=pyramid-jitter"], check=True)
 rows = []                                       # same +-50um dead-band as the letters
 for line in open(dat):
     vals = []

@@ -22,9 +22,9 @@ mkdir -p stl
 "$OSCAD" -D PIECE=6 -D COL=1 -o stl/piece6_black.stl src/parts/piece.scad 2>stl/p6b.log && echo "  ok piece6_black"
 "$OSCAD" -D PIECE=6 -D COL=2 -o stl/piece6_white.stl src/parts/piece.scad 2>stl/p6w.log && echo "  ok piece6_white"
 "$OSCAD" -D PIECE=6 -D COL=3 -o stl/piece6_clear.stl src/parts/piece.scad 2>stl/p6c.log && echo "  ok piece6_clear"
-python3 tools/make_3mf.py stl/piece1_black.stl stl/piece1_white.stl stl/piece1_clear.stl stl/piece1_3color.3mf
-python3 tools/make_3mf.py stl/piece2_black.stl stl/piece2_white.stl stl/piece2_clear.stl stl/piece2_3color.3mf
-python3 tools/make_3mf.py stl/piece3_black.stl stl/piece3_white.stl stl/piece3_clear.stl stl/piece3_3color.3mf
-python3 tools/make_3mf.py stl/piece4_black.stl stl/piece4_white.stl stl/piece4_clear.stl stl/piece4_3color.3mf
-python3 tools/make_3mf.py stl/piece5_black.stl stl/piece5_white.stl stl/piece5_clear.stl stl/piece5_3color.3mf
-python3 tools/make_3mf.py stl/piece6_black.stl stl/piece6_white.stl stl/piece6_clear.stl stl/piece6_3color.3mf
+python3 tools/make_3mf.py stl/piece1_black.stl stl/piece1_clear.stl stl/piece1_white.stl stl/piece1_3color.3mf
+python3 tools/make_3mf.py stl/piece2_black.stl stl/piece2_clear.stl stl/piece2_white.stl stl/piece2_3color.3mf
+python3 tools/make_3mf.py stl/piece3_black.stl stl/piece3_clear.stl stl/piece3_white.stl stl/piece3_3color.3mf
+python3 tools/make_3mf.py stl/piece4_black.stl stl/piece4_clear.stl stl/piece4_white.stl stl/piece4_3color.3mf
+python3 tools/make_3mf.py stl/piece5_black.stl stl/piece5_clear.stl stl/piece5_white.stl stl/piece5_3color.3mf
+python3 tools/make_3mf.py stl/piece6_black.stl stl/piece6_clear.stl stl/piece6_white.stl stl/piece6_3color.3mf
