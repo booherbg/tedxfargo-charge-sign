@@ -1,18 +1,23 @@
 """Local web UI. Self-host trust model: parsing happens in-process, no auth,
 no outbound network calls. Uploaded files are referenced by server-side tokens
-only — client-supplied font_path/art_path are ignored.
+only — client-supplied font_path/art_path are ignored. Basic guardrails
+(per-IP rate limits, upload/job caps with eviction) keep a shared LAN box
+healthy; this is still not hardened multi-tenant hosting.
 """
 
 from __future__ import annotations
 
 import secrets
+import shutil
 import tempfile
 import threading
+import time
 import traceback
+from collections import OrderedDict, deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from ..ingest.fonts import default_font_path
@@ -23,8 +28,8 @@ app = FastAPI(title="LED Sign Builder")
 
 STATIC = Path(__file__).parent / "static"
 WORK = Path(tempfile.mkdtemp(prefix="signforge-web-"))
-UPLOADS: dict[str, Path] = {}
-JOBS: dict[str, dict] = {}
+UPLOADS: "OrderedDict[str, Path]" = OrderedDict()
+JOBS: "OrderedDict[str, dict]" = OrderedDict()
 _pool = ThreadPoolExecutor(max_workers=2)
 _lock = threading.Lock()
 
@@ -32,6 +37,40 @@ FONT_EXT = {".ttf", ".otf", ".woff", ".woff2"}
 ART_EXT = {".svg", ".dxf", ".png", ".jpg", ".jpeg"}
 FONT_CAP = 5 * 1024 * 1024
 ART_CAP = 20 * 1024 * 1024
+
+MAX_UPLOADS = 50           # stored upload files (oldest evicted)
+MAX_JOBS_KEPT = 20         # finished jobs retained on disk (oldest evicted)
+MAX_ACTIVE_JOBS = 4        # queued+running ceiling
+RATE_WINDOW_S = 600.0
+RATE_LIMITS = {"build": 12, "upload": 30}   # per IP per window
+_rate: dict[tuple[str, str], deque] = {}
+
+
+def _throttle(request: Request, kind: str) -> None:
+    ip = request.client.host if request.client else "?"
+    q = _rate.setdefault((kind, ip), deque())
+    now = time.monotonic()
+    while q and now - q[0] > RATE_WINDOW_S:
+        q.popleft()
+    if len(q) >= RATE_LIMITS[kind]:
+        raise HTTPException(
+            429, f"rate limit: {RATE_LIMITS[kind]} {kind}s per {RATE_WINDOW_S / 60:.0f} min"
+        )
+    q.append(now)
+
+
+def _evict() -> None:
+    """Bound disk usage: oldest uploads and finished job dirs go first."""
+    with _lock:
+        while len(UPLOADS) > MAX_UPLOADS:
+            _tok, path = UPLOADS.popitem(last=False)
+            path.unlink(missing_ok=True)
+        finished = [k for k, j in JOBS.items() if j.get("status") in ("done", "error")]
+        while len(finished) > MAX_JOBS_KEPT:
+            k = finished.pop(0)
+            job = JOBS.pop(k, None)
+            if job and job.get("outdir"):
+                shutil.rmtree(job["outdir"], ignore_errors=True)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -59,7 +98,8 @@ def presets():
 
 
 @app.post("/api/upload")
-async def upload(kind: str, file: UploadFile):
+async def upload(kind: str, file: UploadFile, request: Request):
+    _throttle(request, "upload")
     ext = Path(file.filename or "").suffix.lower()
     if kind == "font" and ext not in FONT_EXT:
         raise HTTPException(400, f"font must be one of {sorted(FONT_EXT)}")
@@ -69,10 +109,24 @@ async def upload(kind: str, file: UploadFile):
     cap = FONT_CAP if kind == "font" else ART_CAP
     if len(data) > cap:
         raise HTTPException(413, f"{kind} exceeds {cap // 1024 // 1024} MB cap")
+    if kind == "font":
+        # reject broken fonts at the door, not at build time
+        try:
+            from ..ingest.fonts import load_font
+
+            font = load_font(data)
+            font.getBestCmap()
+        except Exception:
+            raise HTTPException(400, "could not parse that font file (TTF/OTF/WOFF/WOFF2)")
+    if kind == "art" and ext in (".png", ".jpg", ".jpeg"):
+        magic_ok = data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff"
+        if not magic_ok:
+            raise HTTPException(400, "file does not look like a PNG/JPEG")
     token = f"{kind}-{secrets.token_hex(8)}"
     path = WORK / f"{token}{ext}"
     path.write_bytes(data)
     UPLOADS[token] = path
+    _evict()
     return {"token": token, "filename": file.filename}
 
 
@@ -162,11 +216,16 @@ def _run_job(job_id: str, params: SignParams) -> None:
 
 
 @app.post("/api/build")
-def start_build(payload: dict):
+def start_build(payload: dict, request: Request):
+    _throttle(request, "build")
+    active = sum(1 for j in JOBS.values() if j.get("status") in ("queued", "running"))
+    if active >= MAX_ACTIVE_JOBS:
+        raise HTTPException(429, f"{active} builds already active — try again shortly")
     params = _resolve_params(payload)
     job_id = f"job-{secrets.token_hex(6)}"
     JOBS[job_id] = {"status": "queued", "progress": [], "name": params.name}
     _pool.submit(_run_job, job_id, params)
+    _evict()
     return {"job": job_id}
 
 

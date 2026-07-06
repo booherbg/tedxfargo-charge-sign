@@ -81,6 +81,44 @@ def test_upload_build_download_flow():
     assert client.get(f"/api/jobs/{job}/viewer").status_code == 200
 
 
+def test_broken_font_rejected_at_upload():
+    r = client.post(
+        "/api/upload?kind=font", files={"file": ("fake.ttf", b"not a font", "font/ttf")}
+    )
+    assert r.status_code == 400 and "parse" in r.text
+
+
+def test_fake_png_rejected():
+    r = client.post(
+        "/api/upload?kind=art", files={"file": ("x.png", b"<svg>", "image/png")}
+    )
+    assert r.status_code == 400
+
+
+def test_rate_limit_and_upload_eviction():
+    from signforge.web import app as webapp
+
+    old_limit = webapp.RATE_LIMITS["upload"]
+    old_max = webapp.MAX_UPLOADS
+    webapp.RATE_LIMITS["upload"] = 3
+    webapp.MAX_UPLOADS = 2
+    webapp._rate.clear()
+    try:
+        font = (ASSETS / "fonts" / "Bungee-Regular.ttf").read_bytes()
+        codes = [
+            client.post(
+                "/api/upload?kind=font", files={"file": (f"f{i}.ttf", font, "font/ttf")}
+            ).status_code
+            for i in range(4)
+        ]
+        assert codes[:3] == [200, 200, 200] and codes[3] == 429
+        assert len(webapp.UPLOADS) <= 2                      # oldest evicted
+    finally:
+        webapp.RATE_LIMITS["upload"] = old_limit
+        webapp.MAX_UPLOADS = old_max
+        webapp._rate.clear()
+
+
 def test_client_paths_are_ignored():
     payload = {
         "params": {
