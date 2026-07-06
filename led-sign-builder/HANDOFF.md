@@ -51,13 +51,21 @@ control; CHARGE stays ~12s — boolean-bound, fine for a 1.6m kit), web preset
 buttons, torture sweep promoted to `tests/test_torture.py` behind `-m slow`
 (fast suite 115 / slow 13, all green).
 
-**Loop discipline for future pings:** if nothing is queued — run
-`uv run pytest`, confirm green, give a one-line status, and STOP. Do not
-invent churn. Remaining candidates:
-- hosted hardening basics (simple rate limit, upload-count and job-count caps)
-- param-schema-driven advanced UI (generate controls from pydantic schema)
-- USER-gated: product name, PyPI publish, physical H2D print of a kit
-  (fit ladder first: `uv run signforge coupon -o out/coupons`).
+**Loop iteration 4:** web guardrails (per-IP rate limits, upload/job caps with
+eviction + job-dir cleanup, font parse-check + raster sniff at upload).
+
+## AUTONOMOUS QUEUE EXHAUSTED — 118 fast + 13 slow tests green, 24 commits
+Deliberately NOT done: param-schema-generated UI (JSON textarea + preset
+buttons cover it; churn without user feedback). Everything else that remains
+is USER-gated:
+1. Product name (working title "LED Sign Builder", package `signforge`)
+2. PyPI publish (wheel builds clean; `uv build` verified)
+3. Physical validation on the H2D — print the fit ladder first
+   (`uv run signforge coupon -o out/coupons`), then a mini-desk kit
+4. Bambu Studio eyeball of any kit 3MF (File→Import; writer is byte-ported
+   from the CHARGE-verified make_3mf.py)
+
+**Future pings: run `uv run pytest`, confirm green, one-line status, STOP.**
 
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`
