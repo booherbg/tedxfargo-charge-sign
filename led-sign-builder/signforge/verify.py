@@ -160,6 +160,120 @@ def gated_mesh(
     return verts, tris, notes
 
 
+def clearance_audit(
+    strokes,
+    min_gap: float,
+    crisp_deg: float = 35.0,
+    run_mm: float = 14.0,
+    step: float = 2.0,
+    self_skip_mm: float = 40.0,
+) -> list[str]:
+    """Channel-nesting audit (port of CHARGE tools/clearance_audit.py).
+
+    Two bands need >= min_gap centerline separation UNLESS they meet at a crisp
+    crossing (tangents > crisp_deg apart). Long parallel sub-gap runs are the
+    rejected 'mush'. Returns human-readable violation strings.
+    """
+    import math as _m
+
+    def _resample(p):
+        out = [(p[0][0], p[0][1], 0.0)]
+        acc = 0.0
+        for i in range(len(p) - 1):
+            ax, ay = p[i]
+            bx, by = p[i + 1]
+            d = _m.dist((ax, ay), (bx, by))
+            if d == 0:
+                continue
+            n = max(1, int(d / step))
+            for k in range(1, n + 1):
+                t = k / n
+                out.append((ax + (bx - ax) * t, ay + (by - ay) * t, acc + d * t))
+            acc += d
+        return out
+
+    def _tangent(samples, i):
+        j0, j1 = max(0, i - 2), min(len(samples) - 1, i + 2)
+        dx = samples[j1][0] - samples[j0][0]
+        dy = samples[j1][1] - samples[j0][1]
+        n = _m.hypot(dx, dy) or 1.0
+        return (dx / n, dy / n)
+
+    paths = [
+        (s.pts + [s.pts[0]] if s.closed else s.pts) for s in strokes if len(s.pts) >= 2
+    ]
+    sa = [_resample(p) for p in paths]
+    closed_len = [
+        s[-1][2] if _m.dist(s[0][:2], s[-1][:2]) < 0.1 else None for s in sa
+    ]
+    events = []
+    for ai, A in enumerate(sa):
+        for bi in range(ai, len(sa)):
+            B = sa[bi]
+            for i, (ax, ay, at) in enumerate(A):
+                best = None
+                for j, (bx, by, bt) in enumerate(B):
+                    if ai == bi:
+                        arc = abs(at - bt)
+                        if closed_len[ai]:
+                            arc = min(arc, closed_len[ai] - arc)
+                        if arc < self_skip_mm:
+                            continue
+                    d = _m.dist((ax, ay), (bx, by))
+                    if d < min_gap and (best is None or d < best[0]):
+                        best = (d, j)
+                if best:
+                    ta = _tangent(A, i)
+                    tb = _tangent(B, best[1])
+                    dot = abs(ta[0] * tb[0] + ta[1] * tb[1])
+                    ang = _m.degrees(_m.acos(max(-1, min(1, dot))))
+                    events.append((ai, bi, best[0], ang, ax, ay, at))
+    events.sort(key=lambda e: (e[0], e[1], e[6]))
+    runs: list[dict] = []
+    for ai, bi, d, ang, ax, ay, at in events:
+        if runs and runs[-1]["a"] == ai and runs[-1]["b"] == bi and at - runs[-1]["end"] <= step * 1.5:
+            r = runs[-1]
+            r["run"] = at - r["start"]
+            r["end"] = at
+            if d < r["d"]:
+                r["d"], r["ax"], r["ay"] = d, ax, ay
+            r["angle"] = min(r["angle"], ang)
+        else:
+            runs.append(
+                {"a": ai, "b": bi, "d": d, "angle": ang, "ax": ax, "ay": ay,
+                 "run": 0.0, "start": at, "end": at}
+            )
+    return [
+        f"channel clearance: {r['d']:.1f} mm gap (< {min_gap:.0f}) for {r['run']:.0f} mm "
+        f"near ({r['ax']:.0f},{r['ay']:.0f}), tangents {r['angle']:.0f}° — parallel mush"
+        for r in runs
+        if r["angle"] < crisp_deg and r["run"] > run_mm
+    ]
+
+
+def coverage_qa(
+    source_fills, band, max_mm2: float = 100.0, note_mm2: float = 60.0
+) -> tuple[list[str], list[str]]:
+    """Does the tube layout actually cover the source art? (Port of
+    tools/qa_coverage.py intent, exact-geometry version.) The check the
+    extractor never had: it validates against the ART, not its own graph."""
+    from .geom2d import as_multipolygon
+
+    fails: list[str] = []
+    notes: list[str] = []
+    if source_fills is None or source_fills.is_empty:
+        return fails, notes
+    missed = as_multipolygon(source_fills.difference(band))
+    for p in missed.geoms:
+        a = p.area
+        if a < note_mm2:
+            continue
+        c = p.centroid
+        msg = f"{a:.0f} mm² of source ink uncovered near ({c.x:.0f},{c.y:.0f})"
+        (fails if a > max_mm2 else notes).append(msg)
+    return fails, notes
+
+
 def edge_report_indexed(tris: np.ndarray) -> dict:
     """Edge census trusting the given indexing (post-heal check)."""
     keep = (

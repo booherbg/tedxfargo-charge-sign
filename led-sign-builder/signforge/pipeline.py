@@ -55,6 +55,7 @@ def build(
     layout = build_layout(art, params)
 
     warnings: list[str] = []
+    files: list[str] = []
     ledplan: Optional[LedPlan] = None
     pixels: list = []
     pieces: list[Piece] = []
@@ -65,11 +66,26 @@ def build(
 
         bodies = build_channel_bodies(layout, pixels, params)
     else:
+        from .leds import place_pixels
         from .parts.neon import build_neon_bodies
+        from .tubes import plan_tubes
 
-        bodies = build_neon_bodies(layout, pixels, params)
+        say("planning tubes (skeletonize + QA gates)")
+        strokes, layout, tube_meta, tube_warnings = plan_tubes(layout, params)
+        warnings += tube_warnings
+        layout.strokes = strokes
+        if params.leds.kind == "bullet12":
+            ledplan = place_pixels(strokes, params)
+            warnings += ledplan.audits
+            pixels = ledplan.pixels
+        bodies = build_neon_bodies(layout, strokes, pixels, params)
+        if params.output.debug_overlays and layout.fills is not None and not layout.fills.is_empty:
+            from .skeleton import debug_overlay
 
-    files: list[str] = []
+            dpath = out / "preview" / "debug_tubes.png"
+            debug_overlay(layout.fills, strokes, pixels, str(dpath))
+            files.append(str(dpath))
+
     body_stats: dict[str, dict] = {}
     plates: dict[str, list[tuple[str, object, object, int]]] = {}
     for body in bodies:
