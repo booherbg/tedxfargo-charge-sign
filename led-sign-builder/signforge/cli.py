@@ -63,6 +63,9 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("serve", help="run the local web UI")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8763)
+    s.add_argument("--open", action="store_true",
+                   help="open mode: no accounts/tiers (solo self-host)")
+    s.add_argument("--workers", type=int, default=2, help="build workers")
 
     c = sub.add_parser("coupon", help="print a fit-ladder before committing to a fit")
     c.add_argument("--values", default="0.1,0.0,-0.1,-0.2,-0.3",
@@ -87,9 +90,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         import uvicorn
 
-        from .web.app import app
+        from .web.app import create_app
 
-        uvicorn.run(app, host=args.host, port=args.port)
+        uvicorn.run(
+            create_app(open_mode=args.open, workers=args.workers),
+            host=args.host,
+            port=args.port,
+        )
         return 0
 
     if args.cmd == "coupon":

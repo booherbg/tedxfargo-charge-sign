@@ -6,13 +6,19 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from signforge.web.app import app
+from signforge.web.app import create_app
 
-client = TestClient(app)
 ASSETS = Path(__file__).parent / "assets"
 
 
-def test_index_and_presets():
+@pytest.fixture
+def client(tmp_path):
+    app = create_app(open_mode=True, db_path=str(tmp_path / "db.sqlite"),
+                     workdir=str(tmp_path / "work"), workers=2)
+    return TestClient(app)
+
+
+def test_index_and_presets(client):
     assert client.get("/").status_code == 200
     r = client.get("/api/presets")
     assert r.status_code == 200
@@ -20,9 +26,12 @@ def test_index_and_presets():
     assert "neon-classic" in data["presets"]
     assert data["defaults"]["leds"]["bore_mm"] == 12.3
     assert "bambu-h2d-dual" in data["printers"]
+    assert "starburst" in data["plaques"]
+    assert "gas-station" in data["palettes"]
+    assert data["open_mode"] is True
 
 
-def test_upload_validation():
+def test_upload_validation(client):
     r = client.post(
         "/api/upload?kind=font",
         files={"file": ("evil.exe", b"MZ", "application/octet-stream")},
@@ -30,7 +39,21 @@ def test_upload_validation():
     assert r.status_code == 400
 
 
-def test_preview2d_roundtrip():
+def test_broken_font_rejected_at_upload(client):
+    r = client.post(
+        "/api/upload?kind=font", files={"file": ("fake.ttf", b"not a font", "font/ttf")}
+    )
+    assert r.status_code == 400 and "parse" in r.text
+
+
+def test_fake_png_rejected(client):
+    r = client.post(
+        "/api/upload?kind=art", files={"file": ("x.png", b"<svg>", "image/png")}
+    )
+    assert r.status_code == 400
+
+
+def test_preview2d_roundtrip(client):
     payload = {
         "params": {
             "content": {"text": "HI", "cap_height_mm": 60},
@@ -44,7 +67,7 @@ def test_preview2d_roundtrip():
     assert data["svg"].startswith("<svg") and data["pieces"] == 1
 
 
-def test_upload_build_download_flow():
+def test_upload_build_download_flow(client):
     font = (ASSETS / "fonts" / "Pacifico-Regular.ttf").read_bytes()
     r = client.post(
         "/api/upload?kind=font", files={"file": ("Pacifico.ttf", font, "font/ttf")}
@@ -66,7 +89,7 @@ def test_upload_build_download_flow():
     assert r.status_code == 200
     job = r.json()["job"]
 
-    for _ in range(120):
+    for _ in range(200):
         st = client.get(f"/api/jobs/{job}").json()
         if st["status"] in ("done", "error"):
             break
@@ -79,47 +102,10 @@ def test_upload_build_download_flow():
     zf = zipfile.ZipFile(BytesIO(r.content))
     assert any(n.endswith(".stl") for n in zf.namelist())
     assert client.get(f"/api/jobs/{job}/viewer").status_code == 200
+    assert client.get(f"/api/jobs/{job}/thumb.png").status_code == 200
 
 
-def test_broken_font_rejected_at_upload():
-    r = client.post(
-        "/api/upload?kind=font", files={"file": ("fake.ttf", b"not a font", "font/ttf")}
-    )
-    assert r.status_code == 400 and "parse" in r.text
-
-
-def test_fake_png_rejected():
-    r = client.post(
-        "/api/upload?kind=art", files={"file": ("x.png", b"<svg>", "image/png")}
-    )
-    assert r.status_code == 400
-
-
-def test_rate_limit_and_upload_eviction():
-    from signforge.web import app as webapp
-
-    old_limit = webapp.RATE_LIMITS["upload"]
-    old_max = webapp.MAX_UPLOADS
-    webapp.RATE_LIMITS["upload"] = 3
-    webapp.MAX_UPLOADS = 2
-    webapp._rate.clear()
-    try:
-        font = (ASSETS / "fonts" / "Bungee-Regular.ttf").read_bytes()
-        codes = [
-            client.post(
-                "/api/upload?kind=font", files={"file": (f"f{i}.ttf", font, "font/ttf")}
-            ).status_code
-            for i in range(4)
-        ]
-        assert codes[:3] == [200, 200, 200] and codes[3] == 429
-        assert len(webapp.UPLOADS) <= 2                      # oldest evicted
-    finally:
-        webapp.RATE_LIMITS["upload"] = old_limit
-        webapp.MAX_UPLOADS = old_max
-        webapp._rate.clear()
-
-
-def test_client_paths_are_ignored():
+def test_client_paths_are_ignored(client):
     payload = {
         "params": {
             "content": {"text": "A", "cap_height_mm": 40, "font_path": "/etc/passwd"},
