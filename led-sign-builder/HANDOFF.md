@@ -147,3 +147,14 @@ Full record for post-compaction pickup:
   coords). docs/QA-BASELINE.md = the canonical baseline + rules.
 - State: 174 fast + 24 slow + gold_rc=0 + wheel smoke OK. Console serving
   on :8763 (open mode, background task).
+
+## Customization + plating-law round (2026-07-07 afternoon)
+- FX preview (WLED-style on real pixel chain: solid/breathe/chase/rainbow +
+  2D sweep/pulse), custom PLA colors (per-key palette overrides), open-sign
+  preset, hash hooks #preset=/#fx= for screenshot audits.
+- THE TEXT PLATING LAW (see CLAUDE.md): one letter per plate when sign > bed,
+  kern-gap cuts, auto-open tracking, auto-scale; merge mode via negative
+  tracking. Channel LEDs actually wired now (were never placed!). Font-truth
+  ghost overlay + tube-width knob (mini-desk = slim 10mm strip). Preset
+  tooltips. Softened corner-thinning wording.
+- Full baseline green post-law: fast+slow+gold+upload all rc=0.
