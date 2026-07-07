@@ -31,3 +31,17 @@ SVG shape art through the neon skeletonizer — 212×200 mm · 1 piece(s) · 39 
 Script font (Pacifico) as connected neon — 362×232 mm · 2 piece(s) · 66 px · 384 g
 
 ![script-neon](script-neon.svg)
+
+## Example artworks (examples/art/*.svg)
+
+Ten hand-drawn 1950s motifs through the neon pipeline — outline tubes with
+per-component spine fallback, mixed fill+stroke support, plaque catalog,
+palettes. Regenerate: the sweep script in tests/test_examples.py (slow marks).
+
+| | |
+|---|---|
+| ![atom](examples/atom.png) | ![arrow](examples/arrow.png) |
+| ![coffee](examples/coffee.png) | ![rocket](examples/rocket.png) |
+| ![sheriff](examples/sheriff.png) | ![martini](examples/martini.png) |
+| ![cactus](examples/cactus.png) | ![boomerang](examples/boomerang.png) |
+| ![bowling](examples/bowling.png) | ![bolt](examples/bolt.png) |

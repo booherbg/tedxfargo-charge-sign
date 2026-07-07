@@ -32,6 +32,44 @@ def _shift_stroke(s: Stroke, dx: float) -> Stroke:
     return Stroke(pts=[(x + dx, y) for x, y in s.pts], width=s.width, closed=s.closed)
 
 
+def _outline_tubes(
+    fills, band_outer: float
+) -> tuple[list[Stroke], float, list[str]]:
+    """Silhouette tubes: every boundary ring inset by half the band, so the
+    band's outer edge lands on the art edge.
+
+    Per COMPONENT: a part too thin to inset (rocket fins, cup handles) falls
+    back to its skeleton spine instead of silently vanishing."""
+    from shapely.geometry import MultiPolygon as _MP
+
+    from .geom2d import as_multipolygon, ring_offset
+
+    strokes: list[Stroke] = []
+    notes: list[str] = []
+    for comp in as_multipolygon(fills).geoms:
+        inset = ring_offset(_MP([comp]), -band_outer / 2)
+        if inset.is_empty or inset.area < 2.0:
+            subs, _m = extract_centerlines(_MP([comp]), min_path_mm=6.0, spur_mm=3.0)
+            if subs:
+                strokes += subs
+                notes.append(
+                    f"outline: a {comp.area:.0f} mm² part is thinner than the "
+                    f"{band_outer:.0f} mm band — traced its spine instead"
+                )
+            else:
+                notes.append(
+                    f"outline: a {comp.area:.0f} mm² part vanished (too small "
+                    "for the band) — enlarge the sign to keep it"
+                )
+            continue
+        for p in as_multipolygon(inset).geoms:
+            for boundary in [p.exterior, *p.interiors]:
+                pts = [(x, y) for x, y in boundary.coords[:-1]]
+                if len(pts) >= 3:
+                    strokes.append(Stroke(pts=pts, width=None, closed=True))
+    return strokes, band_outer, notes
+
+
 def _rescue_clusters(missed: list, tube_w: float) -> list[Stroke]:
     """Recover centerlines from uncovered ink clusters (script terminals)."""
     rescued: list[Stroke] = []
@@ -84,10 +122,11 @@ def plan_tubes(
     warnings: list[str] = []
     meta: dict = {}
 
-    if layout.strokes:
-        strokes = layout.strokes
+    direct = list(layout.strokes)          # stroked art: tubes as drawn
+    if direct and (layout.fills is None or layout.fills.is_empty):
         meta["source"] = "strokes"
-        meta["tube_w"] = max((s.width or 0) for s in strokes) or st.channel_interior
+        meta["tube_w"] = max((s.width or 0) for s in direct) or st.channel_interior
+        strokes = direct
     elif layout.glyphs:
         # per-glyph skeletonization, then auto-kern glyphs whose bands collide
         glyph_strokes: list[list[Stroke]] = []
@@ -149,9 +188,24 @@ def plan_tubes(
         meta["source"] = "skeleton:per-glyph"
         meta["tube_w"] = sum(tube_ws) / len(tube_ws) if tube_ws else st.channel_interior
     elif layout.fills is not None and not layout.fills.is_empty:
-        strokes, m = extract_centerlines(layout.fills)
-        meta["source"] = "skeleton:whole"
-        meta["tube_w"] = m["tube_w"]
+        mode = st.source
+        if mode == "auto":
+            mode = "outline"   # shape art: trace the silhouette (neon-shop treatment)
+        if mode == "outline":
+            strokes, meta["tube_w"], onotes = _outline_tubes(layout.fills, st.band_outer)
+            warnings += onotes
+            meta["source"] = "outline"
+            if not strokes:   # everything too thin — fall back to the spine
+                strokes, m = extract_centerlines(layout.fills)
+                meta["source"] = "skeleton:whole"
+                meta["tube_w"] = m["tube_w"]
+        else:
+            strokes, m = extract_centerlines(layout.fills)
+            meta["source"] = "skeleton:whole"
+            meta["tube_w"] = m["tube_w"]
+        if direct:
+            strokes = strokes + direct     # mixed art: keep drawn tubes too
+            meta["source"] += "+strokes"
     else:
         raise BuildError("neon style needs artwork (text, fills, or stroked paths)")
 

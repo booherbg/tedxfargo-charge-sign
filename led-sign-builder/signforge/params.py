@@ -50,6 +50,12 @@ class ContentParams(BaseModel):
 class NeonSection(BaseModel):
     """Faux-neon tube cross-section (CHARGE production values)."""
 
+    # where tube centerlines come from for FILLED art:
+    #   auto     → letters use skeletons; shape art traces the OUTLINE
+    #   skeleton → medial-axis spine (the letterform treatment)
+    #   outline  → silhouette tube inset half a band (the neon-shop treatment
+    #              for blobs: pins, bolts, mascots)
+    source: Literal["auto", "skeleton", "outline"] = "auto"
     channel_interior: float = Field(18.0, gt=4)   # fits Ø12 pixel + collar
     liner_wall: float = Field(0.8, gt=0)          # white reflector wall
     outer_wall: float = Field(1.2, gt=0)          # black structural wall

@@ -67,7 +67,9 @@ def svg_to_artwork(path: str, target_height_mm: float) -> Artwork:
             continue
         if not isinstance(el, Shape):
             continue
-        p = el if isinstance(el, SvgPath) else SvgPath(el)
+        # abs() bakes the element's pending transform into the segments —
+        # reify can't rotate an Ellipse in place (only Paths absorb matrices)
+        p = abs(el if isinstance(el, SvgPath) else SvgPath(el))
         subs = _flatten_path(p)
         if not subs:
             continue
