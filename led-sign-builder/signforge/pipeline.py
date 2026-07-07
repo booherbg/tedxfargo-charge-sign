@@ -242,7 +242,7 @@ def build(
     multi = len(pieces) > 1
     for pc in pieces:
         if pc.rotated:
-            warnings.append(f"{pc.label}: fits the bed rotated 90° — rotate at import")
+            warnings.append(f"{pc.label}: auto-rotated 90° to fit the bed")
 
     body_stats: dict[str, dict] = {}
     pieces_detail: list[dict] = []

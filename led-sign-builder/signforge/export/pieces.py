@@ -30,6 +30,58 @@ def _label_solid(pc: Piece, params: SignParams) -> m3d.Manifold | None:
     return prism(fills, -0.1, 0.6)
 
 
+def _rotate_z90(man: m3d.Manifold, cx: float, cy: float) -> m3d.Manifold:
+    return man.translate([-cx, -cy, 0]).rotate([0.0, 0.0, 90.0]).translate([cx, cy, 0])
+
+
+def fit_flat_plate(
+    man: m3d.Manifold, bed: tuple[float, float], seam: float = 0.06
+) -> tuple[list[m3d.Manifold], bool, int]:
+    """Make a flat plate print-ready: rotate to fit if that suffices, else
+    grid-split into bed-sized panels (hairline butt joints — the CHARGE
+    continuous-mode precedent). Returns (parts, rotated, n_cuts)."""
+    import math
+
+    x0, y0, _z0, x1, y1, _z1 = man.bounding_box()
+    w, h = x1 - x0, y1 - y0
+    bx, by = bed
+    if w <= bx and h <= by:
+        return [man], False, 0
+
+    def n_parts(w_, h_):
+        return math.ceil(w_ / bx) * math.ceil(h_ / by)
+
+    rotated = False
+    if n_parts(h, w) < n_parts(w, h):
+        man = _rotate_z90(man, (x0 + x1) / 2, (y0 + y1) / 2)
+        rotated = True
+        x0, y0, _z0, x1, y1, _z1 = man.bounding_box()
+        w, h = x1 - x0, y1 - y0
+    if w <= bx and h <= by:
+        return [man], rotated, 0
+
+    nx = max(1, math.ceil(w / bx))
+    ny = max(1, math.ceil(h / by))
+    parts: list[m3d.Manifold] = []
+    for j in range(ny):
+        ylo = y0 + h * j / ny
+        yhi = y0 + h * (j + 1) / ny
+        strip = man
+        if ny > 1:
+            strip = strip.trim_by_plane([0, 1, 0], ylo + (seam / 2 if j else -1))
+            strip = strip.trim_by_plane([0, -1, 0], -(yhi - (seam / 2 if j < ny - 1 else -1)))
+        for i in range(nx):
+            xlo = x0 + w * i / nx
+            xhi = x0 + w * (i + 1) / nx
+            part = strip
+            if nx > 1:
+                part = part.trim_by_plane([1, 0, 0], xlo + (seam / 2 if i else -1))
+                part = part.trim_by_plane([-1, 0, 0], -(xhi - (seam / 2 if i < nx - 1 else -1)))
+            if not part.is_empty():
+                parts.append(part)
+    return parts, rotated, nx * ny - 1
+
+
 def clip_bodies_to_piece(
     bodies: list[Body], pc: Piece, params: SignParams, multi: bool, first: bool = True
 ) -> tuple[list[tuple[str, m3d.Manifold, int, str, str]], list[str]]:
@@ -42,13 +94,22 @@ def clip_bodies_to_piece(
     for body in bodies:
         man = body.man
         if body.plate != "main":
-            if multi:
-                notes.append(
-                    f"{body.name}: press-fit part is not panelized (v1) — exported whole; "
-                    "split manually if it exceeds the bed"
-                )
-            if first:  # emit un-panelized plates exactly once
-                out.append((body.name, man, body.extruder, body.plate, body.color))
+            if first:  # emit separate plates exactly once, made print-ready
+                parts, rotated, cuts = fit_flat_plate(man, params.printer.bed,
+                                                      params.fit.seam_clearance_mm)
+                if rotated:
+                    notes.append(f"{body.name}: rotated 90° to fit the bed")
+                if cuts:
+                    notes.append(
+                        f"{body.name}: split into {len(parts)} bed-sized panels "
+                        "(hairline butt joints; glue at assembly)"
+                    )
+                if len(parts) == 1:
+                    out.append((body.name, parts[0], body.extruder, body.plate, body.color))
+                else:
+                    for pi_, part in enumerate(parts):
+                        out.append((f"{body.name}_p{pi_ + 1}", part, body.extruder,
+                                    f"{body.plate}_p{pi_ + 1}", body.color))
             continue
         if clip is not None:
             man = man ^ clip
@@ -71,5 +132,10 @@ def clip_bodies_to_piece(
                     labeled = man - lab
                     if not labeled.is_empty():
                         man = labeled
+        if pc.rotated:
+            # fits the bed only sideways — export it PHYSICALLY rotated so the
+            # kit is print-ready as-is ('respects height but not width' report)
+            rx0, ry0, rx1, ry1 = clip_poly.bounds
+            man = _rotate_z90(man, (rx0 + rx1) / 2, (ry0 + ry1) / 2)
         out.append((body.name, man, body.extruder, body.plate, body.color))
     return out, notes
