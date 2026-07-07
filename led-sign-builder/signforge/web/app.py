@@ -122,6 +122,25 @@ def create_app(
             raise HTTPException(404)
         return FileResponse(p)
 
+    # ---- design library (bundled example artworks) ---------------------------
+    def _library_dir() -> Path:
+        from importlib import resources
+
+        return Path(str(resources.files("signforge") / "assets" / "art"))
+
+    @app.get("/api/library")
+    def library():
+        d = _library_dir()
+        names = sorted(p.stem for p in d.glob("*.svg"))
+        return {"art": [{"name": n, "url": f"/api/library/{n}.svg"} for n in names]}
+
+    @app.get("/api/library/{name}")
+    def library_file(name: str):
+        p = _library_dir() / Path(name).name
+        if p.suffix != ".svg" or not p.exists():
+            raise HTTPException(404)
+        return FileResponse(p, media_type="image/svg+xml")
+
     # ---- meta ---------------------------------------------------------------
     @app.get("/api/presets")
     def presets(request: Request):
@@ -240,6 +259,7 @@ def create_app(
         content.pop("font_path", None)
         content.pop("art_path", None)
         ft, at = payload.get("font_token"), payload.get("art_token")
+        lib = payload.get("library")
         if ft:
             if ft not in uploads:
                 raise HTTPException(400, "unknown font token")
@@ -250,6 +270,12 @@ def create_app(
             if at not in uploads:
                 raise HTTPException(400, "unknown art token")
             content["art_path"] = str(uploads[at])
+            content["mode"] = "art"
+        elif lib:
+            p = _library_dir() / f"{Path(str(lib)).name}.svg"
+            if not p.exists():
+                raise HTTPException(400, "unknown library design")
+            content["art_path"] = str(p)
             content["mode"] = "art"
         raw["content"] = content
         try:

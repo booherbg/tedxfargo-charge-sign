@@ -105,6 +105,23 @@ def test_upload_build_download_flow(client):
     assert client.get(f"/api/jobs/{job}/thumb.png").status_code == 200
 
 
+def test_design_library_endpoints_and_build(client):
+    lib = client.get("/api/library").json()["art"]
+    names = [a["name"] for a in lib]
+    assert "rocket" in names and "atom" in names and len(names) >= 10
+    svg = client.get("/api/library/rocket.svg")
+    assert svg.status_code == 200 and b"<svg" in svg.content
+    assert client.get("/api/library/../secrets.svg").status_code in (404, 400)
+
+    r = client.post(
+        "/api/preview2d",
+        json={"library": "martini",
+              "params": {"content": {"art_target_height_mm": 120},
+                         "texture": {"mode": "none"}}},
+    )
+    assert r.status_code == 200 and r.json()["pixels"] > 5
+
+
 def test_client_paths_are_ignored(client):
     payload = {
         "params": {

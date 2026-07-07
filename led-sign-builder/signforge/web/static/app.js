@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let fontToken = null, artToken = null, defaults = null, meta = null, me = null;
+let fontToken = null, artToken = null, libraryPick = null;
+let defaults = null, meta = null, me = null;
 let timer = null, queueTimer = null;
 
 /* ---------- boot ---------- */
@@ -8,11 +9,33 @@ async function init(){
   meta = await (await fetch('/api/presets')).json();
   defaults = meta.defaults;
   buildStaticControls();
+  await loadLibrary();
   await refreshMe();
   wireEvents();
   $('advanced').value = JSON.stringify(defaults, null, 2);
   schedule();
   pollQueue();
+}
+
+async function loadLibrary(){
+  const lib = (await (await fetch('/api/library')).json()).art;
+  const grid = $('library');
+  for (const item of lib){
+    const t = document.createElement('div');
+    t.className = 'tile'; t.title = item.name; t.dataset.name = item.name;
+    t.innerHTML = `<img src="${item.url}" alt="${item.name}" loading="lazy">`;
+    t.onclick = () => {
+      if (libraryPick === item.name){ libraryPick = null; t.classList.remove('sel'); }
+      else {
+        libraryPick = item.name;
+        artToken = null; $('artfile').value = ''; $('artchip').classList.remove('show');
+        grid.querySelectorAll('.tile').forEach(x => x.classList.remove('sel'));
+        t.classList.add('sel');
+      }
+      schedule();
+    };
+    grid.appendChild(t);
+  }
 }
 
 function buildStaticControls(){
@@ -84,7 +107,7 @@ function paramsFromUI(){
   }
   base.name = $('name').value.trim() || 'sign';
   base.content = base.content || {};
-  base.content.mode = artToken ? 'art' : 'text';
+  base.content.mode = (artToken || libraryPick) ? 'art' : 'text';
   base.content.text = $('text').value;
   base.content.cap_height_mm = +$('cap').value || 150;
   base.content.art_target_height_mm = +$('cap').value || 150;
@@ -118,7 +141,8 @@ function paramsFromUI(){
   return base;
 }
 
-const payload = () => ({params: paramsFromUI(), font_token: fontToken, art_token: artToken});
+const payload = () => ({params: paramsFromUI(), font_token: fontToken,
+                        art_token: artToken, library: artToken ? null : libraryPick});
 
 /* ---------- preview ---------- */
 function schedule(){ clearTimeout(timer); timer = setTimeout(preview, 450); }
@@ -151,7 +175,12 @@ async function uploadFile(kind){
   const r = await fetch(`/api/upload?kind=${kind}`, {method:'POST', body: fd});
   if (!r.ok){ alert(await r.text()); input.value = ''; return; }
   const data = await r.json();
-  if (kind === 'font') fontToken = data.token; else artToken = data.token;
+  if (kind === 'font') fontToken = data.token;
+  else {
+    artToken = data.token;
+    libraryPick = null;
+    $('library').querySelectorAll('.tile').forEach(x => x.classList.remove('sel'));
+  }
   chip.querySelector('span').textContent = '◈ ' + data.filename;
   chip.classList.add('show');
   schedule();

@@ -124,6 +124,13 @@ table{border-collapse:collapse;width:100%;font-size:12px}
 td,th{border:1px solid var(--line);padding:5px 8px;text-align:left}
 th{font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.2em;color:var(--brass)}
 td select{padding:3px 6px;width:auto}
+.libgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.libgrid .tile{aspect-ratio:1;background:var(--recess);border:1px solid var(--line);
+  border-radius:5px;padding:6px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:border-color .12s}
+.libgrid .tile img{max-width:100%;max-height:100%;filter:drop-shadow(0 0 2px rgba(224,178,90,.35))}
+.libgrid .tile:hover{border-color:var(--brass)}
+.libgrid .tile.sel{border:2px solid var(--brass);box-shadow:0 0 8px rgba(201,155,63,.35)}
 details{margin:14px}
 summary{cursor:pointer;color:var(--verd);font-family:ui-monospace,Menlo,monospace;font-size:11px;
   letter-spacing:.15em;text-transform:uppercase}

@@ -9,7 +9,7 @@ from signforge.layout import build_layout
 from signforge.params import SignParams
 from signforge.tubes import plan_tubes
 
-ART = Path(__file__).parent.parent / "examples" / "art"
+ART = Path(__file__).parent.parent / "signforge" / "assets" / "art"
 
 
 def _plan(name, **style):
