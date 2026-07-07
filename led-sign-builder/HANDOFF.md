@@ -120,3 +120,11 @@ once on first run; `--open` to skip accounts).
   typeface grid w/ live FontFace previews, CLI --font names). Clearance floods
   aggregate into one actionable size-hint line (the Monoton lesson).
 - Branch pushed to origin (PUBLIC repo) — push after every commit batch now.
+
+## Neon-aesthetic round (user-directed, 2026-07-07)
+- WLED ledmap.json ships in every pixel kit (2D grid map, chain order, BOM
+  upload instructions). LED pitch was already fully adjustable (UI/CLI/params).
+- Outline mode now applies to TEXT (open-tube channel letters); AUTO picks
+  outline vs skeleton by measured stroke width (2.2×band, visually calibrated).
+  Chunky-tube advisory when band >15% of letter height. Counters/open shapes
+  are carried by the shared backer plate (nothing floats) + optional ribs.
