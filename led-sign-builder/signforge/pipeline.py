@@ -274,7 +274,8 @@ def build(
                 path.write_bytes(data)
                 files.append(str(path))
             if plate == "main" and params.output.preview:
-                vpc["bodies"].append({"name": bname, "color": color, "stl": data})
+                vpc["bodies"].append({"name": bname, "color": color, "stl": data,
+                                      "file": f"stl/{tag}.stl"})
             plates.setdefault(plate, []).append((bname, verts, tris, extruder))
             vol = float(man.volume())
             grams = round(vol / 1000 * PETG_G_PER_CM3, 1)
@@ -325,8 +326,26 @@ def build(
             vpath = out / "preview" / "viewer.html"
             vpath.write_text(vhtml)
             files.append(str(vpath))
-        else:
-            warnings.append("kit too large to embed in the 3D viewer — use the web UI")
+        elif params.output.stl:
+            warnings.append(
+                "kit too large for the offline viewer.html — the web 3D view "
+                "streams the STLs instead"
+            )
+        if params.output.stl and viewer_pieces:
+            # web viewer meta: lets the server stream bodies with NO size cap
+            import json as _json
+
+            meta_path = out / "preview" / "viewer_meta.json"
+            meta_path.write_text(_json.dumps({
+                "name": params.name,
+                "pieces": [
+                    {"label": pc["label"], "center": pc["center"],
+                     "bodies": [{"name": b["name"], "color": b["color"], "file": b["file"]}
+                                for b in pc["bodies"]]}
+                    for pc in viewer_pieces
+                ],
+            }))
+            files.append(str(meta_path))
 
     if params.output.bom:
         bpath = out / "BOM.md"

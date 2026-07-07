@@ -12,10 +12,13 @@ import json
 
 JS = r"""
 'use strict';
-function parseSTL(b64){
-  const raw = atob(b64); const n = raw.length;
-  const buf = new ArrayBuffer(n); const u8 = new Uint8Array(buf);
-  for (let i=0;i<n;i++) u8[i] = raw.charCodeAt(i);
+function b64ToBuf(b64){
+  const raw = atob(b64); const buf = new ArrayBuffer(raw.length);
+  const u8 = new Uint8Array(buf);
+  for (let i=0;i<raw.length;i++) u8[i] = raw.charCodeAt(i);
+  return buf;
+}
+function parseSTLBuf(buf){
   const dv = new DataView(buf);
   const ntri = dv.getUint32(80, true);
   const pos = new Float32Array(ntri*9), nrm = new Float32Array(ntri*9);
@@ -57,24 +60,30 @@ gl.enable(gl.DEPTH_TEST);
 
 const meshes=[];
 let bbox=[1e9,1e9,1e9,-1e9,-1e9,-1e9];
-for (const pc of SIGN_DATA.pieces){
-  for (const b of pc.bodies){
-    const m=parseSTL(b.stl);
-    for (let i=0;i<m.pos.length;i+=3){
-      bbox[0]=Math.min(bbox[0],m.pos[i]);bbox[3]=Math.max(bbox[3],m.pos[i]);
-      bbox[1]=Math.min(bbox[1],m.pos[i+1]);bbox[4]=Math.max(bbox[4],m.pos[i+1]);
-      bbox[2]=Math.min(bbox[2],m.pos[i+2]);bbox[5]=Math.max(bbox[5],m.pos[i+2]);
+let C=[0,0,0], R=100;
+let cam=null;
+async function loadAll(){
+  for (const pc of SIGN_DATA.pieces){
+    for (const b of pc.bodies){
+      const buf = b.stl ? b64ToBuf(b.stl) : await (await fetch(b.url)).arrayBuffer();
+      const m=parseSTLBuf(buf);
+      for (let i=0;i<m.pos.length;i+=3){
+        bbox[0]=Math.min(bbox[0],m.pos[i]);bbox[3]=Math.max(bbox[3],m.pos[i]);
+        bbox[1]=Math.min(bbox[1],m.pos[i+1]);bbox[4]=Math.max(bbox[4],m.pos[i+1]);
+        bbox[2]=Math.min(bbox[2],m.pos[i+2]);bbox[5]=Math.max(bbox[5],m.pos[i+2]);
+      }
+      const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
+      const nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nb);gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
+      meshes.push({vb,nb,count:m.count,color:hex(b.color),alpha:b.name==='lens'?0.55:1.0,
+        piece:pc.label,body:b.name,pc:pc.center,lens:b.name==='lens'});
+      draw();  // progressive: each body appears as it streams in
     }
-    const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
-    const nb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nb);gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
-    const cx=(bbox[0]+bbox[3])/2;
-    meshes.push({vb,nb,count:m.count,color:hex(b.color),alpha:b.name==='lens'?0.55:1.0,
-      piece:pc.label,body:b.name,pc:pc.center,lens:b.name==='lens'});
   }
+  C=[(bbox[0]+bbox[3])/2,(bbox[1]+bbox[4])/2,(bbox[2]+bbox[5])/2];
+  R=Math.max(bbox[3]-bbox[0],bbox[4]-bbox[1],bbox[5]-bbox[2]);
+  cam={th:-0.5,ph:0.9,d:R*1.6,tx:0,ty:0};
+  draw();
 }
-const C=[(bbox[0]+bbox[3])/2,(bbox[1]+bbox[4])/2,(bbox[2]+bbox[5])/2];
-const R=Math.max(bbox[3]-bbox[0],bbox[4]-bbox[1],bbox[5]-bbox[2]);
-let cam={th:-0.5,ph:0.9,d:R*1.6,tx:0,ty:0};
 let explode=0, lift=0;
 const vis={};
 document.querySelectorAll('.bodytoggle').forEach(cb=>{vis[cb.dataset.b]=cb.checked;
@@ -83,6 +92,11 @@ document.getElementById('explode').oninput=e=>{explode=+e.target.value;draw();};
 document.getElementById('lift').oninput=e=>{lift=+e.target.value;draw();};
 
 function mat(){
+  if(!cam){
+    C=[(bbox[0]+bbox[3])/2,(bbox[1]+bbox[4])/2,(bbox[2]+bbox[5])/2];
+    R=Math.max(bbox[3]-bbox[0],bbox[4]-bbox[1],bbox[5]-bbox[2],1);
+    cam={th:-0.5,ph:0.9,d:R*1.6,tx:0,ty:0};
+  }
   const {th,ph,d}=cam;
   const eye=[C[0]+cam.tx+d*Math.cos(ph)*Math.cos(th), C[1]+cam.ty+d*Math.cos(ph)*Math.sin(th), C[2]+d*Math.sin(ph)];
   const ctr=[C[0]+cam.tx,C[1]+cam.ty,C[2]];
@@ -100,6 +114,7 @@ function mat(){
   return {mv,p,nm:[x[0],y[0],z[0], x[1],y[1],z[1], x[2],y[2],z[2]]};
 }
 function draw(){
+  if(!meshes.length)return;
   const dpr=window.devicePixelRatio||1;
   canvas.width=canvas.clientWidth*dpr; canvas.height=canvas.clientHeight*dpr;
   gl.viewport(0,0,canvas.width,canvas.height);
@@ -137,7 +152,7 @@ window.addEventListener('mousemove',e=>{
 canvas.addEventListener('wheel',e=>{cam.d*=Math.exp(e.deltaY*0.001);draw();e.preventDefault();},{passive:false});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 window.addEventListener('resize',draw);
-draw();
+loadAll();
 """
 
 CSS = """
@@ -154,8 +169,32 @@ input[type=range]{width:100%}
 """
 
 
+def _page(name: str, data: dict) -> str:
+    body_names = sorted({b["name"] for pc in data["pieces"] for b in pc["bodies"]})
+    colors = {b["name"]: b["color"] for pc in data["pieces"] for b in pc["bodies"]}
+    toggles = "".join(
+        f'<div class="bt"><input class="bodytoggle" type="checkbox" data-b="{n}" checked>'
+        f'<span class="sw" style="background:{colors[n]}"></span>{n}</div>'
+        for n in body_names
+    )
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>{name} — 3D</title><style>{CSS}</style></head>
+<body><div id="wrap"><canvas id="gl"></canvas><div id="panel">
+<h1>{name}</h1>
+{toggles}
+<label>explode pieces</label><input id="explode" type="range" min="0" max="0.6" step="0.01" value="0">
+<label>lift lenses</label><input id="lift" type="range" min="0" max="60" step="1" value="0">
+<div class="hint">drag orbit · shift/right-drag pan · wheel zoom.<br>
+Lens bodies render translucent. Geometry is the exact exported STL.</div>
+</div></div>
+<script>const SIGN_DATA = {json.dumps(data)};</script>
+<script>{JS}</script>
+</body></html>"""
+
+
 def render_viewer(name: str, pieces_data: list[dict], max_embed_mb: float = 30.0) -> str | None:
-    """pieces_data: [{label, center:(x,y), bodies:[{name,color,stl:bytes}]}].
+    """Offline (file://) viewer: STLs embedded as base64.
+    pieces_data: [{label, center:(x,y), bodies:[{name,color,stl:bytes}]}].
     Returns HTML, or None if the kit is too big to embed."""
     total = sum(len(b["stl"]) for pc in pieces_data for b in pc["bodies"])
     if total > max_embed_mb * 1e6:
@@ -177,25 +216,23 @@ def render_viewer(name: str, pieces_data: list[dict], max_embed_mb: float = 30.0
             for pc in pieces_data
         ]
     }
-    body_names = sorted({b["name"] for pc in pieces_data for b in pc["bodies"]})
-    colors = {
-        b["name"]: b["color"] for pc in pieces_data for b in pc["bodies"]
+    return _page(name, data)
+
+
+def render_viewer_remote(name: str, meta: dict, url_for) -> str:
+    """Web viewer with NO size cap: bodies stream from the server on demand.
+    meta is the kit's viewer_meta.json; url_for(rel_path) -> fetchable URL."""
+    data = {
+        "pieces": [
+            {
+                "label": pc["label"],
+                "center": pc["center"],
+                "bodies": [
+                    {"name": b["name"], "color": b["color"], "url": url_for(b["file"])}
+                    for b in pc["bodies"]
+                ],
+            }
+            for pc in meta["pieces"]
+        ]
     }
-    toggles = "".join(
-        f'<div class="bt"><input class="bodytoggle" type="checkbox" data-b="{n}" checked>'
-        f'<span class="sw" style="background:{colors[n]}"></span>{n}</div>'
-        for n in body_names
-    )
-    return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{name} — 3D</title><style>{CSS}</style></head>
-<body><div id="wrap"><canvas id="gl"></canvas><div id="panel">
-<h1>{name}</h1>
-{toggles}
-<label>explode pieces</label><input id="explode" type="range" min="0" max="0.6" step="0.01" value="0">
-<label>lift lenses</label><input id="lift" type="range" min="0" max="60" step="1" value="0">
-<div class="hint">drag orbit · shift/right-drag pan · wheel zoom.<br>
-Lens bodies render translucent. Geometry is the exact exported STL.</div>
-</div></div>
-<script>const SIGN_DATA = {json.dumps(data)};</script>
-<script>{JS}</script>
-</body></html>"""
+    return _page(name, data)

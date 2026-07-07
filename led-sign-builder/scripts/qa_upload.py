@@ -104,8 +104,18 @@ def main() -> int:
     check(client.get(f"/api/jobs/{job}/thumb.png").status_code == 200, "thumbnail serves")
     check(client.get(f"/api/jobs/{job}/preview").status_code == 200, "dashboard serves")
     viewer = client.get(f"/api/jobs/{job}/viewer")
-    check(viewer.status_code == 200 or any("too large" in w for w in st.get("warnings", [])),
-          f"3D viewer serves or size-capped honestly ({viewer.status_code})")
+    check(viewer.status_code == 200 and "SIGN_DATA" in viewer.text,
+          f"3D viewer serves — NO size cap ({viewer.status_code})")
+    import re
+
+    m = re.search(rf'/api/jobs/{job}/file/stl/[^"]+?\.stl', viewer.text)
+    if m:
+        body = client.get(m.group(0))
+        check(body.status_code == 200 and len(body.content) > 1000,
+              f"viewer streams STL bodies ({len(body.content)//1024} KB)")
+    else:
+        check("stl" in viewer.text or "b64" in viewer.text or '"stl"' in viewer.text,
+              "viewer embeds bodies (small kit)")
 
     print("\n== pitch reconfiguration (the config knob, end to end) ==")
     pv25 = client.post("/api/preview2d", json=payload(token, pitch=25.0)).json()

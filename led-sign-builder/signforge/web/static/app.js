@@ -366,6 +366,12 @@ function wireEvents(){
   $('artchip').querySelector('button').onclick = () => { artToken = null; $('artfile').value=''; $('artchip').classList.remove('show'); schedule(); };
   $('buildbtn').onclick = build;
   $('clearbtn').onclick = async () => { await fetch('/api/jobs/clear', {method:'POST'}); pollQueue(true); };
+  $('wires').checked = localStorage.getItem('sf-wires') === '1';
+  $('svgbox').classList.toggle('hidewires', !$('wires').checked);
+  $('wires').onchange = () => {
+    localStorage.setItem('sf-wires', $('wires').checked ? '1' : '0');
+    $('svgbox').classList.toggle('hidewires', !$('wires').checked);
+  };
   $('loginbtn').onclick = () => authPost('/api/auth/login');
   $('registerbtn').onclick = () => authPost('/api/auth/register');
   $('acctchip').onclick = showAccount;

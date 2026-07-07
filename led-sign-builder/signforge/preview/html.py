@@ -77,25 +77,44 @@ def render_preview(
             f'<path d="{_path_d(layout.fills)}" fill="{c["lens"]}" fill-opacity="0.8" '
             f'fill-rule="evenodd" stroke="{c["shell"]}" stroke-width="1.2"/>'
         )
-    for pc in pieces[1:]:
-        el.append(
-            f'<path d="{_path_d(as_multipolygon(pc.mask))}" fill="none" '
-            f'stroke="{c["seam"]}" stroke-width="0.8" stroke-dasharray="4 3"/>'
-        )
+    # cut marks: draw only the SHARED boundary between adjacent pieces (the
+    # actual saw lines, corridor jogs included) — full mask outlines render
+    # as overlapping dashed rectangles ('cut marks are goofy' report)
+    if len(pieces) > 1:
+        from shapely.ops import unary_union
+
+        seen = pieces[0].mask
+        for pc in pieces[1:]:
+            # masks carry the seam clearance, so exact boundaries never touch —
+            # take the parts of this piece's boundary within a hair of the
+            # already-placed pieces: those are the saw lines
+            shared = pc.mask.boundary.intersection(seen.buffer(0.35))
+            for seg in getattr(shared, "geoms", [shared]):
+                coords = list(getattr(seg, "coords", []))
+                if len(coords) < 2:
+                    continue
+                pl = " ".join(f"{x:.2f},{y:.2f}" for x, y in coords)
+                el.append(
+                    f'<polyline points="{pl}" fill="none" stroke="{c["seam"]}" '
+                    f'stroke-width="1.4" stroke-dasharray="7 4"/>'
+                )
+            seen = unary_union([seen, pc.mask])
     first_pixel = None
     if ledplan and ledplan.pixels:
         from ..leds import chain_hops
 
+        wiring: list[str] = []
         for pa, pb, is_jumper in chain_hops(ledplan.pixels, ledplan.per_stroke):
             style = (
                 'stroke="#ff9d5c" stroke-dasharray="5 4" stroke-width="1.6"'
                 if is_jumper
                 else 'stroke="#66d19e" stroke-width="1.1" stroke-opacity="0.85"'
             )
-            el.append(
+            wiring.append(
                 f'<line x1="{pa[0]:.1f}" y1="{pa[1]:.1f}" x2="{pb[0]:.1f}" '
                 f'y2="{pb[1]:.1f}" {style}/>'
             )
+        el.append('<g class="wiring">' + "".join(wiring) + "</g>")
         # the CHARGE preview language: thin collar ring + small LED dot
         # (drawing full 12.3mm bores read as 'LEDs too big' — they aren't)
         for px, py in ledplan.pixels:
@@ -109,15 +128,16 @@ def render_preview(
             first_pixel = ledplan.pixels[order[0]]
             fx, fy = first_pixel
             el.append(
-                f'<circle cx="{fx:.2f}" cy="{fy:.2f}" r="9" fill="none" '
-                f'stroke="#66d19e" stroke-width="1.6"/>'
+                f'<g class="wiring"><circle cx="{fx:.2f}" cy="{fy:.2f}" r="9" '
+                f'fill="none" stroke="#66d19e" stroke-width="1.6"/></g>'
             )
 
     labels = ""
     if first_pixel is not None:
         labels += (
-            f'<text x="{first_pixel[0] + 10:.1f}" y="{-first_pixel[1] + 4:.1f}" '
-            f'fill="#66d19e" font-size="11" font-family="system-ui">DATA IN</text>'
+            f'<g class="wiring"><text x="{first_pixel[0] + 10:.1f}" '
+            f'y="{-first_pixel[1] + 4:.1f}" '
+            f'fill="#66d19e" font-size="11" font-family="system-ui">DATA IN</text></g>'
         )
     if len(pieces) > 1:
         for pc in pieces:

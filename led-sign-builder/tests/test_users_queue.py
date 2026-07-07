@@ -96,6 +96,30 @@ def test_cancel_queued_job(stack):
     assert client.get(f"/api/jobs/{job}").json()["status"] == "cancelled"
 
 
+def test_viewer_streams_when_embed_missing(tmp_path):
+    """Big kits have no embedded viewer.html — the endpoint must serve the
+    streaming viewer + STL bodies instead of 404 ('3D shows Not Found')."""
+    import re
+    import time
+    from pathlib import Path
+
+    app = create_app(open_mode=True, db_path=str(tmp_path / "d2.sqlite"),
+                     workdir=str(tmp_path / "w2"), workers=1)
+    client = TestClient(app)
+    job = client.post("/api/build", json={"params": TINY}).json()["job"]
+    for _ in range(150):
+        if client.get(f"/api/jobs/{job}").json()["status"] == "done":
+            break
+        time.sleep(0.2)
+    outdir = Path(app.state.queue.jobs[job]["outdir"])
+    (outdir / "preview" / "viewer.html").unlink()          # simulate huge kit
+    r = client.get(f"/api/jobs/{job}/viewer")
+    assert r.status_code == 200 and "SIGN_DATA" in r.text and "/file/stl/" in r.text
+    stl_url = re.search(r'/api/jobs/[^"]+/file/stl/[^"]+?\.stl', r.text).group(0)
+    body = client.get(stl_url)
+    assert body.status_code == 200 and len(body.content) > 200
+
+
 def test_delete_and_clear_finished(tmp_path):
     import time
 

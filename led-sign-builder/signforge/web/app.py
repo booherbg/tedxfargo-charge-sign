@@ -437,7 +437,31 @@ def create_app(
 
     @app.get("/api/jobs/{job_id}/viewer")
     def job_viewer(job_id: str, user: dict = Depends(require_user)):
-        return job_file(job_id, "preview/viewer.html", user)
+        """Small kits: the embedded offline viewer. Big kits: a streaming
+        viewer with no size cap (bodies fetch from /stl/ on demand)."""
+        job = job_or_404(job_id, user)
+        if job.get("status") != "done" or not job.get("outdir"):
+            raise HTTPException(404)
+        outdir = Path(job["outdir"])
+        if (outdir / "preview" / "viewer.html").exists():
+            return job_file(job_id, "preview/viewer.html", user)
+        meta_path = outdir / "preview" / "viewer_meta.json"
+        if not meta_path.exists():
+            raise HTTPException(404)
+        import json as _json
+
+        from ..preview.viewer import render_viewer_remote
+
+        meta = _json.loads(meta_path.read_text())
+        html = render_viewer_remote(
+            meta.get("name", job_id), meta,
+            url_for=lambda rel: f"/api/jobs/{job_id}/file/{rel}",
+        )
+        return HTMLResponse(html)
+
+    @app.get("/api/jobs/{job_id}/file/stl/{fname}")
+    def job_stl(job_id: str, fname: str, user: dict = Depends(require_user)):
+        return job_file(job_id, f"stl/{Path(fname).name}", user)
 
     @app.get("/api/jobs/{job_id}/preview")
     def job_preview(job_id: str, user: dict = Depends(require_user)):

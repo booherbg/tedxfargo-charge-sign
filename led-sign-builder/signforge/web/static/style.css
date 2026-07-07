@@ -157,3 +157,5 @@ summary{cursor:pointer;color:var(--verd);font-family:ui-monospace,Menlo,monospac
 .badge.bad{color:var(--danger);border:1px solid var(--danger)}
 footer{padding:8px 22px;border-top:1px solid var(--line);background:var(--panel2);
   font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.22em;color:var(--ink-dim)}
+#svgbox.hidewires .wiring{display:none}
+#row-wires .t{font-size:10px;letter-spacing:.12em;color:var(--ink-dim)}

@@ -134,7 +134,10 @@
   <section id="stage">
     <div id="statline">…</div>
     <div id="warnings"></div>
-    <div id="svgbox"><span class="empty">live blueprint appears here</span></div>
+    <div id="svgbox" class="hidewires"><span class="empty">live blueprint appears here</span></div>
+    <label class="toggle" id="row-wires" style="margin-top:8px">
+      <input type="checkbox" id="wires"><span class="lever"></span>
+      <span class="t">show wiring plan</span></label>
     <section style="margin:18px 0 0">
       <h2>Build queue <button id="clearbtn" class="mini ghost" style="float:right;margin-top:-4px" hidden>CLEAR FINISHED</button></h2>
       <div id="queue"><div class="hint">nothing queued yet — dial in a sign and hit BUILD KIT</div></div>
