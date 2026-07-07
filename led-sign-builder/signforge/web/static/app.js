@@ -155,12 +155,22 @@ function customColors(){
 }
 
 // ---- FX preview: generic WLED-style effects on the real pixel layout ----
-let fxNodes = [], fxRAF = null, fxBase = [];
+let fxNodes = [], fxRAF = null, fxBase = [], fxAttr = 'fill';
 function fxCollect(){
   fxNodes = [...document.querySelectorAll('#svgbox .px')].map(n => ({
     n, i: +n.dataset.i, x: +n.getAttribute('cx'), y: +n.getAttribute('cy'),
   }));
-  fxBase = fxNodes.length ? fxNodes.map(p => p.n.getAttribute('fill')) : [];
+  fxAttr = 'fill';
+  if (!fxNodes.length){
+    // strip-lit signs have no pixel dots — animate the tube strokes instead
+    // (a strip is one continuous color, so effects apply per tube run)
+    fxNodes = [...document.querySelectorAll('#svgbox .tube')].map((n, k) => {
+      const pts = (n.getAttribute('points') || '0,0').split(' ')[0].split(',');
+      return {n, i: k, x: +pts[0], y: +pts[1]};
+    });
+    fxAttr = 'stroke';
+  }
+  fxBase = fxNodes.length ? fxNodes.map(p => p.n.getAttribute(fxAttr)) : [];
   if (fxNodes.length){
     const xs = fxNodes.map(p => p.x), ys = fxNodes.map(p => p.y);
     const x0 = Math.min(...xs), x1 = Math.max(...xs);
@@ -203,7 +213,7 @@ function fxTick(ts){
   const mode = $('fx').value;
   if (mode === 'off' || !fxNodes.length){ fxRAF = null; return; }
   const t = ts / 1000, n = Math.max(fxNodes.length, 1), c = $('fxcolor').value;
-  for (const p of fxNodes) p.n.setAttribute('fill', FX[mode](p, t, n, c));
+  for (const p of fxNodes) p.n.setAttribute(fxAttr, FX[mode](p, t, n, c));
   fxRAF = requestAnimationFrame(fxTick);
 }
 function fxApply(){
@@ -212,7 +222,7 @@ function fxApply(){
   if (mode === 'off'){
     if (fxRAF) cancelAnimationFrame(fxRAF);
     fxRAF = null;
-    fxNodes.forEach((p, i) => p.n.setAttribute('fill', fxBase[i]));
+    fxNodes.forEach((p, i) => p.n.setAttribute(fxAttr, fxBase[i]));
     return;
   }
   if (!fxRAF) fxRAF = requestAnimationFrame(fxTick);

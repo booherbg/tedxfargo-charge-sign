@@ -77,7 +77,8 @@ def render_preview(
                 f'stroke-width="{w_out}" stroke-linecap="round" stroke-linejoin="round"/>'
             )
             el.append(
-                f'<polyline points="{pl}" fill="none" stroke="{c["lens"]}" opacity="0.85" '
+                f'<polyline class="tube" points="{pl}" fill="none" '
+                f'stroke="{c["lens"]}" opacity="0.85" '
                 f'stroke-width="{w_in}" stroke-linecap="round" stroke-linejoin="round"/>'
             )
     elif layout.fills is not None:
