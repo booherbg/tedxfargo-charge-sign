@@ -114,11 +114,17 @@ def render_png(
                 pts = [P(q) for q in poly.exterior.coords]
                 draw.line(pts + [pts[0]], fill=c["seam"], width=1)
 
-    # halo pixels fire backward — the viewer never sees them
+    # halo pixels fire backward — the viewer never sees them.
+    # CHARGE preview language: small LED dot + thin collar ring (full-bore
+    # discs read as oversized LEDs)
     if ledplan and ledplan.pixels and params.style.kind != "halo":
-        r = max(2, int(params.leds.bore_mm / 2 * k * 0.7))
+        r_dot = max(2, int(2.6 * k))
+        r_ring = max(r_dot + 2, int(4.4 * k))
+        ring_col = tuple(int(v * 0.6) for v in c["pixel"])
         for q in ledplan.pixels:
             cx, cy = P(q)
-            draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c["pixel"])
+            draw.ellipse([cx - r_ring, cy - r_ring, cx + r_ring, cy + r_ring],
+                         outline=ring_col, width=max(1, int(k)))
+            draw.ellipse([cx - r_dot, cy - r_dot, cx + r_dot, cy + r_dot], fill=c["pixel"])
 
     img.save(path)

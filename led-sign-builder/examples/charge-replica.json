@@ -1,0 +1,11 @@
+{
+  "name": "charge-replica",
+  "content": {"mode": "art",
+              "art_path": "../assets/svg/CHARGE.svg",
+              "art_target_height_mm": 250},
+  "style": {"kind": "neon", "backer": "tile", "tile_margin_mm": 22.5},
+  "texture": {"mode": "pyramid_jitter"},
+  "leds": {"kind": "bullet12", "pitch_mm": 17, "budget_px": 600},
+  "colors": {"palette": "charge-classic"},
+  "printer": {"preset": "bambu-h2d-dual"}
+}

@@ -259,7 +259,25 @@ def plan_tubes(
     elif layout.fills is not None and not layout.fills.is_empty:
         mode = st.source
         if mode == "auto":
-            mode = "outline"   # shape art: trace the silhouette (neon-shop treatment)
+            # TUBE-SHAPED art (hollow neon outlines like CHARGE.svg) wants its
+            # CENTERLINE — outlining a tube draws double lines around it.
+            # Tube-ness = thin (w̄ ≤ 1.4·band) AND elongated (P²/4πA ≥ 4 —
+            # a small filled disc like an olive is thin by w̄ but is a blob
+            # and reads as a ring, not a spine). Blobs trace the silhouette.
+            import math as _m
+
+            w_bar = (
+                2 * layout.fills.area / layout.fills.length
+                if layout.fills.length
+                else 0.0
+            )
+            elong = (
+                layout.fills.length ** 2 / (4 * _m.pi * layout.fills.area)
+                if layout.fills.area
+                else 0.0
+            )
+            tube_like = w_bar <= 1.4 * st.band_outer and elong >= 4.0
+            mode = "skeleton" if tube_like else "outline"
         if mode == "outline":
             strokes, meta["tube_w"], onotes = _outline_tubes(layout.fills, st.band_outer)
             warnings += onotes

@@ -96,18 +96,20 @@ def render_preview(
                 f'<line x1="{pa[0]:.1f}" y1="{pa[1]:.1f}" x2="{pb[0]:.1f}" '
                 f'y2="{pb[1]:.1f}" {style}/>'
             )
-        r = params.leds.bore_mm / 2
+        # the CHARGE preview language: thin collar ring + small LED dot
+        # (drawing full 12.3mm bores read as 'LEDs too big' — they aren't)
         for px, py in ledplan.pixels:
             el.append(
-                f'<circle cx="{px:.2f}" cy="{py:.2f}" r="{r:.2f}" fill="{c["pixel"]}" '
-                f'fill-opacity="0.9"/>'
+                f'<circle cx="{px:.2f}" cy="{py:.2f}" r="4.4" fill="none" '
+                f'stroke="{c["pixel"]}" stroke-width="2.2" stroke-opacity="0.55"/>'
+                f'<circle cx="{px:.2f}" cy="{py:.2f}" r="2.6" fill="{c["pixel"]}"/>'
             )
         order = [i for run in ledplan.per_stroke for i in run]
         if order:
             first_pixel = ledplan.pixels[order[0]]
             fx, fy = first_pixel
             el.append(
-                f'<circle cx="{fx:.2f}" cy="{fy:.2f}" r="{r + 2.5:.2f}" fill="none" '
+                f'<circle cx="{fx:.2f}" cy="{fy:.2f}" r="9" fill="none" '
                 f'stroke="#66d19e" stroke-width="1.6"/>'
             )
 
