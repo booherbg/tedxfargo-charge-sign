@@ -20,6 +20,61 @@ from .skeleton import path_len, resample
 JUMPER_MM = 101.6  # 4" pigtails between consecutive pixels
 
 
+def wled_ledmap(
+    pixels: list[Point2], per_stroke: list[list[int]], cell_mm: float | None = None
+) -> dict:
+    """WLED 2D ledmap: quantize the physical layout onto a matrix so WLED's 2D
+    effects play across the sign's real shape.
+
+    LED indices follow the wiring chain. Cells hold the LED index or -1.
+    Rows are top-first (WLED's y grows downward). Upload the JSON as
+    `ledmap.json`; set LED Preferences → 2D → matrix W×H."""
+    order = [i for run in per_stroke for i in run]
+    if not order:
+        return {"width": 0, "height": 0, "map": [], "n": 0}
+    led_of = {pix: led for led, pix in enumerate(order)}
+    pts = [pixels[i] for i in order]
+    if cell_mm is None:
+        gaps = [math.dist(a, b) for a, b in zip(pts, pts[1:])]
+        cell_mm = max(6.0, min(gaps) * 0.9) if gaps else 15.0
+    x0 = min(p[0] for p in pts)
+    y1 = max(p[1] for p in pts)
+    W = int((max(p[0] for p in pts) - x0) / cell_mm) + 2
+    H = int((y1 - min(p[1] for p in pts)) / cell_mm) + 2
+    grid = [[-1] * W for _ in range(H)]
+
+    def place(cx: int, cy: int, led: int) -> bool:
+        if 0 <= cx < W and 0 <= cy < H and grid[cy][cx] == -1:
+            grid[cy][cx] = led
+            return True
+        return False
+
+    for pix_i in order:
+        x, y = pixels[pix_i]
+        cx = round((x - x0) / cell_mm)
+        cy = round((y1 - y) / cell_mm)          # flip: WLED y is down
+        if place(cx, cy, led_of[pix_i]):
+            continue
+        placed = False
+        for ring in (1, 2):                      # nudge to a nearby free cell
+            for dy in range(-ring, ring + 1):
+                for dx in range(-ring, ring + 1):
+                    if max(abs(dx), abs(dy)) == ring and place(cx + dx, cy + dy, led_of[pix_i]):
+                        placed = True
+                        break
+                if placed:
+                    break
+            if placed:
+                break
+    return {
+        "width": W,
+        "height": H,
+        "n": len(order),
+        "cell_mm": round(cell_mm, 2),
+        "map": [v for row in grid for v in row],
+    }
+
+
 def chain_hops(
     pixels: list[Point2], per_stroke: list[list[int]]
 ) -> list[tuple[Point2, Point2, bool]]:

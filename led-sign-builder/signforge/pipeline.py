@@ -328,6 +328,15 @@ def build(
         bpath.write_text(render_bom(params, stats, ledplan, warnings))
         files.append(str(bpath))
 
+    if ledplan and ledplan.pixels:
+        import json as _json
+
+        from .leds import wled_ledmap
+
+        wpath = out / "wled_ledmap.json"
+        wpath.write_text(_json.dumps(wled_ledmap(ledplan.pixels, ledplan.per_stroke)))
+        files.append(str(wpath))
+
     params_path = out / "params.json"
     params_path.write_text(params.to_json())
     files.append(str(params_path))

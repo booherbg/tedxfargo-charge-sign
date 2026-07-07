@@ -128,17 +128,40 @@ def plan_tubes(
         meta["tube_w"] = max((s.width or 0) for s in direct) or st.channel_interior
         strokes = direct
     elif layout.glyphs:
-        # per-glyph skeletonization, then auto-kern glyphs whose bands collide
+        # per-glyph tubes, then auto-kern glyphs whose bands collide.
+        # source=skeleton → single-stroke script neon (spine of each glyph);
+        # source=outline  → classic OPEN-TUBE channel letters (the neon-shop
+        # treatment for bold faces: tube traces the letter outline, counters
+        # become inner rings; everything mounts to the plate — nothing floats)
+        text_mode = st.source
+        if text_mode == "auto":
+            # aesthetic-audit rule: OUTLINE (open-tube channel letters, the
+            # traditional bold-neon treatment) only when the glyph stroke fits
+            # TWO tube bands plus a visible dark gap — the two ring bands each
+            # inset band/2 from opposite edges, so gap = stroke − 2·band.
+            # Calibrated on visual ground truth: Bungee@250 (w̄71, good rings)
+            # vs Bebas@240 (w̄36, fused). w̄ = 2·area/perimeter.
+            area = sum(g.fills.area for g in layout.glyphs)
+            perim = sum(g.fills.length for g in layout.glyphs)
+            w_bar = 2 * area / perim if perim else 0.0
+            text_mode = "outline" if w_bar >= 2.2 * st.band_outer else "skeleton"
         glyph_strokes: list[list[Stroke]] = []
         tube_ws: list[float] = []
         for g in layout.glyphs:
-            # prune relative to the GLYPH, not the tube: a 110mm bold K's lower
-            # leg is a ~40mm chain — the absolute 45mm clamp amputated it
-            gh = max(g.bbox[3] - g.bbox[1], g.bbox[2] - g.bbox[0], 1.0)
-            s, m = extract_centerlines(g.fills, min_path_mm=max(8.0, 0.22 * gh))
+            if text_mode == "outline":
+                s, _w, onotes = _outline_tubes(g.fills, st.band_outer)
+                warnings += onotes
+                if not s:  # glyph too thin to inset — spine fallback
+                    s, _m = extract_centerlines(g.fills)
+                tube_ws.append(st.band_outer)
+            else:
+                # prune relative to the GLYPH, not the tube: a 110mm bold K's
+                # lower leg is a ~40mm chain — an absolute clamp amputated it
+                gh = max(g.bbox[3] - g.bbox[1], g.bbox[2] - g.bbox[0], 1.0)
+                s, m = extract_centerlines(g.fills, min_path_mm=max(8.0, 0.22 * gh))
+                if m["tube_w"]:
+                    tube_ws.append(m["tube_w"])
             glyph_strokes.append(s)
-            if m["tube_w"]:
-                tube_ws.append(m["tube_w"])
         order = sorted(range(len(layout.glyphs)), key=lambda i: layout.glyphs[i].bbox[0])
         shifts = [0.0] * len(layout.glyphs)
         cum = 0.0
@@ -185,7 +208,7 @@ def plan_tubes(
             )
             layout = build_layout(art, params)
             strokes = [s for s in strokes]  # same coords: glyphs shifted in place
-        meta["source"] = "skeleton:per-glyph"
+        meta["source"] = f"{text_mode}:per-glyph"
         meta["tube_w"] = sum(tube_ws) / len(tube_ws) if tube_ws else st.channel_interior
     elif layout.fills is not None and not layout.fills.is_empty:
         mode = st.source
@@ -260,6 +283,22 @@ def plan_tubes(
             warnings += [
                 f"coverage warning (shape art, tips are approximate): {f}" for f in fails
             ]
+
+    # ---- neon-aesthetic advisory (specimen-audit lesson): real neon tubes
+    # run ≤~12% of letter height; past ~15% the sign reads as a lit slab
+    x0a, y0a, x1a, y1a = layout.bbox
+    art_h = max(y1a - y0a, 1.0)
+    ratio = st.band_outer / art_h
+    if layout.glyphs and ratio > 0.15:
+        target_h = st.band_outer / 0.11
+        tips = "switch leds to 'strip'/'none' for slimmer channels"
+        if "skeleton" in meta["source"]:
+            tips += ", or style.neon.source='outline' for open-tube channel letters"
+        warnings.append(
+            f"chunky tubes: the {st.band_outer:.0f} mm band is {ratio:.0%} of the "
+            f"letter height — classic neon reads at ≤12%. Scale to ≥{target_h:.0f} mm, or "
+            + tips + "."
+        )
 
     min_gap = st.band_outer + 4.0
     violations, worst_gap = clearance_audit(strokes, min_gap=min_gap)

@@ -83,6 +83,9 @@ def render_bom(
             ),
             "- Wiring order is drawn on the preview (green chain, orange dashed jumpers,",
             "  DATA IN ring at the first pixel).",
+            "- **WLED**: the kit includes `wled_ledmap.json` — upload it as `ledmap.json`",
+            "  in WLED (Config → LED Preferences → 2D: set matrix to the width×height in",
+            "  the file, serpentine OFF). 2D effects then play across the sign's shape.",
         ]
         if ledplan.audits:
             lines += ["", "### Spacing audits", ""] + [f"- ⚠ {a}" for a in ledplan.audits]
