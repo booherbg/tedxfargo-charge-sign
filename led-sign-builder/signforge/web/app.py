@@ -352,7 +352,15 @@ def create_app(
             for j in queue.jobs.values()
             if user.get("role") == "admin" or j["user_id"] == user["id"]
         ]
-        return {"jobs": js[-40:]}
+        live_ids = {j["id"] for j in js}
+        uid = None if user.get("role") == "admin" else user["id"]
+        history = [
+            {"id": h["id"], "name": h["name"], "status": h["status"],
+             "progress": [], "warnings": [], "expired": True}
+            for h in store.recent_jobs(uid)
+            if h["id"] not in live_ids and h["status"] in ("done", "error", "cancelled")
+        ]
+        return {"jobs": (history[::-1] + js)[-40:]}
 
     @app.get("/api/jobs/{job_id}")
     def job_status(job_id: str, user: dict = Depends(require_user)):

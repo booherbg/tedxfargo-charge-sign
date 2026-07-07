@@ -229,7 +229,9 @@ function renderQueue(jobs){
     const pos = j.position ? ` · position ${j.position}` : '';
     const last = (j.progress || []).slice(-1)[0] || '';
     let links = '';
-    if (j.status === 'done'){
+    if (j.expired){
+      links = '<div class="log">files expired (server restarted) — rebuild to regenerate</div>';
+    } else if (j.status === 'done'){
       links = `<div class="links">
         <a class="btn" href="/api/jobs/${j.id}/download">ZIP</a>
         <a class="btn ghost" target="_blank" href="/api/jobs/${j.id}/viewer">3D</a>
@@ -239,7 +241,7 @@ function renderQueue(jobs){
       links = `<div class="links"><button class="mini danger" data-cancel="${j.id}">CANCEL</button></div>`;
     }
     const err = j.error ? `<div class="log" style="color:var(--danger)">${j.error}</div>` : '';
-    const thumb = j.status === 'done'
+    const thumb = (j.status === 'done' && !j.expired)
       ? `<img src="/api/jobs/${j.id}/thumb.png" alt="" loading="lazy">` : '';
     card.innerHTML = `${thumb}<div class="body">
       <div class="name">${j.name} <span class="state ${j.status}">${j.status.toUpperCase()}${pos}</span></div>

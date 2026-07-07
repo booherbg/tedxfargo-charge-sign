@@ -168,6 +168,17 @@ class UserStore:
                  time.time() if status in ("done", "error", "cancelled") else None),
             )
 
+    def recent_jobs(self, user_id: Optional[int] = None, limit: int = 30) -> list[dict]:
+        q = "SELECT id, user_id, name, status, created, finished FROM jobs"
+        args: tuple = ()
+        if user_id is not None:
+            q += " WHERE user_id=?"
+            args = (user_id,)
+        q += " ORDER BY created DESC LIMIT ?"
+        with self._lock:
+            rows = self.db.execute(q, args + (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
     def limits_for(self, user: dict) -> dict:
         tier = "premium" if user.get("role") == "admin" else user.get("tier", "free")
         return TIERS.get(tier, TIERS["free"])

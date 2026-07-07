@@ -64,18 +64,28 @@ def quick_plan(params: SignParams):
         )
         warnings += pwarn
     elif params.style.kind == "halo":
+        from .geom2d import bbox_polygon
         from .leds import place_pixels, strip_plan
+        from .model import Piece as _Piece
         from .parts.halo import halo_footprint, halo_pixel_strokes
 
         if layout.fills is None or layout.fills.is_empty:
             raise BuildError("halo style needs filled artwork (text or filled vectors)")
         strokes = halo_pixel_strokes(layout, params)
         footprint = halo_footprint(layout, params)
-        pieces, cuts, pwarn = panelize(footprint, strokes, [], params)
-        warnings += pwarn
-        if len(pieces) > 1:
-            pieces, cuts = pieces[:1], []
-            warnings.append("halo faces aren't split in v1 — build letters individually")
+        cuts = []
+        if len(layout.glyphs) > 1:
+            pad = params.style.halo.flange_w + 6
+            pieces = [
+                _Piece(name=f"letter{i + 1}", label=g.char.upper(),
+                       mask=bbox_polygon(g.bbox[0] - pad, g.bbox[1] - pad,
+                                         g.bbox[2] + pad, g.bbox[3] + pad))
+                for i, g in enumerate(layout.glyphs)
+            ]
+        else:
+            pieces, cuts, pwarn = panelize(footprint, strokes, [], params)
+            warnings += pwarn
+            pieces = pieces[:1]
         if params.leds.kind == "bullet12":
             ledplan = place_pixels(strokes, params, seams=cuts)
             pixels = ledplan.pixels
@@ -153,19 +163,40 @@ def build(
         strokes = halo_pixel_strokes(layout, params)
         footprint = halo_footprint(layout, params)
         say("panelizing")
-        pieces, cuts, pwarn = panelize(footprint, strokes, [], params)
-        warnings += pwarn
-        if len(pieces) > 1:
-            warnings.append(
-                "halo faces aren't split in v1 — build letters individually "
-                "(one build per letter) or reduce size; exporting whole"
-            )
-            pieces, cuts = pieces[:1], []
-            x0, y0, x1, y1 = footprint.bounds
-            from .geom2d import bbox_polygon
+        from .geom2d import bbox_polygon
+        from .panelize import _fits
 
-            pieces[0].mask = bbox_polygon(x0 - 1, y0 - 1, x1 + 1, y1 + 1)
-            pieces[0].screws = []
+        cuts = []
+        if len(layout.glyphs) > 1:
+            # halo signs build PER LETTER — each glyph becomes a piece; the
+            # plaque (plate="plaque") stays whole and carries them all
+            cx = (layout.bbox[0] + layout.bbox[2]) / 2
+            pieces = []
+            for i, g in enumerate(layout.glyphs):
+                gx0, gy0, gx1, gy1 = g.bbox
+                pad = params.style.halo.flange_w + 6
+                mask = bbox_polygon(gx0 - pad, gy0 - pad, gx1 + pad, gy1 + pad)
+                # bodies are pre-mirrored: clip in print space
+                clip = bbox_polygon(2 * cx - (gx1 + pad), gy0 - pad,
+                                    2 * cx - (gx0 - pad), gy1 + pad)
+                fits, rot = _fits(gx1 - gx0 + 2 * pad, gy1 - gy0 + 2 * pad, params.printer.bed)
+                if not fits:
+                    warnings.append(
+                        f"letter '{g.char}' exceeds the bed even alone — reduce size"
+                    )
+                pieces.append(Piece(name=f"letter{i + 1}", label=g.char.upper(),
+                                    mask=mask, rotated=rot, clip_mask=clip))
+        else:
+            pieces, cuts, pwarn = panelize(footprint, strokes, [], params)
+            warnings += pwarn
+            if len(pieces) > 1:
+                warnings.append(
+                    "halo face exceeds the bed and can't be split in v1 — reduce size"
+                )
+                pieces, cuts = pieces[:1], []
+                x0, y0, x1, y1 = footprint.bounds
+                pieces[0].mask = bbox_polygon(x0 - 1, y0 - 1, x1 + 1, y1 + 1)
+                pieces[0].screws = []
         if params.leds.kind == "bullet12":
             ledplan = place_pixels(strokes, params, seams=cuts)
             warnings += ledplan.audits
@@ -220,7 +251,7 @@ def build(
     viewer_pieces: list[dict] = []
     for pi, pc in enumerate(pieces):
         say(f"cutting + verifying {pc.label}" if multi else "verifying bodies")
-        piece_bodies, notes = clip_bodies_to_piece(bodies, pc, params, multi)
+        piece_bodies, notes = clip_bodies_to_piece(bodies, pc, params, multi, first=pi == 0)
         warnings += notes
         plates: dict[str, list[tuple[str, object, object, int]]] = {}
         detail = {"label": pc.label, "pixels": len(pc.pixel_idx), "grams": 0.0,

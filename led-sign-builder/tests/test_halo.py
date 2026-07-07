@@ -104,6 +104,46 @@ def test_multiline_neon_quickplan(bungee):
     assert ledplan.power.count > 30 and len(pieces) >= 1
 
 
+def test_multiletter_halo_builds_per_letter(tmp_path, bungee):
+    """Each glyph becomes its own piece; one shared plaque carries them all."""
+    from signforge.pipeline import build
+
+    params = SignParams.model_validate(
+        {
+            "name": "hi",
+            "content": {"text": "HI", "cap_height_mm": 120.0, "font_path": bungee},
+            "style": {"kind": "halo", "backer": "tile", "backer_shape": "rounded"},
+            "texture": {"mode": "none"},
+        }
+    )
+    result = build(params, tmp_path / "out")
+    assert result.stats["pieces"] == 2
+    names = [f.split("/")[-1] for f in result.files]
+    assert any("letter1_shell" in n for n in names)
+    assert any("letter2_shell" in n for n in names)
+    plaques = [n for n in names if "plaque" in n and n.endswith(".stl")]
+    assert len(plaques) == 1                        # ONE board for both letters
+    detail = result.stats["pieces_detail"]
+    assert all(d["pixels"] > 4 for d in detail)     # both letters got their racetracks
+
+
+def test_job_history_survives_restart(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from signforge.web.app import create_app
+
+    db = str(tmp_path / "db.sqlite")
+    app1 = create_app(open_mode=True, db_path=db, workdir=str(tmp_path / "w1"), workers=0)
+    app1.state.store.log_job("job-old1", 0, "old-sign", "done", "{}")
+
+    app2 = create_app(open_mode=True, db_path=db, workdir=str(tmp_path / "w2"), workers=0)
+    client = TestClient(app2)
+    jobs = client.get("/api/jobs").json()["jobs"]
+    old = next(j for j in jobs if j["id"] == "job-old1")
+    assert old["status"] == "done" and old["expired"] is True
+    assert client.get("/api/jobs/job-old1/download").status_code == 404
+
+
 def test_e2e_halo_kit(tmp_path, bungee):
     from signforge.pipeline import build
 

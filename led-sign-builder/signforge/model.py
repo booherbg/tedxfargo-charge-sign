@@ -86,10 +86,11 @@ class Piece:
 
     name: str
     label: str
-    mask: "Polygon"                      # sign-coordinate clip region
+    mask: "Polygon"                      # sign-coordinate clip region (viewer space)
     rotated: bool = False                # rotate-to-fit applied at export
     screws: list[Point2] = field(default_factory=list)
     pixel_idx: list[int] = field(default_factory=list)
+    clip_mask: Optional["Polygon"] = None  # print-space override (mirrored styles)
 
 
 @dataclass

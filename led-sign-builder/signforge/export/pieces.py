@@ -31,12 +31,13 @@ def _label_solid(pc: Piece, params: SignParams) -> m3d.Manifold | None:
 
 
 def clip_bodies_to_piece(
-    bodies: list[Body], pc: Piece, params: SignParams, multi: bool
+    bodies: list[Body], pc: Piece, params: SignParams, multi: bool, first: bool = True
 ) -> tuple[list[tuple[str, m3d.Manifold, int, str, str]], list[str]]:
     """Returns ([(body_name, manifold, extruder, plate, color)], notes) for one piece."""
     notes: list[str] = []
     out: list[tuple[str, m3d.Manifold, int, str, str]] = []
-    clip = prism(as_multipolygon(pc.mask), -2.0, 800.0) if multi else None
+    clip_poly = pc.clip_mask if pc.clip_mask is not None else pc.mask
+    clip = prism(as_multipolygon(clip_poly), -2.0, 800.0) if multi else None
 
     for body in bodies:
         man = body.man
@@ -46,7 +47,7 @@ def clip_bodies_to_piece(
                     f"{body.name}: press-fit part is not panelized (v1) — exported whole; "
                     "split manually if it exceeds the bed"
                 )
-            if pc.name == "piece1":  # emit un-panelized plates exactly once
+            if first:  # emit un-panelized plates exactly once
                 out.append((body.name, man, body.extruder, body.plate, body.color))
             continue
         if clip is not None:
@@ -64,7 +65,7 @@ def clip_bodies_to_piece(
                     else drills[0]
                 )
                 man = man - hole
-            if multi:
+            if multi and pc.clip_mask is None:   # mirrored styles skip deboss (v1)
                 lab = _label_solid(pc, params)
                 if lab is not None:
                     labeled = man - lab
