@@ -67,6 +67,29 @@ is USER-gated:
 
 **Future pings: run `uv run pytest`, confirm green, one-line status, STOP.**
 
+## PHASE 2 (user-directed, evening day 1) — COMPLETE
+Spec: docs/specs/2026-07-06-phase2-platform-design.md · seed 582035 UI notes:
+docs/DESIGN-NOTES.md
+- Catalog: plaque shapes (rounded/oval/shield/starburst/scallop), texture
+  targets (lens + backer field), 5 filament palettes, printer bridging
+  profiles, internal support ribs (inter-pixel midpoints = led_void/2).
+- Platform: sqlite accounts (scrypt, sessions), free/premium tiers enforced
+  (150mm / 6-a-day / 1-queued vs uncapped+priority), admin API, priority job
+  queue (positions, cancel, thumbnails), --open flag for solo self-host.
+- Console SF-1 UI: bakelite-and-brass (seeded off-default), full UX audit
+  fixed, auth/account/admin/queue surfaces, custom bed + palette + plaque +
+  rib + texture-target controls.
+- PNG lit-preview renderer in every kit → the visual QA loop that drove:
+  outline neon mode (auto for shape art) + per-component spine fallback,
+  mixed fill+stroke support, SVG transform baking (abs), bold-K glyph-relative
+  pruning + capped coverage thresholds, corridor fit-or-halve rule.
+- 10 example artworks (examples/art) + gallery/examples contact set.
+- 141 fast + 23 slow tests green, 33 commits.
+
+Remaining USER-gated items unchanged (name, PyPI, physical print, Bambu eyeball)
++ new: try the accounts flow (`uv run signforge serve`, admin password prints
+once on first run; `--open` to skip accounts).
+
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`
 2. Read this file, then `git log --oneline -15`, then `uv run pytest`.
