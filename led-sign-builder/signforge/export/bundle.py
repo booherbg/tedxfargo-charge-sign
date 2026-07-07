@@ -87,6 +87,17 @@ def render_bom(
         if ledplan.audits:
             lines += ["", "### Spacing audits", ""] + [f"- ⚠ {a}" for a in ledplan.audits]
 
+    if params.style.kind == "halo" and params.style.backer != "none":
+        lines += [
+            "",
+            "## Halo assembly",
+            "",
+            "- The **plaque** body mounts to the wall (corner screws); the letter's",
+            "  standoff bosses bolt through the plaque's matching anchor holes",
+            f"  (M4 through Ø{params.style.halo.standoff_bore:.1f} bores).",
+            "- Feed the pixel pigtail through/behind the plaque before bolting up.",
+        ]
+
     lines += [
         "",
         "## Print card",

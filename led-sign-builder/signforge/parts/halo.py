@@ -138,6 +138,35 @@ def build_halo_bodies(
             disc = prism(seat, 0, st.diffuser_t)  # its own print coords, flat
             bodies.append(Body("lens", disc, ex["lens"], colors["lens"], plate="lens"))
 
+    # ---- mounting plaque (backer tile/contour): the board the letter floats on
+    # UNMIRRORED — it sits behind the flipped letter, so viewer-space anchor
+    # holes line up with the letter's standoffs exactly as drawn
+    if params.style.backer != "none":
+        if params.style.backer == "tile" and layout.backer is not None:
+            plaque_poly = heal(as_multipolygon(layout.backer))
+        else:
+            plaque_poly = ring_offset(filled(F), params.style.contour_margin_mm)
+        if not plaque_poly.is_empty:
+            PLAQUE_T = 3.0
+            plate = prism(plaque_poly, 0, PLAQUE_T)
+            drills = [
+                cylinder(st.standoff_bore, PLAQUE_T + 2, sx, sy, -1.0)
+                for sx, sy in standoffs
+            ]
+            px0, py0, px1, py1 = plaque_poly.bounds
+            inset = params.style.screw_inset_mm
+            from shapely.geometry import Point as _Pt
+
+            for wx in (px0 + inset, px1 - inset):
+                for wy in (py0 + inset, py1 - inset):
+                    if plaque_poly.buffer(0.5).covers(_Pt((wx, wy))) and all(
+                        math.dist((wx, wy), s) > 12 for s in standoffs
+                    ):
+                        drills.append(cylinder(params.style.screw_d_mm, PLAQUE_T + 2, wx, wy, -1.0))
+            if drills:
+                plate = plate - union_all(drills)
+            bodies.append(Body("plaque", plate, ex["shell"], colors["shell"], plate="plaque"))
+
     # pre-mirror everything (flip-to-use); footprint mirrors for panelize/preview
     cx = (layout.bbox[0] + layout.bbox[2]) / 2
     for b in bodies:

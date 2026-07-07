@@ -43,6 +43,31 @@ def test_halo_bodies_gate_and_extents(bungee):
     assert lb[5] == pytest.approx(top, abs=1e-6)
 
 
+def test_halo_plaque_backer(bungee):
+    """halo + tile: a mounting plaque body with standoff-matched anchor bores."""
+    from signforge.parts.halo import _standoff_points
+
+    p = _halo_params(style={"kind": "halo", "backer": "tile", "backer_shape": "oval"})
+    art = text_to_artwork(bungee, "B", cap_height_mm=140)
+    lay = build_layout(art, p)
+    bodies, _ = build_halo_bodies(lay, [], p)
+    names = [b.name for b in bodies]
+    assert "plaque" in names
+    plaque = next(b for b in bodies if b.name == "plaque")
+    assert plaque.plate == "plaque"
+    v, t = mesh_of(plaque.man)
+    gated_mesh(v, t, "halo-plaque")
+    # anchor bores actually removed material at every standoff
+    solid_vol = plaque.man.bounding_box()
+    standoffs = _standoff_points(lay, p)
+    assert standoffs
+    import manifold3d as m3d
+
+    for sx, sy in standoffs:
+        probe = m3d.Manifold.cylinder(3.0, 1.0, 1.0, 16).translate([sx, sy, 0.5])
+        assert (plaque.man ^ probe).volume() < probe.volume() * 0.2   # hole is open
+
+
 def test_halo_diffuser_is_separate_part(bungee):
     p = _halo_params(style={"kind": "halo", "halo": {"back_mode": "diffuser"}})
     art = text_to_artwork(bungee, "O", cap_height_mm=120)
