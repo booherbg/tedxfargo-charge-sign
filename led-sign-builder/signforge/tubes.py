@@ -262,6 +262,19 @@ def plan_tubes(
             ]
 
     min_gap = st.band_outer + 4.0
-    violations = clearance_audit(strokes, min_gap=min_gap)
-    warnings += violations
+    violations, worst_gap = clearance_audit(strokes, min_gap=min_gap)
+    if len(violations) > 4 and worst_gap is not None:
+        # a flood of mush = the DESIGN is tighter than the channel (Monoton at
+        # small caps). One line + the actionable number beats 50 red rows.
+        x0, y0, x1, y1 = layout.bbox
+        h = max(y1 - y0, 1.0)
+        scale_needed = min_gap / max(worst_gap, 0.5)
+        warnings.append(
+            f"{len(violations)} channel-clearance violations — this design's lines "
+            f"run {worst_gap:.1f} mm apart but {min_gap:.0f} mm is needed. "
+            f"Scale to ≥{h * scale_needed:.0f} mm tall (~{scale_needed:.1f}×) or slim "
+            "the channels (style.neon.channel_interior)."
+        )
+    else:
+        warnings += violations
     return strokes, layout, meta, warnings

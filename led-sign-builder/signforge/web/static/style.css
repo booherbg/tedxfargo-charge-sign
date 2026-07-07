@@ -124,6 +124,17 @@ table{border-collapse:collapse;width:100%;font-size:12px}
 td,th{border:1px solid var(--line);padding:5px 8px;text-align:left}
 th{font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.2em;color:var(--brass)}
 td select{padding:3px 6px;width:auto}
+.fontgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:240px;overflow-y:auto;
+  padding-right:2px}
+.fontgrid .ftile{background:var(--recess);border:1px solid var(--line);border-radius:5px;
+  padding:7px 9px 5px;cursor:pointer;transition:border-color .12s;min-width:0}
+.fontgrid .ftile:hover{border-color:var(--brass)}
+.fontgrid .ftile.sel{border:2px solid var(--brass);box-shadow:0 0 8px rgba(201,155,63,.35);
+  padding:6px 8px 4px}
+.fontgrid .sample{font-size:19px;color:var(--brass-hi);line-height:1.25;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.fontgrid .fname{font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.14em;
+  color:var(--ink-dim);text-transform:uppercase;margin-top:2px}
 .libgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .libgrid .tile{aspect-ratio:1;background:var(--recess);border:1px solid var(--line);
   border-radius:5px;padding:6px;cursor:pointer;display:flex;align-items:center;

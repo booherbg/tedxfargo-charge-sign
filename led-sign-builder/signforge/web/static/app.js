@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let fontToken = null, artToken = null, libraryPick = null;
+let fontToken = null, artToken = null, libraryPick = null, fontPick = 'bungee';
 let defaults = null, meta = null, me = null;
 let timer = null, queueTimer = null;
 
@@ -9,12 +9,38 @@ async function init(){
   meta = await (await fetch('/api/presets')).json();
   defaults = meta.defaults;
   buildStaticControls();
+  await loadFonts();
   await loadLibrary();
   await refreshMe();
   wireEvents();
   $('advanced').value = JSON.stringify(defaults, null, 2);
   schedule();
   pollQueue();
+}
+
+async function loadFonts(){
+  const fonts = (await (await fetch('/api/fonts')).json()).fonts;
+  const grid = $('fontgrid');
+  for (const f of fonts){
+    try {
+      const face = new FontFace(`sf-${f.name}`, `url(${f.url})`);
+      await face.load();
+      document.fonts.add(face);
+    } catch { /* tile falls back to system font */ }
+    const t = document.createElement('div');
+    t.className = 'ftile' + (f.name === fontPick ? ' sel' : '');
+    t.dataset.name = f.name;
+    t.innerHTML = `<div class="sample" style="font-family:'sf-${f.name}',system-ui">GLOW 24</div>
+                   <div class="fname">${f.label} · ${f.vibe}</div>`;
+    t.onclick = () => {
+      fontPick = f.name;
+      fontToken = null; $('fontfile').value = ''; $('fontchip').classList.remove('show');
+      grid.querySelectorAll('.ftile').forEach(x => x.classList.remove('sel'));
+      t.classList.add('sel');
+      schedule();
+    };
+    grid.appendChild(t);
+  }
 }
 
 async function loadLibrary(){
@@ -142,6 +168,7 @@ function paramsFromUI(){
 }
 
 const payload = () => ({params: paramsFromUI(), font_token: fontToken,
+                        font: fontToken ? null : fontPick,
                         art_token: artToken, library: artToken ? null : libraryPick});
 
 /* ---------- preview ---------- */
@@ -175,7 +202,10 @@ async function uploadFile(kind){
   const r = await fetch(`/api/upload?kind=${kind}`, {method:'POST', body: fd});
   if (!r.ok){ alert(await r.text()); input.value = ''; return; }
   const data = await r.json();
-  if (kind === 'font') fontToken = data.token;
+  if (kind === 'font'){
+    fontToken = data.token;
+    $('fontgrid').querySelectorAll('.ftile').forEach(x => x.classList.remove('sel'));
+  }
   else {
     artToken = data.token;
     libraryPick = null;

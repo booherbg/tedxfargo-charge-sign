@@ -259,12 +259,14 @@ def clearance_audit(
                 {"a": ai, "b": bi, "d": d, "angle": ang, "ax": ax, "ay": ay,
                  "run": 0.0, "start": at, "end": at}
             )
-    return [
+    bad = [r for r in runs if r["angle"] < crisp_deg and r["run"] > run_mm]
+    msgs = [
         f"channel clearance: {r['d']:.1f} mm gap (< {min_gap:.0f}) for {r['run']:.0f} mm "
         f"near ({r['ax']:.0f},{r['ay']:.0f}), tangents {r['angle']:.0f}° — parallel mush"
-        for r in runs
-        if r["angle"] < crisp_deg and r["run"] > run_mm
+        for r in bad
     ]
+    worst = min((r["d"] for r in bad), default=None)
+    return msgs, worst
 
 
 def coverage_qa(

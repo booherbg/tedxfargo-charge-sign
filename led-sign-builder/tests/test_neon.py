@@ -40,15 +40,16 @@ def test_coverage_qa_catches_amputation():
 
 
 def test_clearance_audit_mush_vs_crossing():
-    mush = clearance_audit(
+    mush, worst = clearance_audit(
         [Stroke(pts=[(0, 0), (100, 0)]), Stroke(pts=[(0, 20), (100, 20)])], min_gap=26
     )
     assert len(mush) == 1 and "parallel mush" in mush[0]
+    assert worst == pytest.approx(20.0, abs=0.5)
 
-    crossing = clearance_audit(
+    crossing, worst2 = clearance_audit(
         [Stroke(pts=[(-50, 0), (50, 0)]), Stroke(pts=[(0, -50), (0, 50)])], min_gap=26
     )
-    assert crossing == []                          # crisp 90° crossing is legal
+    assert crossing == [] and worst2 is None       # crisp 90° crossing is legal
 
 
 def test_neon_bodies_gated(bungee):

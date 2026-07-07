@@ -122,6 +122,17 @@ def create_app(
             raise HTTPException(404)
         return FileResponse(p)
 
+    @app.get("/api/fonts")
+    def fonts_list():
+        from ..ingest.fonts import bundled_fonts
+
+        return {
+            "fonts": [
+                {"name": k, **v, "url": f"/static/fonts/{v['file']}"}
+                for k, v in sorted(bundled_fonts().items())
+            ]
+        }
+
     # ---- design library (bundled example artworks) ---------------------------
     def _library_dir() -> Path:
         from importlib import resources
@@ -260,10 +271,17 @@ def create_app(
         content.pop("art_path", None)
         ft, at = payload.get("font_token"), payload.get("art_token")
         lib = payload.get("library")
+        bundled = payload.get("font")
         if ft:
             if ft not in uploads:
                 raise HTTPException(400, "unknown font token")
             content["font_path"] = str(uploads[ft])
+        elif bundled:
+            from ..ingest.fonts import BUNDLED_FONTS, resolve_font
+
+            if str(bundled) not in BUNDLED_FONTS:
+                raise HTTPException(400, "unknown bundled font")
+            content["font_path"] = resolve_font(str(bundled))
         else:
             content["font_path"] = default_font_path()
         if at:

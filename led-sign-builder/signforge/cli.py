@@ -24,7 +24,9 @@ def _params_from_args(args: argparse.Namespace) -> SignParams:
         p.content.mode = "text"
         p.content.text = args.text
     if args.font:
-        p.content.font_path = args.font
+        from .ingest.fonts import resolve_font
+
+        p.content.font_path = str(resolve_font(args.font))
     if args.art:
         p.content.mode = "art"
         p.content.art_path = args.art
@@ -51,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--params", help="params.json (reproducible build)")
     b.add_argument("--preset", choices=sorted(PRESET_PARAMS), help="start from a preset")
     b.add_argument("--text", help="sign text (use \\n for multi-line)")
-    b.add_argument("--font", help="TTF/OTF/WOFF/WOFF2 path (default: bundled Bungee)")
+    b.add_argument("--font", help="font file path OR bundled name "
+                                  "(bungee, monoton, limelight, … — see /api/fonts)")
     b.add_argument("--art", help="SVG/DXF/PNG artwork path instead of text")
     b.add_argument("--style", choices=["neon", "channel"])
     b.add_argument("--backer", choices=["tile", "contour", "none"])

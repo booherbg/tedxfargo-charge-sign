@@ -26,8 +26,56 @@ from ..model import Artwork, GlyphBox
 FLAT_MM = 0.25  # max chord length when flattening curves, in mm at final scale
 
 
+def _fonts_dir() -> Path:
+    return Path(str(resources.files("signforge") / "assets" / "fonts"))
+
+
 def default_font_path() -> str:
-    return str(resources.files("signforge") / "assets" / "fonts" / "Bungee-Regular.ttf")
+    return str(_fonts_dir() / "Bungee-Regular.ttf")
+
+
+# Bundled open-source font library (all SIL OFL; license texts ship alongside).
+# name -> file, display label, vibe tag (shown in the console picker).
+BUNDLED_FONTS: dict[str, dict] = {
+    "bungee": {"file": "Bungee-Regular.ttf", "label": "Bungee", "vibe": "marquee"},
+    "alfa-slab": {"file": "AlfaSlabOne-Regular.ttf", "label": "Alfa Slab One", "vibe": "heavy slab"},
+    "audiowide": {"file": "Audiowide-Regular.ttf", "label": "Audiowide", "vibe": "retro-tech"},
+    "bebas": {"file": "BebasNeue-Regular.ttf", "label": "Bebas Neue", "vibe": "tall condensed"},
+    "black-ops": {"file": "BlackOpsOne-Regular.ttf", "label": "Black Ops One", "vibe": "stencil"},
+    "great-vibes": {"file": "GreatVibes-Regular.ttf", "label": "Great Vibes", "vibe": "formal script"},
+    "limelight": {"file": "Limelight-Regular.ttf", "label": "Limelight", "vibe": "art deco"},
+    "lobster": {"file": "Lobster-Regular.ttf", "label": "Lobster", "vibe": "bold script"},
+    "monoton": {"file": "Monoton-Regular.ttf", "label": "Monoton", "vibe": "neon lines"},
+    "orbitron": {"file": "Orbitron-Variable.ttf", "label": "Orbitron", "vibe": "sci-fi"},
+    "oswald": {"file": "Oswald-Variable.ttf", "label": "Oswald", "vibe": "condensed sans"},
+    "pacifico": {"file": "Pacifico-Regular.ttf", "label": "Pacifico", "vibe": "casual script"},
+    "righteous": {"file": "Righteous-Regular.ttf", "label": "Righteous", "vibe": "retro sans"},
+    "rye": {"file": "Rye-Regular.ttf", "label": "Rye", "vibe": "western"},
+    "shrikhand": {"file": "Shrikhand-Regular.ttf", "label": "Shrikhand", "vibe": "juicy display"},
+}
+
+
+def bundled_fonts() -> dict[str, dict]:
+    return {k: dict(v) for k, v in BUNDLED_FONTS.items()}
+
+
+def resolve_font(source) -> "str | bytes":
+    """None → default; bundled name → packaged file; existing path → itself."""
+    if source is None:
+        return default_font_path()
+    if isinstance(source, bytes):
+        return source
+    s = str(source)
+    if s in BUNDLED_FONTS:
+        return str(_fonts_dir() / BUNDLED_FONTS[s]["file"])
+    if Path(s).exists():
+        return s
+    from ..verify import BuildError
+
+    raise BuildError(
+        f"font {s!r} is neither a file nor a bundled font — bundled: "
+        + ", ".join(sorted(BUNDLED_FONTS))
+    )
 
 
 class _FlatPen(BasePen):
@@ -137,7 +185,7 @@ def text_to_artwork(
     line_spacing: float = 1.2,
     align: str = "center",
 ) -> Artwork:
-    font = load_font(font_source or default_font_path())
+    font = load_font(resolve_font(font_source))
     cmap = font.getBestCmap()
     glyph_set = font.getGlyphSet()
     upm = font["head"].unitsPerEm
