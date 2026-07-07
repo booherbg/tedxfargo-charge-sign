@@ -7,6 +7,7 @@ ground truth. Re-run the whole baseline:
 uv run pytest                      # 174 fast (rc must be 0 — never pipe away exit codes)
 uv run pytest -m slow              # 24 slow: torture, example art, fonts, CHARGE parity
 uv run python scripts/qa_gold.py   # the gold standard, verified FROM THE EXPORTED FILES
+uv run python scripts/qa_upload.py # CHARGE through the real web stack: upload→preview→build→zip
 ```
 
 ## The gold standard (scripts/qa_gold.py)
@@ -40,6 +41,16 @@ PNG/dashboard/debug overlay.
    tube-ness (w̄ ≤ 1.4·band AND P²/4πA ≥ 4).
 3. Preview pixels drawn at full 12.3 mm bore ("LEDs too big") — now the
    original's 2.6 mm dot + 4.4 mm collar language.
+
+## The upload path (scripts/qa_upload.py) — verified 2026-07-07
+
+CHARGE.svg through the ACTUAL web stack: multipart upload → live preview
+(watts = px·0.25, PSU covers at 80%) → queued build → **preview↔build
+consistency (pixels/pieces/dimensions identical)** → downloaded zip verified
+file-by-file via the shared `scripts/qa_kit.py` (same manifold/bed/3MF/WLED/
+BOM checks as gold) → thumbnail + dashboard serve; 3D viewer size-caps
+honestly for the 190 MB textured CHARGE (404 + warning). Pitch reconfig
+end-to-end: 17→25 mm gives 415→294 px (×0.71), preview == build == WLED map.
 
 ## Iterations from ground truth (the rest of the pyramid)
 
