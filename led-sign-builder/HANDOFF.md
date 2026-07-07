@@ -90,6 +90,17 @@ Remaining USER-gated items unchanged (name, PyPI, physical print, Bambu eyeball)
 + new: try the accounts flow (`uv run signforge serve`, admin password prints
 once on first run; `--open` to skip accounts).
 
+## Post-phase-2 loop iterations
+- Design library: bundled motifs selectable in the console (packaged art,
+  /api/library, thumbnail grid). README caught up to phase 2.
+- Halo mounting plaque: backer tile/contour now emits a real plaque body
+  (standoff-matched anchor bores, corner wall screws, own plate, BOM assembly
+  notes) — the UI promise the engine didn't keep. Halo PNG render fixed
+  (crisp face post-blend, counters restored; visual-verified).
+- 143 fast + 23 slow green, 40 commits. Next candidates: queue history
+  across restarts (jobs table → "expired" listing), per-letter halo builds
+  helper, otherwise idle-green.
+
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`
 2. Read this file, then `git log --oneline -15`, then `uv run pytest`.
