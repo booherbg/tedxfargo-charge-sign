@@ -11,6 +11,7 @@
   --plate:linear-gradient(180deg,#44403A 0%,#3B3630 60%,#36322C 100%);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;font:14px/1.5 -apple-system,system-ui,'Segoe UI',Roboto,sans-serif;
   background:#262320 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" opacity="0.03"><rect width="64" height="64" fill="none"/><circle cx="8" cy="8" r="1" fill="white"/></svg>');
   color:var(--ink);min-height:100vh;display:flex;flex-direction:column}

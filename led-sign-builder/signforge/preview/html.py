@@ -182,9 +182,11 @@ def render_preview(
         )
 
     notes_html = ""
-    if body_notes:
+    shown = set(ledplan.audits) if ledplan else set()
+    remaining = [n for n in (body_notes or []) if n not in shown]
+    if remaining:
         notes_html = "<h2>Build notes</h2><ul>" + "".join(
-            f"<li>{n}</li>" for n in body_notes
+            f"<li>{n}</li>" for n in remaining
         ) + "</ul>"
 
     w_mm, h_mm = stats.get("sign_mm", [0, 0])
