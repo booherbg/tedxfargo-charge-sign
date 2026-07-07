@@ -35,8 +35,9 @@ pip-installable Python package with a web UI.
 ## Quickstart
 
 ```bash
-# web UI
+# web console (accounts + tiers + queue; admin password prints on first run)
 uv run signforge serve            # → http://127.0.0.1:8763
+uv run signforge serve --open     # solo mode: no accounts, everything unlocked
 
 # CLI
 uv run signforge build --text "OPEN" --style neon --cap-height 200 -o out/open
@@ -46,6 +47,29 @@ uv run signforge build --params examples/neon-classic.json -o out/example
 # print a fit ladder BEFORE trusting a press fit on your printer/filament
 uv run signforge coupon -o out/coupons
 ```
+
+## The console (web UI)
+
+A 1950s bakelite-and-brass control panel (design provenance in
+`docs/DESIGN-NOTES.md`): live blueprint preview, a **design library** of
+bundled motifs (rocket, atom, martini…) selectable with one click, plaque
+shapes (rounded / oval / shield / starburst / scallop), filament palettes,
+fuzzy-texture targets (lens and/or backer field), internal-support-rib
+switch, custom bed sizes — plus a **build queue** with positions, cancel,
+and thumbnails.
+
+**Accounts & tiers** (skip entirely with `--open`): registration is open;
+free tier = 150 mm max, 6 builds/day, 1 queued; premium = uncapped with
+queue priority; admins manage roles/tiers from the console. Payments are
+out of scope — premium is a flag an admin flips.
+
+## Neon sources
+
+Letters get **skeleton** centerlines (the CHARGE treatment, coverage-gated
+with terminal rescue). Shape art defaults to **outline** tubes — the
+silhouette traced like a neon shop would — with per-component spine fallback
+for parts thinner than the band. Mixed SVGs keep drawn strokes AND filled
+shapes. Override via `style.neon.source`.
 
 ## Input formats
 
