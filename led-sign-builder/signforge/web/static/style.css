@@ -149,6 +149,10 @@ summary{cursor:pointer;color:var(--verd);font-family:ui-monospace,Menlo,monospac
 .hint{font-size:11px;color:var(--ink-dim);margin-top:6px;text-transform:none;letter-spacing:0}
 .badge{font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.18em;padding:2px 6px;
   border-radius:2px}
+.b3d{font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.15em;padding:1px 5px;
+  border:1px solid var(--verd);color:var(--verd);border-radius:2px;vertical-align:1px;
+  cursor:help}
+.b3d::after{content:''}
 .badge.ok{color:var(--ok);border:1px solid var(--ok)}
 .badge.bad{color:var(--danger);border:1px solid var(--danger)}
 footer{padding:8px 22px;border-top:1px solid var(--line);background:var(--panel2);

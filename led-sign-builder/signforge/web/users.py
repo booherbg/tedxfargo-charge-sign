@@ -168,6 +168,10 @@ class UserStore:
                  time.time() if status in ("done", "error", "cancelled") else None),
             )
 
+    def delete_job(self, job_id: str) -> None:
+        with self._lock, self.db:
+            self.db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+
     def recent_jobs(self, user_id: Optional[int] = None, limit: int = 30) -> list[dict]:
         q = "SELECT id, user_id, name, status, created, finished FROM jobs"
         args: tuple = ()

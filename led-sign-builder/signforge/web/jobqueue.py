@@ -89,6 +89,28 @@ class JobQueue:
                 self._notify(job)
         return True
 
+    def remove(self, job_id: str) -> bool:
+        """Delete a TERMINAL job and its files. Active jobs must cancel first."""
+        import shutil
+
+        with self._cv:
+            job = self.jobs.get(job_id)
+            if not job or job["status"] in ("queued", "running"):
+                return False
+            self.jobs.pop(job_id, None)
+        if job.get("outdir"):
+            shutil.rmtree(job["outdir"], ignore_errors=True)
+        return True
+
+    def terminal_ids(self, user_id: Optional[int] = None) -> list[str]:
+        with self._cv:
+            return [
+                j["id"]
+                for j in self.jobs.values()
+                if j["status"] not in ("queued", "running")
+                and (user_id is None or j["user_id"] == user_id)
+            ]
+
     def public(self, job: dict) -> dict:
         out = {k: v for k, v in job.items() if k in
                ("id", "name", "status", "progress", "stats", "warnings", "error", "user")}

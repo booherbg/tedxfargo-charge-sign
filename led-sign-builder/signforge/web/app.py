@@ -385,9 +385,38 @@ def create_app(
         return queue.public(job_or_404(job_id, user))
 
     @app.delete("/api/jobs/{job_id}")
-    def job_cancel(job_id: str, user: dict = Depends(require_user)):
+    def job_delete(job_id: str, user: dict = Depends(require_user)):
+        """Active job → cancel. Terminal job → remove (files too). Expired
+        history entry → forget."""
+        job = queue.jobs.get(job_id)
+        if job is None:
+            hist = {h["id"]: h for h in store.recent_jobs(
+                None if user.get("role") == "admin" else user["id"])}
+            if job_id not in hist:
+                raise HTTPException(404)
+            store.delete_job(job_id)
+            return {"deleted": True}
         job_or_404(job_id, user)
-        return {"cancelled": queue.cancel(job_id)}
+        if job["status"] in ("queued", "running"):
+            return {"cancelled": queue.cancel(job_id)}
+        queue.remove(job_id)
+        store.delete_job(job_id)
+        return {"deleted": True}
+
+    @app.post("/api/jobs/clear")
+    def jobs_clear(user: dict = Depends(require_user)):
+        """Remove every finished/expired job (and files) for this user."""
+        uid = None if user.get("role") == "admin" else user["id"]
+        n = 0
+        for jid in queue.terminal_ids(uid):
+            if queue.remove(jid):
+                store.delete_job(jid)
+                n += 1
+        for h in store.recent_jobs(uid):
+            if h["id"] not in queue.jobs and h["status"] in ("done", "error", "cancelled"):
+                store.delete_job(h["id"])
+                n += 1
+        return {"cleared": n}
 
     def job_file(job_id: str, rel: str, user: dict) -> FileResponse:
         job = job_or_404(job_id, user)

@@ -96,6 +96,39 @@ def test_cancel_queued_job(stack):
     assert client.get(f"/api/jobs/{job}").json()["status"] == "cancelled"
 
 
+def test_delete_and_clear_finished(tmp_path):
+    import time
+
+    from signforge.web.app import create_app
+
+    app = create_app(open_mode=True, db_path=str(tmp_path / "d.sqlite"),
+                     workdir=str(tmp_path / "w"), workers=1)
+    client = TestClient(app)
+    job = client.post("/api/build", json={"params": TINY}).json()["job"]
+    for _ in range(120):
+        if client.get(f"/api/jobs/{job}").json()["status"] == "done":
+            break
+        time.sleep(0.2)
+    outdir = app.state.queue.jobs[job]["outdir"]
+    from pathlib import Path
+
+    assert Path(outdir).exists()
+    r = client.delete(f"/api/jobs/{job}")
+    assert r.status_code == 200 and r.json().get("deleted")
+    assert not Path(outdir).exists()                      # files gone
+    assert client.get(f"/api/jobs/{job}").status_code == 404
+    assert all(j["id"] != job for j in client.get("/api/jobs").json()["jobs"])
+
+    j2 = client.post("/api/build", json={"params": TINY}).json()["job"]
+    for _ in range(120):
+        if client.get(f"/api/jobs/{j2}").json()["status"] == "done":
+            break
+        time.sleep(0.2)
+    r = client.post("/api/jobs/clear")
+    assert r.json()["cleared"] >= 1
+    assert client.get("/api/jobs").json()["jobs"] == []
+
+
 def test_daily_quota(stack, monkeypatch):
     app, client = stack
     client.post("/api/auth/register", json={"email": "q@x.com", "password": "password99"})

@@ -143,6 +143,8 @@ function paramsFromUI(){
   base.style.backer = $('backer').value;
   base.style.backer_shape = $('plaque').value;
   base.style.support_ribs = $('ribs').value;
+  base.style.neon = base.style.neon || {};
+  base.style.neon.source = $('tubesource').value;
   base.texture = base.texture || {};
   base.texture.mode = $('texture').value;
   const targets = [];
@@ -259,16 +261,21 @@ function renderQueue(jobs){
     const pos = j.position ? ` · position ${j.position}` : '';
     const last = (j.progress || []).slice(-1)[0] || '';
     let links = '';
+    const del = `<button class="mini ghost" data-del="${j.id}" title="remove from queue">✕</button>`;
     if (j.expired){
-      links = '<div class="log">files expired (server restarted) — rebuild to regenerate</div>';
+      links = `<div class="log">files expired (server restarted) — rebuild to regenerate</div>
+               <div class="links">${del}</div>`;
     } else if (j.status === 'done'){
       links = `<div class="links">
         <a class="btn" href="/api/jobs/${j.id}/download">ZIP</a>
         <a class="btn ghost" target="_blank" href="/api/jobs/${j.id}/viewer">3D</a>
         <a class="btn ghost" target="_blank" href="/api/jobs/${j.id}/preview">DASHBOARD</a>
+        ${del}
       </div>`;
     } else if (j.status === 'queued' || j.status === 'running'){
       links = `<div class="links"><button class="mini danger" data-cancel="${j.id}">CANCEL</button></div>`;
+    } else {
+      links = `<div class="links">${del}</div>`;
     }
     const err = j.error ? `<div class="log" style="color:var(--danger)">${j.error}</div>` : '';
     const thumb = (j.status === 'done' && !j.expired)
@@ -280,6 +287,9 @@ function renderQueue(jobs){
   }
   q.querySelectorAll('[data-cancel]').forEach(b =>
     b.onclick = async () => { await fetch(`/api/jobs/${b.dataset.cancel}`, {method:'DELETE'}); pollQueue(true); });
+  q.querySelectorAll('[data-del]').forEach(b =>
+    b.onclick = async () => { await fetch(`/api/jobs/${b.dataset.del}`, {method:'DELETE'}); pollQueue(true); });
+  $('clearbtn').hidden = !jobs.some(j => j.expired || !['queued','running'].includes(j.status));
 }
 
 /* ---------- auth / account / admin ---------- */
@@ -328,8 +338,8 @@ async function showAdmin(){
 /* ---------- wiring ---------- */
 function wireEvents(){
   for (const id of ['text','cap','tracking','kind','backer','plaque','palette','texture',
-                    'tex_lens','tex_backer','leds','pitch','budget','printer','ribs',
-                    'name','bedx','bedy'])
+                    'tubesource','tex_lens','tex_backer','leds','pitch','budget','printer',
+                    'ribs','name','bedx','bedy'])
     $(id).addEventListener('input', () => {
       if (id === 'printer') $('bedrow').hidden = $('printer').value !== 'custom';
       schedule();
@@ -340,6 +350,7 @@ function wireEvents(){
   $('fontchip').querySelector('button').onclick = () => { fontToken = null; $('fontfile').value=''; $('fontchip').classList.remove('show'); schedule(); };
   $('artchip').querySelector('button').onclick = () => { artToken = null; $('artfile').value=''; $('artchip').classList.remove('show'); schedule(); };
   $('buildbtn').onclick = build;
+  $('clearbtn').onclick = async () => { await fetch('/api/jobs/clear', {method:'POST'}); pollQueue(true); };
   $('loginbtn').onclick = () => authPost('/api/auth/login');
   $('registerbtn').onclick = () => authPost('/api/auth/register');
   $('acctchip').onclick = showAccount;

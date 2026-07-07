@@ -35,8 +35,11 @@ def test_bungee_k_keeps_its_leg():
     from signforge.layout import build_layout
     from signforge.tubes import plan_tubes
 
-    p = SignParams.model_validate({"style": {"kind": "neon"}, "texture": {"mode": "none"}})
+    p = SignParams.model_validate(
+        {"style": {"kind": "neon", "neon": {"source": "skeleton"}},
+         "texture": {"mode": "none"}}
+    )
     art = text_to_artwork(None, "K", cap_height_mm=110)
     lay = build_layout(art, p)
     strokes, _, _, _ = plan_tubes(lay, p)
-    assert len(strokes) >= 3          # stem + arm + LEG
+    assert len(strokes) >= 3          # stem + arm + LEG (spine treatment)

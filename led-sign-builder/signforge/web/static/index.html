@@ -66,7 +66,14 @@
         <div><label>Plaque shape <select id="plaque"></select></label></div>
       </div>
       <label>Filament palette <select id="palette"></select></label>
-      <label>Lens texture
+      <label>Tube source <span class="hint" style="display:inline">(neon)</span>
+        <select id="tubesource">
+          <option value="auto">auto — outline when strokes fit, else spine</option>
+          <option value="outline">outline — open-tube channel letters</option>
+          <option value="skeleton">skeleton — single-stroke script neon</option>
+        </select>
+      </label>
+      <label>Lens texture <span class="b3d">3D</span>
         <select id="texture">
           <option value="pyramid_jitter">V8 facets (bake-off winner)</option>
           <option value="random">V3 random frost</option>
@@ -75,9 +82,9 @@
         </select>
       </label>
       <label class="toggle"><input type="checkbox" id="tex_lens" checked><span class="lever"></span>
-        <span class="t">fuzzy lens</span></label>
+        <span class="t">fuzzy lens</span> <span class="b3d">3D</span></label>
       <label class="toggle"><input type="checkbox" id="tex_backer"><span class="lever"></span>
-        <span class="t">fuzzy backer field</span></label>
+        <span class="t">fuzzy backer field</span> <span class="b3d">3D</span></label>
     </section>
 
     <section>
@@ -102,7 +109,7 @@
         <div><label>Bed X mm <input id="bedx" type="number" value="220"></label></div>
         <div><label>Bed Y mm <input id="bedy" type="number" value="220"></label></div>
       </div>
-      <label>Internal support ribs
+      <label>Internal support ribs <span class="b3d">3D</span>
         <select id="ribs">
           <option value="auto">auto (printer profile)</option>
           <option value="on">always</option>
@@ -131,7 +138,7 @@
     <div id="warnings"></div>
     <div id="svgbox"><span class="empty">live blueprint appears here</span></div>
     <section style="margin:18px 0 0">
-      <h2>Build queue</h2>
+      <h2>Build queue <button id="clearbtn" class="mini ghost" style="float:right;margin-top:-4px" hidden>CLEAR FINISHED</button></h2>
       <div id="queue"><div class="hint">nothing queued yet — dial in a sign and hit BUILD KIT</div></div>
     </section>
   </section>

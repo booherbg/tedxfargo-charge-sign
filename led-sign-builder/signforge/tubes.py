@@ -133,35 +133,77 @@ def plan_tubes(
         # source=outline  → classic OPEN-TUBE channel letters (the neon-shop
         # treatment for bold faces: tube traces the letter outline, counters
         # become inner rings; everything mounts to the plate — nothing floats)
-        text_mode = st.source
-        if text_mode == "auto":
-            # aesthetic-audit rule: OUTLINE (open-tube channel letters, the
-            # traditional bold-neon treatment) only when the glyph stroke fits
-            # TWO tube bands plus a visible dark gap — the two ring bands each
-            # inset band/2 from opposite edges, so gap = stroke − 2·band.
-            # Calibrated on visual ground truth: Bungee@250 (w̄71, good rings)
-            # vs Bebas@240 (w̄36, fused). w̄ = 2·area/perimeter.
-            area = sum(g.fills.area for g in layout.glyphs)
-            perim = sum(g.fills.length for g in layout.glyphs)
-            w_bar = 2 * area / perim if perim else 0.0
-            text_mode = "outline" if w_bar >= 2.2 * st.band_outer else "skeleton"
+        # aesthetic rule, decided PER GLYPH (the '/' in shrikhand "24/7" must
+        # not drag the slab digits away from outline mode): OUTLINE when the
+        # glyph stroke fits TWO tube bands plus a visible dark gap
+        # (gap = stroke − 2·band; calibrated Bungee@250 w̄71 good vs Bebas@240
+        # w̄36 fused). w̄_g = 2·area/perimeter of the glyph.
+        def glyph_mode(g) -> str:
+            if st.source != "auto":
+                return st.source
+            w_g = 2 * g.fills.area / g.fills.length if g.fills.length else 0.0
+            return "outline" if w_g >= 2.2 * st.band_outer else "skeleton"
+
+        def _glyph_uncovered(g, s, cover_w: float) -> float:
+            if not s:
+                return g.fills.area
+            b = band(s, cover_w + 1.0)
+            return float(g.fills.difference(b).area)
+
+        def _skeleton_glyph(g, w_g: float, gh: float):
+            if w_g >= 2.2 * st.band_outer:
+                # BOLD glyph on the spine treatment: prune relative to the
+                # glyph (the 110mm K's ~40mm leg vs absolute clamps)
+                return extract_centerlines(g.fills, min_path_mm=max(8.0, 0.22 * gh))
+            # THIN/striped glyph (Monoton): tube-scaled auto pruning —
+            # a glyph-sized min_path amputates whole stripes
+            return extract_centerlines(g.fills)
+
         glyph_strokes: list[list[Stroke]] = []
         tube_ws: list[float] = []
+        modes_used: set[str] = set()
         for g in layout.glyphs:
-            if text_mode == "outline":
+            mode_g = glyph_mode(g)
+            w_g = 2 * g.fills.area / g.fills.length if g.fills.length else 0.0
+            gh = max(g.bbox[3] - g.bbox[1], g.bbox[2] - g.bbox[0], 1.0)
+            if mode_g == "outline":
                 s, _w, onotes = _outline_tubes(g.fills, st.band_outer)
                 warnings += onotes
                 if not s:  # glyph too thin to inset — spine fallback
                     s, _m = extract_centerlines(g.fills)
                 tube_ws.append(st.band_outer)
             else:
-                # prune relative to the GLYPH, not the tube: a 110mm bold K's
-                # lower leg is a ~40mm chain — an absolute clamp amputated it
-                gh = max(g.bbox[3] - g.bbox[1], g.bbox[2] - g.bbox[0], 1.0)
-                s, m = extract_centerlines(g.fills, min_path_mm=max(8.0, 0.22 * gh))
-                if m["tube_w"]:
+                s, m = _skeleton_glyph(g, w_g, gh)
+                cover_w = (m["tube_w"] or w_g) if m else w_g
+                # PER-GLYPH RETRY LADDER (word×font-sweep lesson): a glyph whose
+                # spine misses real ink retries at 2× raster resolution (thin
+                # Monoton stripes alias at 2.4 px/mm), then as an outline
+                # (shrikhand digits at w̄≈46 scribble as spines but ring fine)
+                miss = _glyph_uncovered(g, s, cover_w)
+                thresh = max(80.0, 0.02 * g.fills.area)
+                if miss > thresh:
+                    s2, m2 = extract_centerlines(g.fills, px_per_mm=4.8)
+                    if _glyph_uncovered(g, s2, (m2["tube_w"] or cover_w)) < miss * 0.5:
+                        s, m = s2, m2
+                        miss = _glyph_uncovered(g, s, m["tube_w"] or cover_w)
+                        warnings.append(
+                            f"'{g.char}': fine detail — re-traced at high resolution"
+                        )
+                if miss > thresh:
+                    s3, _w3, _n3 = _outline_tubes(g.fills, st.band_outer)
+                    if s3 and _glyph_uncovered(g, s3, st.band_outer) < miss:
+                        s = s3
+                        mode_g = "outline"
+                        tube_ws.append(st.band_outer)
+                        warnings.append(
+                            f"'{g.char}': spine couldn't cover the letterform — "
+                            "switched to outline tubes"
+                        )
+                if mode_g != "outline" and m and m["tube_w"]:
                     tube_ws.append(m["tube_w"])
+            modes_used.add(mode_g)
             glyph_strokes.append(s)
+        text_mode = "mixed" if len(modes_used) > 1 else (modes_used.pop() if modes_used else "skeleton")
         order = sorted(range(len(layout.glyphs)), key=lambda i: layout.glyphs[i].bbox[0])
         shifts = [0.0] * len(layout.glyphs)
         cum = 0.0
@@ -277,8 +319,10 @@ def plan_tubes(
                 strict = meta["source"] == "skeleton:per-glyph"  # letterforms are law
             if strict:
                 raise BuildError(
-                    "coverage QA FAILED — tube layout misses source ink "
-                    "(the A-amputation class): " + "; ".join(fails)
+                    "this font + text loses letterform detail at this size — the "
+                    "tube layout can't cover the source ink. Try a LARGER sign, "
+                    "style.neon.source='outline', or a different typeface. "
+                    "(Uncovered: " + "; ".join(fails) + ")"
                 )
             warnings += [
                 f"coverage warning (shape art, tips are approximate): {f}" for f in fails
