@@ -14,11 +14,11 @@ from signforge.verify import BuildError
 
 def test_registry_files_and_licenses_exist():
     d = _fonts_dir()
-    assert len(BUNDLED_FONTS) >= 15
+    assert len(BUNDLED_FONTS) >= 14
     for name, info in BUNDLED_FONTS.items():
         assert (d / info["file"]).exists(), f"missing font file for {name}"
     licenses = list(d.glob("OFL-*.txt"))
-    assert len(licenses) >= 14                       # one per family
+    assert len(licenses) >= 13                       # one per family
 
 
 @pytest.mark.parametrize("name", sorted(BUNDLED_FONTS))
@@ -47,7 +47,7 @@ def test_web_fonts_endpoint_and_bundled_build(tmp_path):
     client = TestClient(create_app(open_mode=True, db_path=str(tmp_path / "d.sqlite"),
                                    workdir=str(tmp_path / "w"), workers=0))
     fonts = client.get("/api/fonts").json()["fonts"]
-    assert len(fonts) >= 15
+    assert len(fonts) >= 14
     limelight = next(f for f in fonts if f["name"] == "limelight")
     r = client.get(limelight["url"])
     assert r.status_code == 200 and len(r.content) > 20000

@@ -45,13 +45,16 @@ BUNDLED_FONTS: dict[str, dict] = {
     "great-vibes": {"file": "GreatVibes-Regular.ttf", "label": "Great Vibes", "vibe": "formal script"},
     "limelight": {"file": "Limelight-Regular.ttf", "label": "Limelight", "vibe": "art deco"},
     "lobster": {"file": "Lobster-Regular.ttf", "label": "Lobster", "vibe": "bold script"},
-    "monoton": {"file": "Monoton-Regular.ttf", "label": "Monoton", "vibe": "neon lines"},
+    "monoton": {"file": "Monoton-Regular.ttf", "label": "Monoton", "vibe": "neon lines · huge sizes"},
     "orbitron": {"file": "Orbitron-Variable.ttf", "label": "Orbitron", "vibe": "sci-fi"},
     "oswald": {"file": "Oswald-Variable.ttf", "label": "Oswald", "vibe": "condensed sans"},
     "pacifico": {"file": "Pacifico-Regular.ttf", "label": "Pacifico", "vibe": "casual script"},
     "righteous": {"file": "Righteous-Regular.ttf", "label": "Righteous", "vibe": "retro sans"},
-    "rye": {"file": "Rye-Regular.ttf", "label": "Rye", "vibe": "western"},
     "shrikhand": {"file": "Shrikhand-Regular.ttf", "label": "Shrikhand", "vibe": "juicy display"},
+    # NOTE: Rye (western) was removed after the type-specimen audit — its
+    # inline filigree sits below tube resolution at every practical size
+    # (741 px of noise for one word). Candidates to add when fetching works:
+    # Ultra (clean slab), Smokum.
 }
 
 

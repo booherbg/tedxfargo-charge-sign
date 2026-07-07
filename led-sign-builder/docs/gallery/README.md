@@ -45,3 +45,9 @@ palettes. Regenerate: the sweep script in tests/test_examples.py (slow marks).
 | ![sheriff](examples/sheriff.png) | ![martini](examples/martini.png) |
 | ![cactus](examples/cactus.png) | ![boomerang](examples/boomerang.png) |
 | ![bowling](examples/bowling.png) | ![bolt](examples/bolt.png) |
+
+## Type specimen (bundled fonts)
+
+Every bundled typeface as an actual neon build:
+
+![type specimen](type-specimen.png)
