@@ -128,3 +128,22 @@ once on first run; `--open` to skip accounts).
   outline vs skeleton by measured stroke width (2.2×band, visually calibrated).
   Chunky-tube advisory when band >15% of letter height. Counters/open shapes
   are carried by the shared backer plate (nothing floats) + optional ribs.
+
+## 2026-07-07 day session (user-driven) — QA BASELINE ESTABLISHED
+Full record for post-compaction pickup:
+- Queue delete/✕/CLEAR FINISHED (files removed too); job history expiry cards.
+- Control-impact audit → 3D badges, tube-source select added (was JSON-only).
+- Word×font sweep 0/112: per-glyph auto mode + retry ladder (2× raster →
+  outline switch) + friendly coverage-gate message.
+- Bed-fit guarantee: flat plates (channel lens 1047mm!, halo plaque) now
+  rotate/grid-split; rotated pieces export physically rotated. tests/test_bed_fit.
+- v1 simplification: fonts curated at defaults (monoton + great-vibes hidden,
+  ?all=1 restores), conditional control relevance, strip×channel gated,
+  pitch floor 13, budget-px + uniform-pyramid JSON-only.
+- CHARGE ground truth: tube-art auto-detect (thin+elongated → skeleton),
+  original dot+collar pixel rendering, examples/charge-replica.json,
+  slow parity test, scripts/qa_gold.py (verifies FROM EXPORTED FILES).
+- **Gold QA caught + fixed: float32 write gap** (gate now audits f32-rounded
+  coords). docs/QA-BASELINE.md = the canonical baseline + rules.
+- State: 174 fast + 24 slow + gold_rc=0 + wheel smoke OK. Console serving
+  on :8763 (open mode, background task).

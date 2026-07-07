@@ -153,6 +153,10 @@ def gated_mesh(
     to be 2-manifold. Pinch edges get the CHARGE fan-split. Anything else
     (boundary edges) is unshippable."""
     notes: list[str] = []
+    # STL is float32 — audit what will actually be WRITTEN, or float rounding
+    # mints fresh zero-area slivers after the gate (gold-QA finding: 4/5
+    # CHARGE lens files failed re-audit from disk while float64 passed)
+    verts = np.asarray(verts, dtype=np.float32).astype(np.float64)
     r = edge_report(verts, tris)
     if r["pinch"] and not r["boundary"]:
         verts, tris, healed = heal_pinch_edges(verts, tris)
