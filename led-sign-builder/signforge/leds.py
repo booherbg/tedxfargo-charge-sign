@@ -279,14 +279,19 @@ def place_pixels(
                 drop_msgs.append(
                     f"({pixels[j][0]:.0f},{pixels[j][1]:.0f}) {d:.1f} mm"
                 )
+    # thinning at tight corners is NORMAL de-confliction (two flanges can't
+    # share <13 mm) — neighbors carry the glow. Say so, don't alarm.
     if len(drop_msgs) > 4:
         audits.append(
-            f"{len(drop_msgs)} pixels dropped below the 13.0 mm hard floor "
-            f"(tight geometry) — first at {', '.join(drop_msgs[:3])}; "
-            "consider a larger sign or sparser pitch"
+            f"{len(drop_msgs)} corners too tight for two flanges — thinned one "
+            f"pixel at each (glow stays continuous); first at "
+            f"{', '.join(drop_msgs[:3])}. A larger sign or sparser pitch avoids this"
         )
     else:
-        audits += [f"dropped pixel at {m}: < 13.0 hard floor" for m in drop_msgs]
+        audits += [
+            f"tight corner at {m} — thinned one pixel (two flanges can't share "
+            "<13.0 mm; glow stays continuous)" for m in drop_msgs
+        ]
     if drop:
         keep = [k for k in range(len(pixels)) if k not in drop]
         remap = {old: new for new, old in enumerate(keep)}

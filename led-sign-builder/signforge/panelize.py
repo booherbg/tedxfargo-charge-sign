@@ -149,12 +149,68 @@ def _split_region(r: _Region, seam: LineString) -> list[_Region]:
     return out
 
 
+def panelize_per_glyph(
+    footprint, layout, params: SignParams, avoid=None
+) -> tuple[list[Piece], list[LineString], list[str]] | None:
+    """THE TEXT PLATING LAW: one letter per plate. Cuts land at the midline of
+    each kerning gap — never through ink — and pieces label left-to-right.
+    Returns None when the law can't apply (shape art, multi-line, kissing or
+    overlapping letters) so the corridor solver takes over."""
+    glyphs = sorted(layout.glyphs or [], key=lambda g: g.bbox[0])
+    if len(glyphs) < 2:
+        return None
+    heights = [g.bbox[3] - g.bbox[1] for g in glyphs]
+    centers = [(g.bbox[1] + g.bbox[3]) / 2 for g in glyphs]
+    if max(centers) - min(centers) > 0.5 * max(heights):
+        return None                                   # multi-line → solver
+    # ink → structure overhang: neon tubes reach band/2 beyond the ink,
+    # channel pans reach wall+pad
+    if params.style.kind == "neon":
+        pad = params.style.neon.band_outer / 2 + 1.5
+    else:
+        pad = params.style.channel.wall_t + 4.5
+    cut_xs: list[float] = []
+    for a, b in zip(glyphs, glyphs[1:]):
+        lo, hi = a.bbox[2] + pad, b.bbox[0] - pad
+        if hi - lo < 2.0:
+            return None                               # letters kiss/merge → solver
+        cut_xs.append((lo + hi) / 2)
+    fx0, fy0, fx1, fy1 = footprint.bounds
+    bed = params.printer.bed
+    sc = params.fit.seam_clearance_mm
+    seams = [LineString([(cx, fy0 - 1), (cx, fy1 + 1)]) for cx in cut_xs]
+    warnings: list[str] = []
+    pieces: list[Piece] = []
+    edges = [fx0 - 1] + cut_xs + [fx1 + 1]
+    for i, (lo, hi) in enumerate(zip(edges, edges[1:])):
+        cell = bbox_polygon(lo + (sc / 2 if i else 0), fy0 - 1,
+                            hi - (sc / 2 if i < len(cut_xs) else 0), fy1 + 1)
+        region = cell.intersection(footprint if not hasattr(footprint, "geoms")
+                                   else unary_union(footprint))
+        region_mp = as_multipolygon(region)
+        mask_poly = (max(region_mp.geoms, key=lambda g: g.area)
+                     if len(region_mp.geoms) else cell)
+        w = mask_poly.bounds[2] - mask_poly.bounds[0]
+        h = mask_poly.bounds[3] - mask_poly.bounds[1]
+        fits, rotated = _fits(w, h, bed)
+        if not fits:
+            warnings.append(
+                f"letter '{glyphs[i].char}' needs {w:.0f}×{h:.0f} mm alone — "
+                "exceeds the bed even as its own plate; reduce size"
+            )
+        pieces.append(Piece(name=f"piece{i + 1}", label=f"P{i + 1}",
+                            mask=mask_poly, rotated=rotated,
+                            screws=_screws(_Region(mask_poly), params, avoid)))
+    return pieces, seams, warnings
+
+
 def panelize(
     footprint: Polygon,
     strokes: list[Stroke],
     pixels: list[Point2],
     params: SignParams,
     avoid=None,
+    layout=None,
 ) -> tuple[list[Piece], list[LineString], list[str]]:
     """Split the sign footprint into bed-fitting pieces.
 
@@ -165,6 +221,13 @@ def panelize(
     seam_lines to leds.place_pixels(seams=...)."""
     warnings: list[str] = []
     bed = params.printer.bed
+    fx0, fy0, fx1, fy1 = footprint.bounds
+    whole_fits, _ = _fits(fx1 - fx0, fy1 - fy0, bed)
+    if not whole_fits and layout is not None and getattr(layout, "glyphs", None):
+        # the sign can't print as one plate → THE TEXT PLATING LAW applies
+        per_glyph = panelize_per_glyph(footprint, layout, params, avoid=avoid)
+        if per_glyph is not None:
+            return per_glyph
     regions: list[_Region] = []
     seams: list[LineString] = []
     fp = heal(footprint if not hasattr(footprint, "geoms") else footprint)

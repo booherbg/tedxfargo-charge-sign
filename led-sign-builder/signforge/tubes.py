@@ -122,11 +122,50 @@ def plan_tubes(
     warnings: list[str] = []
     meta: dict = {}
 
+    # tube-width morph knob (channel_interior; band derives as interior+walls):
+    # slim tubes are legal for strip/unlit signs, but 12 mm bullet pixels
+    # physically need the 18-interior/22-band channel
+    if params.leds.kind == "bullet12" and st.channel_interior < 18.0:
+        warnings.append(
+            f"tube width {st.band_outer:.0f} mm can't house 12 mm bullet pixels "
+            "— raised to 22 (switch leds to strip/none for slim tubes)"
+        )
+        st.channel_interior = 18.0
+
+    def _glyphs_overlap() -> bool:
+        gs = sorted(layout.glyphs, key=lambda g: g.bbox[0])
+        return any(a.fills.buffer(0.05).intersects(b.fills)
+                   for a, b in zip(gs, gs[1:]))
+
     direct = list(layout.strokes)          # stroked art: tubes as drawn
     if direct and (layout.fills is None or layout.fills.is_empty):
         meta["source"] = "strokes"
         meta["tube_w"] = max((s.width or 0) for s in direct) or st.channel_interior
         strokes = direct
+    elif layout.glyphs and len(layout.glyphs) > 1 and _glyphs_overlap():
+        # MERGE MODE: negative tracking made letters overlap — trace the
+        # union as one connected shape (script/ligature treatment)
+        warnings.append(
+            "letters overlap — traced as one connected shape (merge mode; "
+            "raise letter spacing to separate them)"
+        )
+        import math as _m
+
+        w_bar = 2 * layout.fills.area / layout.fills.length if layout.fills.length else 0.0
+        elong = (layout.fills.length ** 2 / (4 * _m.pi * layout.fills.area)
+                 if layout.fills.area else 0.0)
+        tube_like = w_bar <= 1.4 * st.band_outer and elong >= 4.0
+        use_outline = st.source == "outline" or (
+            st.source == "auto" and not tube_like and w_bar >= 2.2 * st.band_outer
+        )
+        if use_outline:
+            strokes, _w, onotes = _outline_tubes(layout.fills, st.band_outer)
+            warnings += onotes
+            meta["source"] = "merged:outline"
+        else:
+            strokes, _mm = extract_centerlines(layout.fills)
+            meta["source"] = "merged:skeleton"
+        meta["tube_w"] = st.band_outer
     elif layout.glyphs:
         # per-glyph tubes, then auto-kern glyphs whose bands collide.
         # source=skeleton → single-stroke script neon (spine of each glyph);

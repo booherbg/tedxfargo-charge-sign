@@ -59,6 +59,14 @@ def render_preview(
             f'stroke="#3a3a46" stroke-width="1"/>'
         )
     if params.style.kind == "neon":
+        if layout.fills is not None and not layout.fills.is_empty:
+            # font-truth ghost: the SOURCE letterform behind the tubes, so
+            # "is it the font or the software?" answers itself at a glance
+            el.append(
+                f'<g class="srcfont"><path d="{_path_d(layout.fills)}" fill="none" '
+                f'stroke="#9aa6c8" stroke-opacity="0.55" stroke-width="1.0" '
+                f'stroke-dasharray="3 2.5" fill-rule="evenodd"/></g>'
+            )
         w_out = params.style.neon.band_outer
         w_in = params.style.neon.channel_interior
         for s in layout.strokes:

@@ -51,7 +51,7 @@ def test_parallel_strokes_too_close_get_audited():
     a = Stroke(pts=[(0, 0), (100, 0)])
     b = Stroke(pts=[(0, 10), (100, 10)])
     plan = place_pixels([a, b], _params())
-    assert any("dropped" in m or "snug" in m for m in plan.audits)
+    assert any("thinned" in m or "snug" in m or "tight" in m for m in plan.audits)
 
 
 def test_budget_overrun_flags():

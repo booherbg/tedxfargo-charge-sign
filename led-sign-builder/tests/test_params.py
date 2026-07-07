@@ -19,7 +19,10 @@ def test_json_round_trip():
 
 
 def test_presets():
-    assert preset_params("mini-desk").leds.kind == "none"
+    mini = preset_params("mini-desk")
+    assert mini.leds.kind == "strip"                      # lights on, desk-size
+    assert mini.style.neon.band_outer == 10.0             # slim font-true tubes (interior 6 + walls)
+    assert preset_params("open-sign").colors.palette == "gas-station"
     with pytest.raises(KeyError):
         preset_params("nope")
 

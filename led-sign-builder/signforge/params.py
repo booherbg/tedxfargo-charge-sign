@@ -278,12 +278,14 @@ PRESET_PARAMS: dict[str, dict] = {
         "style": {"kind": "channel", "backer": "none"},
         "texture": {"mode": "random", "cell_mm": 1.5, "height_mm": 0.8},
     },
-    # Desk-sized demo that prints on small beds fast.
+    # Desk-sized demo that prints on small beds fast: strip-lit slim tubes
+    # (bullet pixels don't fit 60 mm letters; 10 mm tubes stay font-true).
     "mini-desk": {
         "name": "mini-desk",
         "content": {"cap_height_mm": 60.0},
-        "style": {"kind": "neon", "backer": "contour"},
-        "leds": {"kind": "none"},
+        "style": {"kind": "neon", "backer": "contour",
+                  "neon": {"channel_interior": 6.0}},   # band = 10 (interior+walls)
+        "leds": {"kind": "strip"},
         "printer": {"preset": "bambu-a1-mini"},
     },
     # Wall-glow letters: opaque face, backward-firing pixels, standoffs.

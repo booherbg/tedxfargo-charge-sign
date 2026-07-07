@@ -167,3 +167,4 @@ footer{padding:8px 22px;border-top:1px solid var(--line);background:var(--panel2
   border:1px solid var(--line);border-radius:4px;background:var(--recess);cursor:pointer}
 #row-custom{display:flex;gap:10px;margin-top:6px}
 #row-custom label{font-size:9px}
+#svgbox.hidesrc .srcfont{display:none}

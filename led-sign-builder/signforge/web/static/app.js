@@ -65,9 +65,17 @@ async function loadLibrary(){
 }
 
 function buildStaticControls(){
+  const PRESET_TIPS = {
+    'neon-classic': 'the CHARGE look: tube sign, bullet pixels you can see, faceted lens',
+    'channel-bold': 'face-lit box letters — LEDs hide INSIDE the cavity and glow through the face',
+    'mini-desk': 'desk-size strip-lit sign with slim 10mm tubes — prints on small beds',
+    'halo-backlit': 'wall-glow: opaque letters, light fires BACKWARD onto the wall',
+    'open-sign': 'the red OPEN — open-tube channel letters at true neon scale',
+  };
   for (const [name, cfg] of Object.entries(meta.presets || {})){
     const b = document.createElement('button');
     b.className = 'mini ghost'; b.textContent = name;
+    b.title = PRESET_TIPS[name] || '';
     b.onclick = () => applyPreset(cfg);
     $('presets').appendChild(b);
   }
@@ -123,6 +131,10 @@ function applyPreset(cfg){
     $('palette').value = merged.colors.palette;
     syncPickersToPalette();
   }
+  if (merged.style && merged.style.neon && merged.style.neon.channel_interior)
+    $('tubewidth').value = merged.style.neon.channel_interior + 4;  // band = interior+walls
+  else
+    $('tubewidth').value = 22;
   schedule();
 }
 
@@ -211,6 +223,9 @@ function refreshRelevance(){
   const neon = kind === 'neon';
   // options only show where they actually apply — v1 simplicity audit
   $('row-tubesource').hidden = !neon;
+  // bullet pixels fix the channel at 18/22 — width is a knob for strip/unlit
+  $('row-tubewidth').hidden = !neon || $('leds').value === 'bullet12';
+  $('row-src').hidden = !neon;
   $('row-texture').hidden = !neon;
   $('row-texlens').hidden = !neon;
   $('row-texbacker').hidden = kind === 'halo' || $('backer').value === 'none';
@@ -245,6 +260,8 @@ function paramsFromUI(){
   base.style.support_ribs = $('ribs').value;
   base.style.neon = base.style.neon || {};
   base.style.neon.source = $('tubesource').value;
+  const tw = Math.max(8, Math.min(40, +$('tubewidth').value || 22));
+  base.style.neon.channel_interior = Math.max(tw - 4, 4.5);  // band derives as interior+walls
   base.texture = base.texture || {};
   base.texture.mode = $('texture').value;
   const targets = [];
@@ -459,6 +476,12 @@ function wireEvents(){
   $('wires').onchange = () => {
     localStorage.setItem('sf-wires', $('wires').checked ? '1' : '0');
     $('svgbox').classList.toggle('hidewires', !$('wires').checked);
+  };
+  $('srcart').checked = localStorage.getItem('sf-src') !== '0';
+  $('svgbox').classList.toggle('hidesrc', !$('srcart').checked);
+  $('srcart').onchange = () => {
+    localStorage.setItem('sf-src', $('srcart').checked ? '1' : '0');
+    $('svgbox').classList.toggle('hidesrc', !$('srcart').checked);
   };
   $('fx').onchange = fxApply;
   // debug/screenshot hooks: #fx=rainbow, #preset=open-sign

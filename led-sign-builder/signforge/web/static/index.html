@@ -72,6 +72,9 @@
         <div><label>Liner <input type="color" id="c_liner" value="#f2f2f2"></label></div>
         <div><label>Glow <input type="color" id="c_pixel" value="#ffd24d"></label></div>
       </div>
+      <label id="row-tubewidth">Tube width mm
+        <input id="tubewidth" type="number" value="22" min="8" max="40" step="1">
+      </label>
       <label id="row-tubesource">Tube treatment
         <select id="tubesource">
           <option value="auto">auto — pick per letter</option>
@@ -145,6 +148,9 @@
       <label class="toggle" id="row-wires">
         <input type="checkbox" id="wires"><span class="lever"></span>
         <span class="t">show wiring plan</span></label>
+      <label class="toggle" id="row-src">
+        <input type="checkbox" id="srcart" checked><span class="lever"></span>
+        <span class="t">show source font</span></label>
       <label id="row-fx">FX
         <select id="fx">
           <option value="off">off — as printed</option>

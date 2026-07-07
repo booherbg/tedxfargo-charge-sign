@@ -37,6 +37,89 @@ def _ingest(params: SignParams) -> Artwork:
     return art_to_artwork(c.art_path, c.art_target_height_mm, c.trace_threshold, c.trace_invert)
 
 
+def _autofit_text(params: SignParams, art, layout, warnings: list[str]):
+    """THE PLATING LAW, both halves. (1) If any letter (plus structure and
+    margins) can't plate on the bed alone, scale the WHOLE sign down —
+    kerning intact — until every letter fits. (2) If tube bands swallow the
+    kerning gaps so no cut channel exists between letters, OPEN the tracking
+    just enough that every gap takes a clean cut. Text signs only; deliberate
+    negative tracking (merge mode) is respected."""
+    if params.content.mode != "text" or not layout.glyphs or len(layout.glyphs) < 2:
+        return params, art, layout
+    if params.style.kind == "neon":
+        pad = params.style.neon.band_outer + 3
+    elif params.style.kind == "channel":
+        pad = 2 * params.style.channel.wall_t + 9
+    else:
+        return params, art, layout          # halo has its own per-letter law
+    margin = 2 * params.style.tile_margin_mm if params.style.backer == "tile" else 4.0
+    bx, by = params.printer.bed
+    p2 = params
+
+    def refresh(p):
+        a = _ingest(p)
+        return a, build_layout(a, p)
+
+    # half 1: whole-sign scale so every letter plates
+    art_h = layout.bbox[3] - layout.bbox[1]
+    need_h = art_h + pad + margin
+    scale = 1.0
+    for g in layout.glyphs:
+        need_w = (g.bbox[2] - g.bbox[0]) + pad + margin
+        s_g = max(min(bx / need_w, by / need_h), min(bx / need_h, by / need_w))
+        scale = min(scale, s_g)
+    if scale < 0.999:
+        scale = max(scale * 0.99, 0.2)      # a hair under, floor at 20%
+        p2 = p2.model_copy(deep=True)
+        p2.content.cap_height_mm = round(p2.content.cap_height_mm * scale, 1)
+        art, layout = refresh(p2)
+        warnings.append(
+            f"one letter per plate: sign scaled to {scale:.0%} "
+            f"(letters {p2.content.cap_height_mm:.0f} mm) so every letter fits "
+            f"the {bx:.0f}×{by:.0f} bed — kerning preserved"
+        )
+
+    # half 2: open tracking until each gap fits a cut channel — only when the
+    # sign is too big to print whole (small signs stay exactly as typed).
+    # Honest structural extent: neon tubes reach ~band/2 beyond ink; channel
+    # pans hug the ink.
+    struct = params.style.neon.band_outer if params.style.kind == "neon" else 3.0
+    sign_w = layout.bbox[2] - layout.bbox[0] + struct + margin
+    sign_h = layout.bbox[3] - layout.bbox[1] + struct + margin
+    whole_fits = ((sign_w <= bx and sign_h <= by) or (sign_h <= bx and sign_w <= by))
+    if not whole_fits and p2.content.letter_spacing_mm >= 0:  # negative = deliberate merge
+        glyphs = sorted(layout.glyphs, key=lambda g: g.bbox[0])
+        needed_gap = pad + 3.0              # tube reach both sides + saw room
+        deficit = 0.0
+        for a_, b_ in zip(glyphs, glyphs[1:]):
+            gap = b_.bbox[0] - a_.bbox[2]
+            deficit = max(deficit, needed_gap - gap)
+        if deficit > 0.5:
+            p2 = p2.model_copy(deep=True)
+            p2.content.letter_spacing_mm = round(
+                p2.content.letter_spacing_mm + deficit + 0.5, 1)
+            art, layout = refresh(p2)
+            warnings.append(
+                f"one letter per plate: letter spacing opened "
+                f"+{deficit + 0.5:.0f} mm so every kerning gap takes a clean cut"
+            )
+    return p2, art, layout
+
+
+def _channel_led_spine(layout, params: SignParams):
+    """Bullet pixels light a channel face from inside the cavity — run them
+    along the per-letter skeleton (the face diffuses the rest)."""
+    from .skeleton import extract_centerlines
+
+    strokes = []
+    for g in (layout.glyphs or []):
+        s, _m = extract_centerlines(g.fills)
+        strokes += s
+    if not strokes and layout.fills is not None and not layout.fills.is_empty:
+        strokes, _m = extract_centerlines(layout.fills)
+    return strokes
+
+
 def quick_plan(params: SignParams):
     """Fast planning pass for live previews: no solids, no exports.
     Returns (layout, ledplan|None, pieces, warnings)."""
@@ -48,6 +131,7 @@ def quick_plan(params: SignParams):
         raise BuildError(f"ingest produced no geometry ({art.source})")
     layout = build_layout(art, params)
     warnings: list[str] = []
+    params, art, layout = _autofit_text(params, art, layout, warnings)
     ledplan = None
     pixels: list = []
     if params.style.kind == "channel":
@@ -60,9 +144,17 @@ def quick_plan(params: SignParams):
             )
         footprint = channel_pan_footprint(layout, params)
         pieces, cuts, pwarn = panelize(
-            footprint, [], [], params, avoid=ring_offset(layout.fills, 4.0)
+            footprint, [], [], params, avoid=ring_offset(layout.fills, 4.0),
+            layout=layout,
         )
         warnings += pwarn
+        if params.leds.kind == "bullet12":
+            from .leds import place_pixels
+
+            spine = _channel_led_spine(layout, params)
+            if spine:
+                ledplan = place_pixels(spine, params, seams=cuts)
+                pixels = ledplan.pixels
     elif params.style.kind == "halo":
         from .geom2d import bbox_polygon
         from .leds import place_pixels, strip_plan
@@ -101,7 +193,8 @@ def quick_plan(params: SignParams):
         layout.strokes = strokes
         b_out = band(strokes, params.style.neon.band_outer)
         footprint = neon_plate_footprint(layout, b_out, params)
-        pieces, cuts, pwarn = panelize(footprint, strokes, [], params, avoid=b_out)
+        pieces, cuts, pwarn = panelize(footprint, strokes, [], params, avoid=b_out,
+                                       layout=layout)
         warnings += pwarn
         if params.leds.kind == "bullet12":
             ledplan = place_pixels(strokes, params, seams=cuts)
@@ -132,6 +225,7 @@ def build(
     layout = build_layout(art, params)
 
     warnings: list[str] = []
+    params, art, layout = _autofit_text(params, art, layout, warnings)
     files: list[str] = []
     ledplan: Optional[LedPlan] = None
     pixels: list = []
@@ -158,8 +252,17 @@ def build(
         footprint = channel_pan_footprint(layout, params)
         avoid = ring_offset(layout.fills, 4.0)
         say("panelizing")
-        pieces, cuts, pwarn = panelize(footprint, [], [], params, avoid=avoid)
+        pieces, cuts, pwarn = panelize(footprint, [], [], params, avoid=avoid,
+                                       layout=layout)
         warnings += pwarn
+        if params.leds.kind == "bullet12":
+            from .leds import place_pixels
+
+            spine = _channel_led_spine(layout, params)
+            if spine:
+                ledplan = place_pixels(spine, params, seams=cuts)
+                warnings += ledplan.audits
+                pixels = ledplan.pixels
         bodies, _fp = build_channel_bodies(layout, pixels, params)
     elif params.style.kind == "halo":
         from .leds import place_pixels
@@ -224,7 +327,8 @@ def build(
         b_out = band(strokes, params.style.neon.band_outer)
         footprint = neon_plate_footprint(layout, b_out, params)
         say("panelizing")
-        pieces, cuts, pwarn = panelize(footprint, strokes, [], params, avoid=b_out)
+        pieces, cuts, pwarn = panelize(footprint, strokes, [], params, avoid=b_out,
+                                       layout=layout)
         warnings += pwarn
         if params.leds.kind == "bullet12":
             ledplan = place_pixels(strokes, params, seams=cuts)

@@ -34,3 +34,11 @@ Rules for any agent/dev working in this subproject.
 - 3MF + manifold audit: `tools/make_3mf.py` · skeleton: `tools/centerline.py` · textures: `tools/make_fuzz.py`
 - Bodies: `src/parts/piece.scad`, `src/letter.scad`, `src/config.scad` · panelizer: `tools/panelize.py`
 - Audits: `tools/clearance_audit.py`, `tools/qa_coverage.py` · previews: `tools/gen_cutpreview.py`
+
+## THE TEXT PLATING LAW (user-set, 2026-07-07)
+Text signs that exceed the bed print ONE LETTER PER PLATE: cuts at kerning-gap
+midlines (never through ink), pieces labeled left-to-right; the system may
+OPEN tracking (+N mm, reported) for cut channels and SCALE the whole sign
+down (reported %) so every letter plates. Small signs print whole. Negative
+tracking = deliberate merge mode (trace union). Shape art keeps the corridor
+solver. Tests: tests/test_plating_law.py.
