@@ -66,6 +66,12 @@
         <div id="row-plaque"><label>Plaque shape <select id="plaque"></select></label></div>
       </div>
       <label>Filament palette <select id="palette"></select></label>
+      <div class="row" id="row-custom">
+        <div><label>Tube <input type="color" id="c_lens" value="#7ec8ff"></label></div>
+        <div><label>Case <input type="color" id="c_shell" value="#141414"></label></div>
+        <div><label>Liner <input type="color" id="c_liner" value="#f2f2f2"></label></div>
+        <div><label>Glow <input type="color" id="c_pixel" value="#ffd24d"></label></div>
+      </div>
       <label id="row-tubesource">Tube treatment
         <select id="tubesource">
           <option value="auto">auto — pick per letter</option>
@@ -135,9 +141,23 @@
     <div id="statline">…</div>
     <div id="warnings"></div>
     <div id="svgbox" class="hidewires"><span class="empty">live blueprint appears here</span></div>
-    <label class="toggle" id="row-wires" style="margin-top:8px">
-      <input type="checkbox" id="wires"><span class="lever"></span>
-      <span class="t">show wiring plan</span></label>
+    <div id="stagerow">
+      <label class="toggle" id="row-wires">
+        <input type="checkbox" id="wires"><span class="lever"></span>
+        <span class="t">show wiring plan</span></label>
+      <label id="row-fx">FX
+        <select id="fx">
+          <option value="off">off — as printed</option>
+          <option value="solid">solid color</option>
+          <option value="breathe">breathe</option>
+          <option value="chase">chase (wiring order)</option>
+          <option value="rainbow">rainbow cycle</option>
+          <option value="sweep">2D sweep (ledmap)</option>
+          <option value="pulse">2D radial pulse (ledmap)</option>
+        </select>
+      </label>
+      <input type="color" id="fxcolor" value="#ff3d2e" title="effect color" hidden>
+    </div>
     <section style="margin:18px 0 0">
       <h2>Build queue <button id="clearbtn" class="mini ghost" style="float:right;margin-top:-4px" hidden>CLEAR FINISHED</button></h2>
       <div id="queue"><div class="hint">nothing queued yet — dial in a sign and hit BUILD KIT</div></div>

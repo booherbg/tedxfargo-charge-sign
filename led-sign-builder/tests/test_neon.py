@@ -111,3 +111,22 @@ def test_e2e_neon_kit(tmp_path, bungee):
 
     bom = (tmp_path / "out" / "BOM.md").read_text()
     assert "Electrical" in bom and "PSU" in bom
+
+
+def test_fx_markup_chain_indices(bungee):
+    """FX preview animates via data-i chain indices on pixel dots."""
+    import re
+
+    from signforge.leds import place_pixels
+    from signforge.preview.html import render_preview
+    from signforge.tubes import plan_tubes
+
+    p = _neon_params()
+    art = text_to_artwork(bungee, "SO", cap_height_mm=120)
+    lay = build_layout(art, p)
+    strokes, lay2, meta, _ = plan_tubes(lay, p)
+    lay2.strokes = strokes
+    plan = place_pixels(strokes, p)
+    html = render_preview(lay2, [], plan, {"pieces_detail": []}, p)
+    idx = sorted(int(m) for m in re.findall(r'class="px" data-i="(\d+)"', html))
+    assert idx == list(range(plan.power.count))           # every LED, chain-ordered

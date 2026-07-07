@@ -116,12 +116,19 @@ def render_preview(
             )
         el.append('<g class="wiring">' + "".join(wiring) + "</g>")
         # the CHARGE preview language: thin collar ring + small LED dot
-        # (drawing full 12.3mm bores read as 'LEDs too big' — they aren't)
-        for px, py in ledplan.pixels:
+        # (drawing full 12.3mm bores read as 'LEDs too big' — they aren't).
+        # data-i = wiring-chain index so the FX preview can animate effects
+        # exactly the way WLED would run them.
+        chain_of = {
+            pix: led
+            for led, pix in enumerate(i for run in ledplan.per_stroke for i in run)
+        }
+        for pi_, (px, py) in enumerate(ledplan.pixels):
             el.append(
                 f'<circle cx="{px:.2f}" cy="{py:.2f}" r="4.4" fill="none" '
                 f'stroke="{c["pixel"]}" stroke-width="2.2" stroke-opacity="0.55"/>'
-                f'<circle cx="{px:.2f}" cy="{py:.2f}" r="2.6" fill="{c["pixel"]}"/>'
+                f'<circle class="px" data-i="{chain_of.get(pi_, 0)}" '
+                f'cx="{px:.2f}" cy="{py:.2f}" r="2.6" fill="{c["pixel"]}"/>'
             )
         order = [i for run in ledplan.per_stroke for i in run]
         if order:

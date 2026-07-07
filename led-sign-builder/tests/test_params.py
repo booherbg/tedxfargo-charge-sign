@@ -44,3 +44,15 @@ def test_pitch_floor_is_physical():
 def test_art_mode_requires_path():
     with pytest.raises(ValidationError):
         SignParams.model_validate({"content": {"mode": "art"}})
+
+
+def test_custom_colors_override_palette():
+    p = SignParams.model_validate(
+        {"colors": {"palette": "gas-station", "custom": {"lens": "#22CC88"}}}
+    )
+    assert p.colors.preview["lens"] == "#22cc88"          # override wins, lowered
+    assert p.colors.preview["shell"] == "#26221b"         # palette keys intact
+    with pytest.raises(ValidationError):
+        SignParams.model_validate({"colors": {"custom": {"lens": "red"}}})
+    with pytest.raises(ValidationError):
+        SignParams.model_validate({"colors": {"custom": {"wing": "#112233"}}})

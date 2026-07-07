@@ -208,6 +208,10 @@ class ColorParams(BaseModel):
     extruders: dict[str, int] = {"shell": 1, "liner": 2, "lens": 3}
     palette: Optional[str] = None            # named palette applies to preview
     preview: dict[str, str] = dict(PALETTES["charge-classic"])
+    # per-key overrides on top of the palette — the "my PLA is this color"
+    # knob. Keys: shell/liner/lens/pixel/seam. Flows everywhere preview does
+    # (blueprint, PNG, 3D viewer, dashboards).
+    custom: dict[str, str] = {}
 
     @model_validator(mode="after")
     def _apply_palette(self) -> "ColorParams":
@@ -215,6 +219,16 @@ class ColorParams(BaseModel):
             if self.palette not in PALETTES:
                 raise ValueError(f"unknown palette {self.palette!r}; known: {sorted(PALETTES)}")
             self.preview = dict(PALETTES[self.palette])   # named palette wins
+        if self.custom:
+            import re as _re
+
+            known = set(PALETTES["charge-classic"])
+            for k, v in self.custom.items():
+                if k not in known:
+                    raise ValueError(f"unknown color key {k!r}; known: {sorted(known)}")
+                if not _re.fullmatch(r"#[0-9a-fA-F]{6}", str(v)):
+                    raise ValueError(f"color {k} must be #rrggbb, got {v!r}")
+            self.preview.update({k: str(v).lower() for k, v in self.custom.items()})
         return self
 
 
@@ -277,5 +291,13 @@ PRESET_PARAMS: dict[str, dict] = {
         "name": "halo-backlit",
         "style": {"kind": "halo", "backer": "none"},
         "texture": {"mode": "none"},
+    },
+    # The red OPEN sign from the aesthetic audit — outline tubes at true
+    # neon scale on the gas-station palette. One click to regenerate.
+    "open-sign": {
+        "name": "open-sign",
+        "content": {"text": "OPEN", "cap_height_mm": 250.0},
+        "style": {"kind": "neon", "backer": "tile", "backer_shape": "rounded"},
+        "colors": {"palette": "gas-station"},
     },
 }

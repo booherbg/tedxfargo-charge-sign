@@ -159,3 +159,11 @@ footer{padding:8px 22px;border-top:1px solid var(--line);background:var(--panel2
   font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.22em;color:var(--ink-dim)}
 #svgbox.hidewires .wiring{display:none}
 #row-wires .t{font-size:10px;letter-spacing:.12em;color:var(--ink-dim)}
+#stagerow{display:flex;align-items:center;gap:18px;margin-top:8px;flex-wrap:wrap}
+#row-fx{display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;
+  font-size:10px;letter-spacing:.14em;color:var(--ink-dim)}
+#row-fx select{width:auto;min-width:190px}
+#fxcolor,#row-custom input[type=color]{inline-size:34px;block-size:24px;padding:1px;
+  border:1px solid var(--line);border-radius:4px;background:var(--recess);cursor:pointer}
+#row-custom{display:flex;gap:10px;margin-top:6px}
+#row-custom label{font-size:9px}

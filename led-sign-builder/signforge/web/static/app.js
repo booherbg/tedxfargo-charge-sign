@@ -119,7 +119,91 @@ function applyPreset(cfg){
   if (merged.texture && merged.texture.mode) $('texture').value = merged.texture.mode;
   if (merged.leds && merged.leds.kind) $('leds').value = merged.leds.kind;
   if (merged.printer && merged.printer.preset) $('printer').value = merged.printer.preset;
+  if (merged.colors && merged.colors.palette){
+    $('palette').value = merged.colors.palette;
+    syncPickersToPalette();
+  }
   schedule();
+}
+
+// ---- custom PLA colors: pickers track the palette until the user edits ----
+const CKEYS = {lens:'c_lens', shell:'c_shell', liner:'c_liner', pixel:'c_pixel'};
+let colorDirty = {};
+function syncPickersToPalette(){
+  const pal = (meta.palettes || {})[$('palette').value];
+  if (!pal) return;
+  colorDirty = {};
+  for (const [k, id] of Object.entries(CKEYS)) $(id).value = pal[k];
+}
+function customColors(){
+  const out = {};
+  for (const [k, id] of Object.entries(CKEYS))
+    if (colorDirty[k]) out[k] = $(id).value;
+  return out;
+}
+
+// ---- FX preview: generic WLED-style effects on the real pixel layout ----
+let fxNodes = [], fxRAF = null, fxBase = [];
+function fxCollect(){
+  fxNodes = [...document.querySelectorAll('#svgbox .px')].map(n => ({
+    n, i: +n.dataset.i, x: +n.getAttribute('cx'), y: +n.getAttribute('cy'),
+  }));
+  fxBase = fxNodes.length ? fxNodes.map(p => p.n.getAttribute('fill')) : [];
+  if (fxNodes.length){
+    const xs = fxNodes.map(p => p.x), ys = fxNodes.map(p => p.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const rmax = Math.max(...fxNodes.map(p => Math.hypot(p.x - cx, p.y - cy)), 1);
+    fxNodes.forEach(p => {
+      p.u = (p.x - x0) / Math.max(x1 - x0, 1);          // 0..1 across the sign
+      p.r = Math.hypot(p.x - cx, p.y - cy) / rmax;      // 0..1 from center
+    });
+  }
+}
+function hsv(h, s, v){
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const rgb = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i % 6];
+  return '#' + rgb.map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('');
+}
+function shade(hex, k){
+  const v = parseInt(hex.slice(1), 16);
+  const f = c => Math.round(Math.max(0, Math.min(255, c * k))).toString(16).padStart(2, '0');
+  return '#' + f(v >> 16) + f((v >> 8) & 255) + f(v & 255);
+}
+const FX = {
+  solid:   (p, t, n, c) => c,
+  breathe: (p, t, n, c) => shade(c, 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(t * 2.2))),
+  chase:   (p, t, n, c) => {
+    const d = ((p.i - t * n * 0.25) % n + n) % n;
+    return d < n * 0.12 ? shade(c, 1 - d / (n * 0.12)) : '#1c1c22';
+  },
+  rainbow: (p, t, n) => hsv(p.i / n + t * 0.15, 1, 1),
+  sweep:   (p, t) => hsv(p.u * 0.7 + t * 0.25, 1, 1),
+  pulse:   (p, t, n, c) => {
+    const w = ((p.r - t * 0.35) % 1 + 1) % 1;
+    return w < 0.25 ? shade(c, 1 - w / 0.25) : shade(c, 0.06);
+  },
+};
+function fxTick(ts){
+  const mode = $('fx').value;
+  if (mode === 'off' || !fxNodes.length){ fxRAF = null; return; }
+  const t = ts / 1000, n = Math.max(fxNodes.length, 1), c = $('fxcolor').value;
+  for (const p of fxNodes) p.n.setAttribute('fill', FX[mode](p, t, n, c));
+  fxRAF = requestAnimationFrame(fxTick);
+}
+function fxApply(){
+  const mode = $('fx').value;
+  $('fxcolor').hidden = !['solid', 'breathe', 'chase', 'pulse'].includes(mode);
+  if (mode === 'off'){
+    if (fxRAF) cancelAnimationFrame(fxRAF);
+    fxRAF = null;
+    fxNodes.forEach((p, i) => p.n.setAttribute('fill', fxBase[i]));
+    return;
+  }
+  if (!fxRAF) fxRAF = requestAnimationFrame(fxTick);
 }
 
 function refreshRelevance(){
@@ -172,6 +256,8 @@ function paramsFromUI(){
   base.leds.pitch_mm = Math.max(14, +$('pitch').value || 17);
   base.colors = base.colors || {};
   base.colors.palette = $('palette').value;
+  const cc = customColors();
+  if (Object.keys(cc).length) base.colors.custom = cc;
   base.printer = base.printer || {};
   if ($('printer').value === 'custom'){
     base.printer.preset = 'custom';
@@ -203,6 +289,8 @@ async function preview(){
     return;
   }
   $('svgbox').innerHTML = data.svg;
+  fxCollect();
+  fxApply();
   const watts = data.watts ? ` · ${data.pixels} px · ${data.watts} W → ${data.psu} W PSU` : '';
   $('statline').textContent =
     `${data.sign_mm[0]} × ${data.sign_mm[1]} mm · ${data.pieces} piece(s)${watts}`;
@@ -372,6 +460,16 @@ function wireEvents(){
     localStorage.setItem('sf-wires', $('wires').checked ? '1' : '0');
     $('svgbox').classList.toggle('hidewires', !$('wires').checked);
   };
+  $('fx').onchange = fxApply;
+  // debug/screenshot hooks: #fx=rainbow, #preset=open-sign
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.get('fx')) $('fx').value = hash.get('fx');
+  if (hash.get('preset') && meta.presets[hash.get('preset')])
+    applyPreset(meta.presets[hash.get('preset')]);
+  $('palette').addEventListener('change', syncPickersToPalette);
+  syncPickersToPalette();
+  for (const [k, id] of Object.entries(CKEYS))
+    $(id).addEventListener('input', () => { colorDirty[k] = true; schedule(); });
   $('loginbtn').onclick = () => authPost('/api/auth/login');
   $('registerbtn').onclick = () => authPost('/api/auth/register');
   $('acctchip').onclick = showAccount;
