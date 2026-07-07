@@ -80,30 +80,33 @@ def render_png(
             pts = [P(q) for q in (s.pts + ([s.pts[0]] if s.closed else []))]
             draw.line(pts, fill=c["lens"], width=w_in, joint="curve")
     elif layout.fills is not None and not layout.fills.is_empty:
-        face = c["lens"] if params.style.kind == "channel" else c["shell"]
+        # pre-blend: only the LIGHT goes into the glow layer
         if params.style.kind == "halo":
             for poly in as_multipolygon(layout.fills.buffer(9.0)).geoms:
                 gd.polygon([P(q) for q in poly.exterior.coords], fill=c["lens"])
-        for poly in as_multipolygon(layout.fills).geoms:
-            (gd if params.style.kind == "channel" else ImageDraw.Draw(img)).polygon(
-                [P(q) for q in poly.exterior.coords], fill=face
-            )
-            for hole in poly.interiors:
-                hole_bg = c["shell"] if layout.backer is not None else BG
-                draw.polygon([P(q) for q in hole.coords], fill=hole_bg)
-        if params.style.kind == "channel":
+        else:  # channel: the lit face itself blooms
             for poly in as_multipolygon(layout.fills).geoms:
-                draw.polygon([P(q) for q in poly.exterior.coords], fill=face)
-                for hole in poly.interiors:
-                    draw.polygon(
-                        [P(q) for q in hole.coords],
-                        fill=c["shell"] if layout.backer is not None else BG,
-                    )
+                gd.polygon([P(q) for q in poly.exterior.coords], fill=c["lens"])
 
     # soft glow composite
     glow = glow.filter(ImageFilter.GaussianBlur(radius=max(3, int(6 * k))))
     img = Image.blend(img, Image.composite(glow, img, glow.convert("L").point(lambda v: min(255, v * 2))), 0.35)
     draw = ImageDraw.Draw(img)
+
+    # post-blend: crisp faces over the bloom (blend smears everything under it)
+    if (
+        params.style.kind in ("channel", "halo")
+        and layout.fills is not None
+        and not layout.fills.is_empty
+    ):
+        face = c["lens"] if params.style.kind == "channel" else tuple(
+            min(255, v + 24) for v in c["shell"]
+        )
+        hole_bg = c["shell"] if layout.backer is not None else BG
+        for poly in as_multipolygon(layout.fills).geoms:
+            draw.polygon([P(q) for q in poly.exterior.coords], fill=face)
+            for hole in poly.interiors:
+                draw.polygon([P(q) for q in hole.coords], fill=hole_bg)
 
     if len(pieces) > 1:
         for pc in pieces:
