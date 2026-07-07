@@ -16,6 +16,11 @@ Rules for any agent/dev working in this subproject.
 ## Architecture
 `ingest/*` → `model.Artwork` → `layout` → `skeleton` (neon) → `leds` → `panelize` → `parts/{neon,channel}` Bodies (manifold3d) → `verify` gates → `export/{stl,threemf,bundle}` → `preview/html`. Orchestrator `pipeline.build(params, outdir)`; CLI and `web/app.py` are thin clients. Parameter schema: `params.py` (pydantic v2, CHARGE-validated defaults).
 
+## Git discipline
+- Commit per completed unit (tests green first). **Push `led-sign-builder` to
+  origin after every commit batch** (user-authorized 2026-07-07; the repo is
+  PUBLIC — keep licenses clean for anything bundled). Never touch `main`.
+
 ## Laws (evidence: docs/LESSONS-FROM-CHARGE.md)
 1. Every exported mesh passes `verify.audit_mesh` — **hard fail**, never warn-only.
 2. ≥0.02 mm standoff between generated fields and boolean partner planes; 0.1 mm fuse welds; no exact tangencies.

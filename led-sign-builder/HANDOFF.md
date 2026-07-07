@@ -114,3 +114,9 @@ once on first run; `--open` to skip accounts).
 - Channel-letter style first (fewest unknowns), neon-tube immediately after.
 - Python 3.12 pinned (manifold3d wheels). Package name `signforge`, product name "LED Sign Builder".
 - Worktree discipline: nothing outside `led-sign-builder/` is ever modified.
+
+## Font library + GitHub (2026-07-07)
+- 15 bundled OFL typefaces (registry in ingest/fonts.py, /api/fonts, console
+  typeface grid w/ live FontFace previews, CLI --font names). Clearance floods
+  aggregate into one actionable size-hint line (the Monoton lesson).
+- Branch pushed to origin (PUBLIC repo) — push after every commit batch now.
