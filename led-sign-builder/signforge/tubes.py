@@ -180,7 +180,9 @@ def plan_tubes(
                 # Monoton stripes alias at 2.4 px/mm), then as an outline
                 # (shrikhand digits at w̄≈46 scribble as spines but ring fine)
                 miss = _glyph_uncovered(g, s, cover_w)
-                thresh = max(80.0, 0.02 * g.fills.area)
+                # slab corners always escape a spine — scale like the coverage
+                # gate: (0.55·w̄)² capped, floored at 80
+                thresh = max(80.0, min((0.55 * max(w_g, cover_w)) ** 2, 700.0))
                 if miss > thresh:
                     s2, m2 = extract_centerlines(g.fills, px_per_mm=4.8)
                     if _glyph_uncovered(g, s2, (m2["tube_w"] or cover_w)) < miss * 0.5:
@@ -189,7 +191,9 @@ def plan_tubes(
                         warnings.append(
                             f"'{g.char}': fine detail — re-traced at high resolution"
                         )
-                if miss > thresh:
+                if miss > thresh and st.source == "auto":
+                    # mode-switching is auto's prerogative — an explicit
+                    # skeleton choice stands (the gate will say so honestly)
                     s3, _w3, _n3 = _outline_tubes(g.fills, st.band_outer)
                     if s3 and _glyph_uncovered(g, s3, st.band_outer) < miss:
                         s = s3
