@@ -3,50 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LED Sign Builder</title>
+<title>LED Sign Builder — Console SF-1</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%233B3630"/><path d="M18 3 8 18h6l-2 11L24 13h-7z" fill="%23C99B3F"/></svg>'>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
-  <h1>LED Sign Builder</h1>
-  <span class="tag">text · fonts · SVG · DXF · PNG → print-ready LED sign kits</span>
+  <div class="hrow">
+    <h1>LED SIGN BUILDER</h1>
+    <span class="spec">MODEL SF-1 · SER. 582035</span>
+    <span class="spacer"></span>
+    <span id="tierstamp" class="stamp">…</span>
+    <span id="acctchip" class="chip" hidden><b id="acctemail"></b></span>
+    <span id="adminchip" class="chip" hidden>ADMIN</span>
+  </div>
 </header>
+
 <main>
   <aside id="panel">
     <section>
       <h2>Presets</h2>
       <div id="presets"></div>
     </section>
+
     <section>
       <h2>Content</h2>
-      <label>Text <textarea id="text" rows="2">GLOW</textarea></label>
-      <label>Font
-        <select id="fontsel">
-          <option value="">Bungee (bundled)</option>
-        </select>
-      </label>
-      <input type="file" id="fontfile" accept=".ttf,.otf,.woff,.woff2">
-      <label>— or upload artwork (SVG/DXF/PNG)</label>
-      <input type="file" id="artfile" accept=".svg,.dxf,.png,.jpg">
-      <button id="artclear" class="mini" hidden>use text instead</button>
-      <label>Letter height (mm) <input id="cap" type="number" value="150" min="20" max="2000"></label>
+      <label>Sign text <textarea id="text" rows="2">GLOW</textarea></label>
+      <div class="row">
+        <div><label>Letter height mm <input id="cap" type="number" value="150" min="20" max="2000"></label></div>
+        <div><label>Tracking mm <input id="tracking" type="number" value="0" step="0.5"></label></div>
+      </div>
+      <label>Font file <input type="file" id="fontfile" accept=".ttf,.otf,.woff,.woff2"></label>
+      <div id="fontchip" class="filechip"><span></span><button class="mini ghost">×</button></div>
+      <label>— or artwork (SVG / DXF / PNG) <input type="file" id="artfile" accept=".svg,.dxf,.png,.jpg"></label>
+      <div id="artchip" class="filechip"><span></span><button class="mini ghost">×</button></div>
     </section>
+
     <section>
-      <h2>Style</h2>
-      <label>Kind
+      <h2>Design</h2>
+      <label>Style
         <select id="kind">
           <option value="neon">neon tube (CHARGE look)</option>
           <option value="channel">channel letter</option>
           <option value="halo">halo / backlit</option>
         </select>
       </label>
-      <label>Backer
-        <select id="backer">
-          <option value="tile">tile (billboard)</option>
-          <option value="contour">contour</option>
-          <option value="none">none</option>
-        </select>
-      </label>
+      <div class="row">
+        <div><label>Backer
+          <select id="backer">
+            <option value="tile">plaque</option>
+            <option value="contour">contour</option>
+            <option value="none">none</option>
+          </select></label></div>
+        <div><label>Plaque shape <select id="plaque"></select></label></div>
+      </div>
+      <label>Filament palette <select id="palette"></select></label>
       <label>Lens texture
         <select id="texture">
           <option value="pyramid_jitter">V8 facets (bake-off winner)</option>
@@ -55,44 +66,102 @@
           <option value="none">smooth</option>
         </select>
       </label>
+      <label class="toggle"><input type="checkbox" id="tex_lens" checked><span class="lever"></span>
+        <span class="t">fuzzy lens</span></label>
+      <label class="toggle"><input type="checkbox" id="tex_backer"><span class="lever"></span>
+        <span class="t">fuzzy backer field</span></label>
     </section>
+
     <section>
-      <h2>LEDs</h2>
+      <h2>Illumination</h2>
       <label>Mode
         <select id="leds">
-          <option value="bullet12">12mm bullet pixels</option>
+          <option value="bullet12">12 mm bullet pixels</option>
           <option value="strip">LED strip</option>
-          <option value="none">no LEDs</option>
+          <option value="none">unlit</option>
         </select>
       </label>
-      <label>Pitch (mm) <input id="pitch" type="number" value="17" min="10" max="60"></label>
-      <label>Pixel budget <input id="budget" type="number" placeholder="none"></label>
+      <div class="row">
+        <div><label>Pitch mm <input id="pitch" type="number" value="17" min="10" max="60"></label></div>
+        <div><label>Budget px <input id="budget" type="number" placeholder="∞"></label></div>
+      </div>
     </section>
+
     <section>
-      <h2>Printer</h2>
-      <label>Preset <select id="printer"></select></label>
+      <h2>Machine</h2>
+      <label>Printer <select id="printer"></select></label>
+      <div class="row" id="bedrow" hidden>
+        <div><label>Bed X mm <input id="bedx" type="number" value="220"></label></div>
+        <div><label>Bed Y mm <input id="bedy" type="number" value="220"></label></div>
+      </div>
+      <label>Internal support ribs
+        <select id="ribs">
+          <option value="auto">auto (printer profile)</option>
+          <option value="on">always</option>
+          <option value="off">never</option>
+        </select>
+      </label>
       <label>Kit name <input id="name" value="my-sign"></label>
     </section>
+
     <details>
-      <summary>All parameters (JSON)</summary>
+      <summary>All parameters (JSON) <span id="jsonbadge" class="badge ok">VALID</span></summary>
       <textarea id="advanced" rows="14" spellcheck="false"></textarea>
-      <div class="hint">Controls above override matching fields. Anything the
-      engine supports can be set here — see params.json in any kit.</div>
+      <div class="hint">Controls above override matching fields. Every engine
+      option lives here — identical to params.json in any kit.</div>
     </details>
-    <button id="buildbtn">Build kit</button>
-    <div id="joblog" hidden></div>
-    <div id="jobactions" hidden>
-      <a id="dl" class="btn" href="#">Download zip</a>
-      <a id="v3d" class="btn" href="#" target="_blank">3D viewer</a>
-      <a id="vprev" class="btn" href="#" target="_blank">Dashboard</a>
-    </div>
+
+    <section>
+      <button id="buildbtn">Build kit</button>
+      <div id="joblog" class="mono" hidden
+           style="margin-top:10px;padding:10px;background:var(--recess);border-radius:6px;font-size:11px;max-height:150px;overflow:auto;white-space:pre-wrap;color:var(--ink-dim)"></div>
+    </section>
   </aside>
+
   <section id="stage">
     <div id="statline">…</div>
     <div id="warnings"></div>
-    <div id="svgbox"><em>live preview appears here</em></div>
+    <div id="svgbox"><span class="empty">live blueprint appears here</span></div>
+    <section style="margin:18px 0 0">
+      <h2>Build queue</h2>
+      <div id="queue"><div class="hint">nothing queued yet — dial in a sign and hit BUILD KIT</div></div>
+    </section>
   </section>
 </main>
+
+<footer>SIGNFORGE ENGINE · CHARGE-DERIVED GEOMETRY · ALL GAUGES IN MILLIMETERS</footer>
+
+<!-- auth modal -->
+<div class="modal" id="authmodal">
+  <div class="card">
+    <h2 id="authtitle">Operator sign-in</h2>
+    <label>Email <input id="authemail" type="email" autocomplete="username"></label>
+    <label>Password <input id="authpw" type="password" autocomplete="current-password"></label>
+    <button id="loginbtn">Sign in</button>
+    <button id="registerbtn" class="ghost">Register new operator</button>
+    <div id="autherr" class="err"></div>
+    <div class="stampline">TIERS · FREE: 150&nbsp;MM / 6 BUILDS/DAY · PREMIUM: UNCAPPED + PRIORITY</div>
+  </div>
+</div>
+
+<!-- account modal -->
+<div class="modal" id="acctmodal">
+  <div class="card">
+    <h2>Operator card</h2>
+    <div id="acctinfo" class="mono" style="font-size:12px;line-height:2"></div>
+    <button id="logoutbtn" class="ghost">Sign out</button>
+  </div>
+</div>
+
+<!-- admin modal -->
+<div class="modal" id="adminmodal">
+  <div class="card" style="width:min(640px,94vw)">
+    <h2>Account management</h2>
+    <table id="usertable"><tr><th>ID</th><th>EMAIL</th><th>ROLE</th><th>TIER</th><th></th></tr></table>
+    <button id="adminclose" class="ghost">Close</button>
+  </div>
+</div>
+
 <script src="/static/app.js"></script>
 </body>
 </html>
