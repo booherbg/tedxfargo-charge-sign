@@ -97,9 +97,12 @@ once on first run; `--open` to skip accounts).
   (standoff-matched anchor bores, corner wall screws, own plate, BOM assembly
   notes) — the UI promise the engine didn't keep. Halo PNG render fixed
   (crisp face post-blend, counters restored; visual-verified).
-- 143 fast + 23 slow green, 40 commits. Next candidates: queue history
-  across restarts (jobs table → "expired" listing), per-letter halo builds
-  helper, otherwise idle-green.
+- Per-letter halo pieces (glyph → piece, print-space clip masks, one shared
+  plaque; first-piece plate emission decoupled from names) + job history
+  across restarts (sqlite → 'expired' cards in the queue UI).
+- 145 fast + 23 slow green, 43 commits. **Autonomous candidate list is empty
+  — future pings: verify green, one-line status, stop.** USER-gated: name,
+  PyPI, H2D fit-ladder print, Bambu 3MF eyeball, console walkthrough.
 
 ## Resume protocol (any fresh session)
 1. `cd /Users/blaine/workspace/2026-charge-tedxfargo/.claude/worktrees/led-sign-builder/led-sign-builder`
