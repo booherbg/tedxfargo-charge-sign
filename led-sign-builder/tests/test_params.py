@@ -36,6 +36,11 @@ def test_unknown_printer_without_bed_rejected():
         SignParams.model_validate({"printer": {"preset": "not-a-printer"}})
 
 
+def test_pitch_floor_is_physical():
+    with pytest.raises(ValidationError):
+        SignParams.model_validate({"leds": {"pitch_mm": 12.0}})   # < flange floor
+
+
 def test_art_mode_requires_path():
     with pytest.raises(ValidationError):
         SignParams.model_validate({"content": {"mode": "art"}})

@@ -63,27 +63,26 @@
             <option value="contour">contour</option>
             <option value="none">none</option>
           </select></label></div>
-        <div><label>Plaque shape <select id="plaque"></select></label></div>
+        <div id="row-plaque"><label>Plaque shape <select id="plaque"></select></label></div>
       </div>
       <label>Filament palette <select id="palette"></select></label>
-      <label>Tube source <span class="hint" style="display:inline">(neon)</span>
+      <label id="row-tubesource">Tube treatment
         <select id="tubesource">
-          <option value="auto">auto — outline when strokes fit, else spine</option>
-          <option value="outline">outline — open-tube channel letters</option>
-          <option value="skeleton">skeleton — single-stroke script neon</option>
+          <option value="auto">auto — pick per letter</option>
+          <option value="outline">outline tubes (classic channel)</option>
+          <option value="skeleton">single-stroke spine (script)</option>
         </select>
       </label>
-      <label>Lens texture <span class="b3d">3D</span>
+      <label id="row-texture">Lens texture <span class="b3d">3D</span>
         <select id="texture">
           <option value="pyramid_jitter">V8 facets (bake-off winner)</option>
           <option value="random">V3 random frost</option>
-          <option value="pyramid">uniform pyramids</option>
           <option value="none">smooth</option>
         </select>
       </label>
-      <label class="toggle"><input type="checkbox" id="tex_lens" checked><span class="lever"></span>
+      <label class="toggle" id="row-texlens"><input type="checkbox" id="tex_lens" checked><span class="lever"></span>
         <span class="t">fuzzy lens</span> <span class="b3d">3D</span></label>
-      <label class="toggle"><input type="checkbox" id="tex_backer"><span class="lever"></span>
+      <label class="toggle" id="row-texbacker"><input type="checkbox" id="tex_backer"><span class="lever"></span>
         <span class="t">fuzzy backer field</span> <span class="b3d">3D</span></label>
     </section>
 
@@ -96,9 +95,8 @@
           <option value="none">unlit</option>
         </select>
       </label>
-      <div class="row">
-        <div><label>Pitch mm <input id="pitch" type="number" value="17" min="10" max="60"></label></div>
-        <div><label>Budget px <input id="budget" type="number" placeholder="∞"></label></div>
+      <div class="row" id="row-pitch">
+        <div><label>Pixel pitch mm <input id="pitch" type="number" value="17" min="14" max="60"></label></div>
       </div>
     </section>
 

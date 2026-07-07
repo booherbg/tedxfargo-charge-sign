@@ -126,7 +126,7 @@ class StyleParams(BaseModel):
 class LedParams(BaseModel):
     kind: Literal["bullet12", "strip", "none"] = "bullet12"
     watts_per_m: float = Field(14.4, gt=0)        # strip mode (60/m 5050 class)
-    pitch_mm: float = Field(17.0, gt=5)           # solid-tube glow (lesson: 8" native = sparse)
+    pitch_mm: float = Field(17.0, ge=13.0)        # flange floor is 13 — tighter is physically impossible
     min_chord_mm: float = Field(14.8, gt=1)       # chord-measured, not arc (lesson 18)
     flange_floor_mm: float = Field(14.5, gt=1)    # flange Ø13.6 + margin
     seam_keepout_mm: float = Field(12.5, ge=0)    # no collar straddles a joint

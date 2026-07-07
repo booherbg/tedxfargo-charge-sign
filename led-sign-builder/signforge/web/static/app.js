@@ -122,7 +122,23 @@ function applyPreset(cfg){
   schedule();
 }
 
+function refreshRelevance(){
+  const kind = $('kind').value;
+  const neon = kind === 'neon';
+  // options only show where they actually apply — v1 simplicity audit
+  $('row-tubesource').hidden = !neon;
+  $('row-texture').hidden = !neon;
+  $('row-texlens').hidden = !neon;
+  $('row-texbacker').hidden = kind === 'halo' || $('backer').value === 'none';
+  $('row-plaque').hidden = $('backer').value !== 'tile';
+  const stripOpt = $('leds').querySelector('option[value=strip]');
+  stripOpt.disabled = kind === 'channel';
+  if (stripOpt.disabled && $('leds').value === 'strip') $('leds').value = 'none';
+  $('row-pitch').hidden = $('leds').value !== 'bullet12';
+}
+
 function paramsFromUI(){
+  refreshRelevance();
   let base;
   try {
     base = JSON.parse($('advanced').value);
@@ -153,8 +169,7 @@ function paramsFromUI(){
   base.texture.targets = targets.length ? targets : ['lens'];
   base.leds = base.leds || {};
   base.leds.kind = $('leds').value;
-  base.leds.pitch_mm = +$('pitch').value || 17;
-  base.leds.budget_px = $('budget').value ? +$('budget').value : null;
+  base.leds.pitch_mm = Math.max(14, +$('pitch').value || 17);
   base.colors = base.colors || {};
   base.colors.palette = $('palette').value;
   base.printer = base.printer || {};
@@ -338,7 +353,7 @@ async function showAdmin(){
 /* ---------- wiring ---------- */
 function wireEvents(){
   for (const id of ['text','cap','tracking','kind','backer','plaque','palette','texture',
-                    'tubesource','tex_lens','tex_backer','leds','pitch','budget','printer',
+                    'tubesource','tex_lens','tex_backer','leds','pitch','printer',
                     'ribs','name','bedx','bedy'])
     $(id).addEventListener('input', () => {
       if (id === 'printer') $('bedrow').hidden = $('printer').value !== 'custom';

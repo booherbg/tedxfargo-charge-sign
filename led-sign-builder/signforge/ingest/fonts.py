@@ -42,10 +42,14 @@ BUNDLED_FONTS: dict[str, dict] = {
     "audiowide": {"file": "Audiowide-Regular.ttf", "label": "Audiowide", "vibe": "retro-tech"},
     "bebas": {"file": "BebasNeue-Regular.ttf", "label": "Bebas Neue", "vibe": "tall condensed"},
     "black-ops": {"file": "BlackOpsOne-Regular.ttf", "label": "Black Ops One", "vibe": "stencil"},
-    "great-vibes": {"file": "GreatVibes-Regular.ttf", "label": "Great Vibes", "vibe": "formal script"},
+    # v1: False → hidden from the console picker (JSON/CLI still accept it);
+    # curation data: pixel counts + warning noise at DEFAULT settings
+    "great-vibes": {"file": "GreatVibes-Regular.ttf", "label": "Great Vibes",
+                    "vibe": "formal script · big sizes", "v1": False},
     "limelight": {"file": "Limelight-Regular.ttf", "label": "Limelight", "vibe": "art deco"},
     "lobster": {"file": "Lobster-Regular.ttf", "label": "Lobster", "vibe": "bold script"},
-    "monoton": {"file": "Monoton-Regular.ttf", "label": "Monoton", "vibe": "neon lines · huge sizes"},
+    "monoton": {"file": "Monoton-Regular.ttf", "label": "Monoton",
+                "vibe": "neon lines · huge sizes", "v1": False},
     "orbitron": {"file": "Orbitron-Variable.ttf", "label": "Orbitron", "vibe": "sci-fi"},
     "oswald": {"file": "Oswald-Variable.ttf", "label": "Oswald", "vibe": "condensed sans"},
     "pacifico": {"file": "Pacifico-Regular.ttf", "label": "Pacifico", "vibe": "casual script"},

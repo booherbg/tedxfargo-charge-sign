@@ -161,6 +161,23 @@ def test_e2e_halo_kit(tmp_path, bungee):
     assert "halo-b_shell.stl" in names and "halo-b_liner.stl" in names
 
 
+def test_channel_strip_downgrades_with_warning(tmp_path, bungee):
+    from signforge.pipeline import build
+
+    params = SignParams.model_validate(
+        {
+            "name": "cs",
+            "content": {"text": "I", "cap_height_mm": 60, "font_path": bungee},
+            "style": {"kind": "channel", "backer": "none"},
+            "leds": {"kind": "strip"},
+            "texture": {"mode": "none"},
+        }
+    )
+    result = build(params, tmp_path / "out")
+    assert any("no strip raceway" in w for w in result.warnings)
+    assert result.stats["pixels"] == 0
+
+
 def test_e2e_neon_strip_mode(tmp_path, bungee):
     from signforge.pipeline import build
 

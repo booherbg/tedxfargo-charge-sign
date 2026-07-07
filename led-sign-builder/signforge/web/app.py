@@ -123,13 +123,14 @@ def create_app(
         return FileResponse(p)
 
     @app.get("/api/fonts")
-    def fonts_list():
+    def fonts_list(all: int = 0):
         from ..ingest.fonts import bundled_fonts
 
         return {
             "fonts": [
                 {"name": k, **v, "url": f"/static/fonts/{v['file']}"}
                 for k, v in sorted(bundled_fonts().items())
+                if all or v.get("v1", True)
             ]
         }
 

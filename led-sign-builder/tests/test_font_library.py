@@ -47,7 +47,11 @@ def test_web_fonts_endpoint_and_bundled_build(tmp_path):
     client = TestClient(create_app(open_mode=True, db_path=str(tmp_path / "d.sqlite"),
                                    workdir=str(tmp_path / "w"), workers=0))
     fonts = client.get("/api/fonts").json()["fonts"]
-    assert len(fonts) >= 14
+    names = {f["name"] for f in fonts}
+    assert "monoton" not in names and "great-vibes" not in names   # v1-hidden
+    assert len(fonts) >= 12
+    everything = client.get("/api/fonts?all=1").json()["fonts"]
+    assert len(everything) > len(fonts)                            # still reachable
     limelight = next(f for f in fonts if f["name"] == "limelight")
     r = client.get(limelight["url"])
     assert r.status_code == 200 and len(r.content) > 20000

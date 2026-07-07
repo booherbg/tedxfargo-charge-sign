@@ -150,6 +150,11 @@ def build(
                 "channel style needs filled artwork (text or filled vectors) — "
                 "stroke-only art suits the neon style"
             )
+        if params.leds.kind == "strip":
+            warnings.append(
+                "LED strips run in neon/halo channels — channel-letter faces "
+                "have no strip raceway (v1); building unlit"
+            )
         footprint = channel_pan_footprint(layout, params)
         avoid = ring_offset(layout.fills, 4.0)
         say("panelizing")
