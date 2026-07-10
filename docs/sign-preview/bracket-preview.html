@@ -883,6 +883,7 @@ the two pixels flanking the joint.</p>
 <circle cx="124.0" cy="521.3" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
 <circle cx="131.7" cy="360.6" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
 <circle cx="131.3" cy="341.0" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
+<circle cx="183.0" cy="325.0" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
 <circle cx="178.2" cy="345.2" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
 <circle cx="174.3" cy="361.6" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
 <circle cx="170.8" cy="376.3" r="8.5" fill="none" stroke="#8b94a1" stroke-width="1.3" stroke-dasharray="3 3"/>
@@ -1004,7 +1005,7 @@ the two pixels flanking the joint.</p>
 <polygon points="453.6,-8.0 451.3,-4.0 446.7,-4.0 444.4,-8.0 446.7,-12.0 451.3,-12.0" fill="none" stroke="#e9e5db" stroke-width="1.3"/><circle cx="449.0" cy="-8.0" r="2.2" fill="#e9e5db"/>
 <polygon points="524.6,-8.0 522.3,-4.0 517.7,-4.0 515.4,-8.0 517.7,-12.0 522.3,-12.0" fill="none" stroke="#e9e5db" stroke-width="1.3"/><circle cx="520.0" cy="-8.0" r="2.2" fill="#e9e5db"/>
 </svg></div></div>
-<div class="strap"><div class="strap-head"><span class="tag">S4</span><span>seam x=153 · 209 × 48 × 12 mm · 54 g · 11 pass / 1 collar / 5 nut / 0 socket</span></div><div class="strap-svg"><svg viewBox="14 -34 221 72" xmlns="http://www.w3.org/2000/svg">
+<div class="strap"><div class="strap-head"><span class="tag">S4</span><span>seam x=153 · 209 × 48 × 12 mm · 54 g · 12 pass / 1 collar / 5 nut / 0 socket</span></div><div class="strap-svg"><svg viewBox="14 -34 221 72" xmlns="http://www.w3.org/2000/svg">
 <rect x="20.0" y="-24" width="209.0" height="48" rx="4" fill="#242a33" stroke="#4a5462" stroke-width="1.2"/>
 <rect x="26.0" y="-24.0" width="197.0" height="5" fill="#303845"/>
 <rect x="26.0" y="19.0" width="197.0" height="5" fill="#303845"/>
@@ -1015,6 +1016,7 @@ the two pixels flanking the joint.</p>
 <circle cx="28.7" cy="29.0" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
 <circle cx="189.4" cy="21.3" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
 <circle cx="209.0" cy="21.7" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
+<circle cx="225.0" cy="-30.0" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
 <circle cx="204.8" cy="-25.2" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
 <circle cx="188.4" cy="-21.4" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
 <circle cx="173.7" cy="-17.8" r="8.5" fill="#12151a" stroke="#8b94a1" stroke-width="1" stroke-dasharray="3 2"/>
@@ -1030,6 +1032,60 @@ the two pixels flanking the joint.</p>
 here is the part as it lies on the bed. S1 and S2 butt at x=145.5 (mid-plate; the plates
 themselves splice the joint, a screw pair flanks each side). Plus one <b>pixel pusher</b>
 (Ø14 slotted tube) for seating pixels through the pass-holes.</div>
+
+<h2>Frame mounting (wooden frame around the bolt)</h2>
+<p class="sub">The strap-joined board mounts to its wood frame by the PERIMETER only —
+14 pre-drilled Ø4.5 holes for the same black wood screws as the word pieces
+(≤150&nbsp;mm spacing, all positions channel-checked). Bottom + top rails and two side
+stiles; the old y-seam rail is gone. Shown as gray squares in the overlay above.</p>
+<div style="overflow-x:auto"><table>
+<tr><th>edge</th><th>holes</th><th>positions (board mm)</th></tr>
+<tr><td>bottom edge (y≈6)</td><td>4</td><td>(12, 6), (142, 6), (272, 6), (398, 6)</td></tr><tr><td>top edge (y≈544)</td><td>4</td><td>(12, 544), (142, 544), (272, 544), (398, 544)</td></tr><tr><td>left edge (x≈6)</td><td>3</td><td>(6, 130), (6, 275), (6, 420)</td></tr><tr><td>right edge (x≈404)</td><td>3</td><td>(404, 130), (404, 275), (404, 420)</td></tr>
+</table></div>
+
+<h2>QA audit — 43/43 checks pass</h2><p class="sub">Independent audit (<code>tools/qa_board.py</code>): placement physics and screw legality re-measured from the emitted data, features probed at STL level (hole positions, collar bore profile, plate bites), and every mesh edge-audited.</p><div style="overflow-x:auto"><table><tr><th></th><th>check</th><th>measured</th></tr><tr><td><span class="ok">PASS</span></td><td>pixel count == 137 (budget)</td><td>137 px</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>color zones 116 yellow / 21 red</td><td>116/21</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>min pixel spacing >= 13.0 (snug band ok)</td><td>min 14.2 mm, 2 snug pair(s) <14.5</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>plate-collar pixels >= 9.4 mm off seams</td><td>min 9.50 mm</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>2 on-seam pixels == 2 plate bites (coords match)</td><td>[(153.0, 51.06), (126.0, 401.04)]</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap collars sit exactly at the bites</td><td>[(126.0, 401.04), (153.0, 51.06)]</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>max seam-adjacent gap <= 25 mm</td><td>worst 23.5 mm</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>chain is a permutation 0..136</td><td></td></tr>
+<tr><td><span class="ok">PASS</span></td><td>extension jumpers at chain 86, 107</td><td>[86, 107]</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>all screws >= 14.5 mm from channel centerlines</td><td>min 15.7 mm (23 machine + 14 wood)</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>machine screws >= 16 mm from pixels</td><td>min 16.2 mm</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>machine screws paired across seams (1 known single)</td><td>22 of 23 paired</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S1: 17 features at printed positions</td><td>all verified</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S2: 28 features at printed positions</td><td>all verified</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S3: 25 features at printed positions</td><td>all verified</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S4: 24 features at printed positions</td><td>all verified</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>every strap-overlapped pixel has a pass-hole/collar</td><td>[]</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S1 fits the bed</td><td>125 x 48</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S2 fits the bed</td><td>244 x 48</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S3 fits the bed</td><td>249 x 48</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>strap S4 fits the bed</td><td>209 x 48</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B1 black bite at (153,51) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B1 white bite at (153,51) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B2 black bite at (153,51) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B2 white bite at (153,51) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B3 black bite at (126,401) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B3 white bite at (126,401) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B4 black bite at (126,401) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>B4 white bite at (126,401) r=6.5</td><td>r=6.50</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>all 37 face screw holes present in the plates</td><td>0 missing</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>plate B1 fits 316x295</td><td>153x255</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>plate B2 fits 316x295</td><td>257x255</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>plate B3 fits 316x295</td><td>126x295</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>plate B4 fits 316x295</td><td>284x295</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/board1_3color.3mf manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/board2_3color.3mf manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/board3_3color.3mf manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/board4_3color.3mf manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/strap_s1.stl manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/strap_s2.stl manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/strap_s3.stl manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/strap_s4.stl manifold</td><td>0 bad edges</td></tr>
+<tr><td><span class="ok">PASS</span></td><td>stl/pusher.stl manifold</td><td>0 bad edges</td></tr></table></div>
 
 <h2>Hardware &amp; assembly</h2>
 <table>

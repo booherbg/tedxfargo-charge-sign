@@ -1,0 +1,220 @@
+{
+ "checks": [
+  {
+   "name": "pixel count == 137 (budget)",
+   "ok": true,
+   "detail": "137 px"
+  },
+  {
+   "name": "color zones 116 yellow / 21 red",
+   "ok": true,
+   "detail": "116/21"
+  },
+  {
+   "name": "min pixel spacing >= 13.0 (snug band ok)",
+   "ok": true,
+   "detail": "min 14.2 mm, 2 snug pair(s) <14.5"
+  },
+  {
+   "name": "plate-collar pixels >= 9.4 mm off seams",
+   "ok": true,
+   "detail": "min 9.50 mm"
+  },
+  {
+   "name": "2 on-seam pixels == 2 plate bites (coords match)",
+   "ok": true,
+   "detail": "[(153.0, 51.06), (126.0, 401.04)]"
+  },
+  {
+   "name": "strap collars sit exactly at the bites",
+   "ok": true,
+   "detail": "[(126.0, 401.04), (153.0, 51.06)]"
+  },
+  {
+   "name": "max seam-adjacent gap <= 25 mm",
+   "ok": true,
+   "detail": "worst 23.5 mm"
+  },
+  {
+   "name": "chain is a permutation 0..136",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "extension jumpers at chain 86, 107",
+   "ok": true,
+   "detail": "[86, 107]"
+  },
+  {
+   "name": "all screws >= 14.5 mm from channel centerlines",
+   "ok": true,
+   "detail": "min 15.7 mm (23 machine + 14 wood)"
+  },
+  {
+   "name": "machine screws >= 16 mm from pixels",
+   "ok": true,
+   "detail": "min 16.2 mm"
+  },
+  {
+   "name": "machine screws paired across seams (1 known single)",
+   "ok": true,
+   "detail": "22 of 23 paired"
+  },
+  {
+   "name": "strap S1: 17 features at printed positions",
+   "ok": true,
+   "detail": "all verified"
+  },
+  {
+   "name": "strap S2: 28 features at printed positions",
+   "ok": true,
+   "detail": "all verified"
+  },
+  {
+   "name": "strap S3: 25 features at printed positions",
+   "ok": true,
+   "detail": "all verified"
+  },
+  {
+   "name": "strap S4: 24 features at printed positions",
+   "ok": true,
+   "detail": "all verified"
+  },
+  {
+   "name": "every strap-overlapped pixel has a pass-hole/collar",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "strap S1 fits the bed",
+   "ok": true,
+   "detail": "125 x 48"
+  },
+  {
+   "name": "strap S2 fits the bed",
+   "ok": true,
+   "detail": "244 x 48"
+  },
+  {
+   "name": "strap S3 fits the bed",
+   "ok": true,
+   "detail": "249 x 48"
+  },
+  {
+   "name": "strap S4 fits the bed",
+   "ok": true,
+   "detail": "209 x 48"
+  },
+  {
+   "name": "B1 black bite at (153,51) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B1 white bite at (153,51) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B2 black bite at (153,51) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B2 white bite at (153,51) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B3 black bite at (126,401) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B3 white bite at (126,401) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B4 black bite at (126,401) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "B4 white bite at (126,401) r=6.5",
+   "ok": true,
+   "detail": "r=6.50"
+  },
+  {
+   "name": "all 37 face screw holes present in the plates",
+   "ok": true,
+   "detail": "0 missing"
+  },
+  {
+   "name": "plate B1 fits 316x295",
+   "ok": true,
+   "detail": "153x255"
+  },
+  {
+   "name": "plate B2 fits 316x295",
+   "ok": true,
+   "detail": "257x255"
+  },
+  {
+   "name": "plate B3 fits 316x295",
+   "ok": true,
+   "detail": "126x295"
+  },
+  {
+   "name": "plate B4 fits 316x295",
+   "ok": true,
+   "detail": "284x295"
+  },
+  {
+   "name": "stl/board1_3color.3mf manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/board2_3color.3mf manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/board3_3color.3mf manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/board4_3color.3mf manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/strap_s1.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/strap_s2.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/strap_s3.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/strap_s4.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/pusher.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  }
+ ],
+ "fail": 0
+}

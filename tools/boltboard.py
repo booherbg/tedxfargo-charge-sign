@@ -374,18 +374,24 @@ def to_local(name, q):
     v = (q[1] - coord) if axis == 1 else (q[0] - coord)
     return (round(u, 2), round(-v, 2))
 
-def strap_of(q):
+def straps_of(q, catch=8.5):
+    """ALL straps whose footprint the point's flange/hole zone overlaps — a
+    pixel near a T-junction can touch two straps and needs a hole in each."""
+    out = []
     for name, axis, coord, u0, u1 in straps:
         v = (q[1] - coord) if axis == 1 else (q[0] - coord)
         u = q[0] if axis == 1 else q[1]
-        if abs(v) <= STRAP_W/2 + 8.5 and u0 - 8.5 <= u <= u1 + 8.5:
-            return name
-    return None
+        if abs(v) <= STRAP_W/2 + catch and u0 - catch <= u <= u1 + catch:
+            out.append(name)
+    return out
+
+def strap_of(q):
+    ss = straps_of(q)
+    return ss[0] if ss else None
 
 feat = {name: {"pass": [], "collar": [], "nut": [], "socket": []} for name, *_ in straps}
 for p in pixels:
-    s = strap_of(p[:2])
-    if s:
+    for s in straps_of(p[:2]):
         (feat[s]["collar"] if is_onseam(p) else feat[s]["pass"]).append(to_local(s, p[:2]))
 for name in scr_screws:
     axis, coord = {"S1": (1, SY), "S2": (1, SY), "S3": (0, SXT), "S4": (0, SXB)}[name]
