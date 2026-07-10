@@ -245,6 +245,37 @@ def strap_drawing(i, name):
     s.append('</svg>')
     return "\n".join(s), L
 
+# QA audit results (tools/qa_board.py), if present
+qa_html = ""
+try:
+    qa = json.load(open("src/parts/board_qa.json"))
+    n_ok = sum(1 for c in qa["checks"] if c["ok"])
+    rows_qa = "\n".join(
+        '<tr><td><span class="%s">%s</span></td><td>%s</td><td>%s</td></tr>'
+        % ("ok" if c["ok"] else "warn", "PASS" if c["ok"] else "FAIL",
+           c["name"], c["detail"]) for c in qa["checks"])
+    qa_html = ('<h2>QA audit — %d/%d checks pass</h2>'
+               '<p class="sub">Independent audit (<code>tools/qa_board.py</code>): '
+               'placement physics and screw legality re-measured from the emitted '
+               'data, features probed at STL level (hole positions, collar bore '
+               'profile, plate bites), and every mesh edge-audited.</p>'
+               '<div style="overflow-x:auto"><table>'
+               '<tr><th></th><th>check</th><th>measured</th></tr>%s</table></div>'
+               % (n_ok, len(qa["checks"]), rows_qa))
+except FileNotFoundError:
+    pass
+
+# frame-mounting holes (perimeter wood screws), per edge
+wood = [s for s in scr if s[2] == 0]
+edges = [("bottom edge (y≈6)", [s for s in wood if s[1] < 10]),
+         ("top edge (y≈544)", [s for s in wood if s[1] > FH - 10]),
+         ("left edge (x≈6)", [s for s in wood if s[0] < 10]),
+         ("right edge (x≈404)", [s for s in wood if s[0] > FW - 10])]
+frame_html = "".join(
+    "<tr><td>%s</td><td>%d</td><td>%s</td></tr>"
+    % (lab, len(pts), ", ".join("(%g, %g)" % (p[0], p[1]) for p in pts))
+    for lab, pts in edges)
+
 # grams (if strap STLs are built)
 strap_g = {}
 try:
@@ -384,6 +415,18 @@ here is the part as it lies on the bed. S1 and S2 butt at x=145.5 (mid-plate; th
 themselves splice the joint, a screw pair flanks each side). Plus one <b>pixel pusher</b>
 (Ø14 slotted tube) for seating pixels through the pass-holes.</div>
 
+<h2>Frame mounting (wooden frame around the bolt)</h2>
+<p class="sub">The strap-joined board mounts to its wood frame by the PERIMETER only —
+{{N_WOOD}} pre-drilled Ø4.5 holes for the same black wood screws as the word pieces
+(≤150&nbsp;mm spacing, all positions channel-checked). Bottom + top rails and two side
+stiles; the old y-seam rail is gone. Shown as gray squares in the overlay above.</p>
+<div style="overflow-x:auto"><table>
+<tr><th>edge</th><th>holes</th><th>positions (board mm)</th></tr>
+{{FRAME}}
+</table></div>
+
+{{QA}}
+
 <h2>Hardware &amp; assembly</h2>
 <table>
 <tr><th>item</th><th>qty</th><th>spec</th></tr>
@@ -424,6 +467,8 @@ for k, v in {
     "{{STRAPG}}": (" · " + " / ".join("%.0f g" % strap_g[k] for k in sorted(strap_g)))
                   if strap_g else "",
     "{{JUMP}}": jump,
+    "{{QA}}": qa_html,
+    "{{FRAME}}": frame_html,
 }.items():
     html = html.replace(k, v)
 open("docs/sign-preview/bracket-preview.html", "w").write(html)
