@@ -1,5 +1,11 @@
 # HANDOFF — LED Sign Builder
 
+> **MOVED (2026-07-10):** this project now lives in its own repo —
+> `~/workspace/2026-led-sign-builder` · github.com/booherbg/2026-led-sign-builder
+> (subtree split, history preserved, plus an audit round: hard bed-fit gate,
+> 3MF float32 precision fix, curated font shortlist + advanced drawer).
+> This branch is frozen as the extraction source — work over there.
+
 **Updated:** 2026-07-06 ~16:30 · autonomous overnight build (~24 h window, cron check-ins every 20 min)
 
 ## Mission
