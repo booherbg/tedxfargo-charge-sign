@@ -18,4 +18,11 @@ for P in 1 2 3 4; do
   python3 tools/make_3mf.py "stl/board${P}_black.stl" "stl/board${P}_clear.stl" \
     "stl/board${P}_white.stl" "stl/board${P}_3color.3mf"
 done
-python3 tools/stl_stats.py stl/board?_black.stl stl/board?_white.stl stl/board?_clear.stl
+# seam straps (single-color WHITE, plain STLs) + pixel pusher tool
+for S in 1 2 3 4; do
+  "$OSCAD" -D STRAP=$S -o "stl/strap_s${S}.stl" src/parts/bracket.scad \
+    2>"stl/strap${S}.log" && echo "  ok strap_s${S}"
+done
+"$OSCAD" -o stl/pusher.stl src/parts/pusher.scad 2>/dev/null && echo "  ok pusher"
+python3 tools/stl_stats.py stl/board?_black.stl stl/board?_white.stl stl/board?_clear.stl \
+  stl/strap_s?.stl stl/pusher.stl

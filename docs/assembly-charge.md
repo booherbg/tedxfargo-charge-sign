@@ -31,23 +31,35 @@ deliberately omitted at the A's tube crossing (shared light pocket).
 Board face 410 × 550 mm, four plates, piecewise seams (y=255 full width; top row
 splits at x=126, bottom row at x=153). CONTINUOUS MODE: channels cross the plate
 joints (7 hairline lens joints; butt the plates snug — one global fuzz field keeps
-the lens texture continuous). 137 pixels @ 20 mm (116 yellow / 21 red), kept ≥12.5 mm off every seam so no collar
-straddles a joint. `src/parts/bolt_pixmap.json` maps every pixel's color zone + plate +
-chain position (136 links; extension jumpers at chain 87 and 108).
+the lens texture continuous). **SEAM STRAPS (2026-07-10, spec
+`docs/superpowers/specs/2026-07-10-seam-bracket-design.md`): printed white splice
+straps behind each seam replace the y-seam rail; LEDs run continuously across the
+joints.** 137 pixels @ 21.5 mm (116 yellow / 21 red), pinned at every crossing
+(±9.5 mm straddle); worst seam-adjacent spacing 23.5 mm (was 58). TWO pixels sit ON
+a seam — their collars are embedded in straps S4/S3 (they seat 2 mm deeper; in the
+validated optics window). `src/parts/bolt_pixmap.json` maps color zone + plate +
+`mount` (plate|bracket) + chain (136 links; extension jumpers at chain 86 and 107).
+Review page: `docs/sign-preview/bracket-preview.html`
+(`python3 tools/gen_bracketpreview.py`).
 
 | plate | position | footprint (mm) | black | white | clear | total | pixels |
 |-------|----------|----------------|-------|-------|-------|-------|--------|
-| B1 | bottom-left | 153 × 255 | 112 g | 22 g | 17 g | 151 g | 19 |
-| B2 | bottom-right | 257 × 255 | 192 g | 44 g | 33 g | 269 g | 39 |
-| B3 | top-left | 126 × 295 | 102 g | 13 g | 10 g | 125 g | 11 |
-| B4 | top-right | 284 × 295 | 258 g | 78 g | 58 g | 394 g | 68 |
+| B1 | bottom-left | 153 × 255 | 113 g | 22 g | 17 g | 152 g | 18 |
+| B2 | bottom-right | 257 × 255 | 193 g | 44 g | 33 g | 270 g | 39 |
+| B3 | top-left | 126 × 295 | 101 g | 13 g | 10 g | 124 g | 12 |
+| B4 | top-right | 284 × 295 | 259 g | 78 g | 58 g | 395 g | 68 |
 | | **total** | board 410 × 550 | 664 g | 157 g | 118 g | **939 g** | **137** |
 
 Same 0.20 Standard process and filament layout as the word pieces (all plates are
-smaller than the worst word piece; 295 side across the bed). Plates butt on the wood
-frame: B1|B2 and B3|B4 on their vertical seams, the two rows on the y-seam rail.
-Screws: per-plate corners + long-edge midpoints (Ø4.5, 24 total). Labels debossed on
-bed faces (B1–B4).
+smaller than the worst word piece; 295 side across the bed). Plates splice on the
+printed straps (S1+S2 on y=255, butt joint x=145.5; S3 on x=126; S4 on x=153) with
+**M4×8 black button-heads into captive hex nuts** (23 face holes along the seams);
+the panel then mounts to the frame by **perimeter wood screws only** (Ø4.5, 14 —
+bottom/top rails + side stiles; NO y-seam rail). Straps print in white PETG,
+front-face-down, no supports (S1 37 g / S2 67 g / S3 68 g / S4 54 g ≈ 226 g total),
+plus the pixel-pusher tool. Leg sockets (Ø10.2, three on the y-straps) stay empty
+unless the mounted panel flexes — then print Ø10 friction legs at plenum depth.
+Labels debossed on bed faces (B1–B4).
 
 ## Slicing (per validated specs)
 - **CHOSEN LAYOUT (2026-07-05): black + clear on the RIGHT nozzle (AMS side), white on
@@ -88,17 +100,25 @@ bed faces (B1–B4).
    depth; thin back skin as shear web; PSU/controller on one side):
    - **Word zone**: top + bottom rails spanning the 1.6 m word run, catching each piece's
      corner/mid screws (as before).
-   - **Board zone**: three horizontal rail lines — bottom edge (screws at y≈6), the y-seam
-     line (one rail catches both rows' near-seam screws at y=249 and y=261), and top edge
-     (y≈544). Board is 550 tall vs the word's 295, so the board zone's verticals are taller;
-     with the word band centered on board height, the word rails land inside the board zone's
-     vertical span — share stiles at the 60 mm gap between board and word.
-2. Pieces butt left→right (1→6); seams are pre-relieved 0.12 mm/joint. Screw through the
-   pre-drilled Ø4.5 holes (6 per piece: 4 corners + 2 mids) with black pan-heads into the rails.
+   - **Board zone (seam-strap design, 2026-07-10)**: PERIMETER ONLY — bottom rail
+     (screws at y≈6), top rail (y≈544), and side stiles (x≈6 / x≈404, mid-height
+     screws). NO y-seam rail: the printed straps splice the plates into one rigid
+     panel, and pixel bodies now live right at the seams where a rail would collide.
+     Board is 550 tall vs the word's 295; share stiles at the 60 mm gap as before.
+1b. **Board panel first, off the frame**: plates face-down and butted (B1|B2, B3|B4,
+   rows together), M4 nuts dropped into the strap pockets, straps on (S1+S2 butt at
+   x=145.5 — a screw pair flanks each side), M4×8 black button-heads from the front.
+   THEN pixels — brackets-first means wires can never be pinched under a strap.
+2. Word pieces butt left→right (1→6); seams are pre-relieved 0.12 mm/joint. Screw through
+   the pre-drilled Ø4.5 holes (6 per piece: 4 corners + 2 mids) with black pan-heads into the rails.
 3. Pixels press into collars from behind, chained in path order within each letter, jumper
    slack across seams. 4-inch strings → ~85 mm folds; tuck loose in the plenum.
    (Zip-tie holes removed 2026-07-06: through-holes in the black face leak light
    as bright pinpricks with the plenum lit. Wood-screw holes remain.)
+   **Board near-seam pixels** pass through the straps' Ø17 chamfered holes — seat them
+   with the printed pusher (Ø14 slotted tube). The TWO on-seam pixels (marked
+   `mount: bracket` in the pixmap, at (153,51) and (126,401)) press into the strap
+   collars through the plates' Ø13 bites and sit 2 mm deeper — by design.
 4. Pixels: **591 total** (454 word + 137 board) of EXACTLY 600 owned (strings of 50 —
    hard cap, user-confirmed). Leave the last string's unused 9-px tail ATTACHED and
    tucked in the plenum — it is the only spare stock (warranty covers DOA).
@@ -106,4 +126,5 @@ bed faces (B1–B4).
    Colors-only scenes draw far less.
 5. Board wiring: ONE 137-px data chain (pixels are addressable; color zones are
    software) — follow the `chain` index in `bolt_pixmap.json`; extension jumpers
-   at chain 87 and 108; jumper slack across seams like the word pieces.
+   at chain 86 and 107; jumper slack across seams like the word pieces.
+6. Hardware shopping: 23× M4×8 black button-head + 23× M4 hex nut (+ spares).
