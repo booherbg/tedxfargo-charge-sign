@@ -63,11 +63,22 @@ behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric trut
   cannot avoid grazing the X's near-vertical legs): y=255 full width, then top row splits at
   x=126, bottom row at x=153. Plates B1 153×255 / B2 257×255 / B3 126×295 / B4 284×295 — all
   fit 316×295. **CONTINUOUS MODE (2026-07-05):** channels cross the joints — 7 hairline lens
-  joints instead of pullback breaks; graze/corner checks still gate seam placement; pixels
-  and collars kept ≥12.5 mm off seams; ONE global fuzz field (fuzz_board_global.dat).
-- **Pixels:** 137 (116 yellow / 21 red) @20 mm pitch, relaxation-solved, seam-avoiding.
-  `src/parts/bolt_pixmap.json` = per-pixel color zone + plate + chain (136 links,
-  extension jumpers at chain 87 and 108).
+  joints instead of pullback breaks; graze/corner checks still gate seam placement;
+  ONE global fuzz field (fuzz_board_global.dat).
+- **SEAM STRAPS (2026-07-10, spec docs/superpowers/specs/2026-07-10-seam-bracket-design.md):**
+  4 white PETG splice straps (S1+S2 y=255 butt @145.5 / S3 x=126 / S4 x=153; 48 wide, 4 web +
+  8 rails, ~226 g) behind the seams REPLACE the y-seam wood rail. Plates screw to them with
+  M4×8 + captive hex nuts (23); frame catches PERIMETER wood screws only (14). Straps carry
+  Ø17 pass-holes for near-seam pixel bodies, leg sockets (Ø10.2 ×3, empty until sag says
+  otherwise), and TWO embedded collars.
+- **Pixels:** 137 (116 yellow / 21 red) @21.5 mm pitch, ANCHORED at the 7 seam crossings
+  (straddle pinned at ±9.5 mm perpendicular, keepout floor 9.5 — 1.5 mm collar web).
+  The two shallow crossings (31°/29°) pin the pixel ON the seam: collars live in the straps,
+  plates get Ø13 bites, pixel seats 2 mm deeper (inside the 10–20 optics window). Worst
+  seam-adjacent gap 23.5 mm (was 34–58). Assembly is BRACKETS-FIRST, then pixels through the
+  strap holes (printed pusher) — wires always route behind. `src/parts/bolt_pixmap.json` =
+  color zone + plate + `mount` (plate|bracket) + chain (136 links, jumpers at 86/107).
+  Review page: docs/sign-preview/bracket-preview.html (tools/gen_bracketpreview.py).
 - (Historic note: the earlier pullback design read as 4 aligned breaks across the X's waist;
   superseded by continuous mode per user feedback.)
 
@@ -76,8 +87,11 @@ Word: `tools/centerline.py` → `tools/panelize.py` → `tools/gen_pieces.py` �
 `src/parts/piece.scad` → `build_pieces.sh` → `tools/make_3mf.py` (manifold audit inline).
 Word bridging: `tools/bridge_word.py` (letters -> closed loops, in word_cuts.json).
 Board: `tools/bolt_compose6.py` (bridge + piecewise seam scan, CONTINUOUS mode; graze check,
-corner keepout, tangent-apex rejection) → `tools/boltboard.py --pitch 20` (seam-avoiding
-pixels/screws/global fuzz crops/pixmap+chain; zip-ties removed 2026-07-06 — light leaks) → `src/parts/bolt_piece.scad -D PIECE=1..4 -D COL=1..3` → `build_board.sh`.
+corner keepout, tangent-apex rejection) → `tools/boltboard.py` (anchored seam-crossing
+placement, pitch auto-solved to the 137 budget; channel-aware seam screw pairs; emits
+board_layout + bracket_layout + pixmap; zip-ties removed 2026-07-06 — light leaks) →
+`src/parts/bolt_piece.scad -D PIECE=1..4 -D COL=1..3` + `src/parts/bracket.scad -D STRAP=1..4`
+→ `build_board.sh` (plates, straps, pusher).
 Audits: `tools/clearance_audit.py` (26 mm channel rule with crisp-crossing exemption — run it
 on any new path vs the yellow), `tools/bolt_preview.py` (fast raster comps).
 Letter pixel truth: `src/parts/word_cuts.json` (454). Board: `bolt_el6.json` + pixmap.

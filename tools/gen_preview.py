@@ -75,9 +75,10 @@ def board_svg(px_r=3.2, detail=False):
             col = "#ffe98a" if p["color"] == "yellow" else "#ff9d8a"
             s.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s"/>'
                      % (p["x"], fy(p["y"]), px_r, col))
-        for x, y in bb_scr:
+        for x, y, *kind in bb_scr:   # kind: 1 = M4->strap nut, 0 = wood/frame
             s.append('<circle cx="%.1f" cy="%.1f" r="2.6" fill="none" '
-                     'stroke="#8fa2b8" stroke-width="1.4"/>' % (x, fy(y)))
+                     'stroke="%s" stroke-width="1.4"/>'
+                     % (x, fy(y), "#d9b23c" if kind and kind[0] else "#8fa2b8"))
         for x, y in bb_tie:
             s.append('<circle cx="%.1f" cy="%.1f" r="1.8" fill="#4d5763"/>' % (x, fy(y)))
     return "\n".join(s)

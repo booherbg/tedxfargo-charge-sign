@@ -35,6 +35,11 @@ cy1 = y1 - (y1 < bb_face[1] - 0.1 ? pb_seam : 0);
 pxs  = [for (p = bb_px)  if (p[0] >= x0 && p[0] < x1 && p[1] >= y0 && p[1] < y1) p];
 scrs = [for (p = bb_scr) if (p[0] >= x0 && p[0] < x1 && p[1] >= y0 && p[1] < y1) p];
 ties = [for (p = bb_tie) if (p[0] >= x0 && p[0] < x1 && p[1] >= y0 && p[1] < y1) p];
+// on-seam pixels (collar lives in the seam strap): Ø13 barrel bite, split
+// across the mating plate edges — expanded bounds so BOTH plates cut theirs
+bts  = [for (p = bb_bite) if (p[0] >= x0 - 10 && p[0] < x1 + 10
+                           && p[1] >= y0 - 10 && p[1] < y1 + 10) p];
+pb_bite_d = 13.0;
 
 module path_stroke(pts, w) {
     for (i = [0 : len(pts)-2])
@@ -55,6 +60,7 @@ module body_black() {
             for (p = pxs)  translate([p[0], p[1], -0.1]) cylinder(h=plate_t+0.2, d=collar_od);
             for (p = scrs) translate([p[0], p[1], -0.1]) cylinder(h=plate_t+0.2, d=pb_scr_d);
             for (p = ties) translate([p[0], p[1], -0.1]) cylinder(h=plate_t+0.2, d=pb_tie_d);
+            for (p = bts)  translate([p[0], p[1], -0.1]) cylinder(h=plate_t+0.2, d=pb_bite_d);
             translate([(x0+x1)/2, y0 + 14, -0.1]) linear_extrude(0.9) mirror([1,0,0])
                 text(str("B", PIECE), size=8, halign="center", valign="center");
         }
@@ -68,6 +74,8 @@ module body_white() {
             translate([0,0,plate_t]) linear_extrude(pb_liner_t) band(pb_ch_in);
             for (p = pxs) translate([p[0], p[1], -0.1])
                 cylinder(h=plate_t+pb_liner_t+0.2, d=pixel_through);
+            for (p = bts) translate([p[0], p[1], -0.1])
+                cylinder(h=plate_t+pb_liner_t+0.2, d=pb_bite_d);
         }
         translate([0,0,plate_t]) linear_extrude(pb_wall_h)
             difference() { band(pb_ch_in + 2*pb_wall_wh); band(pb_ch_in); }

@@ -1,964 +1,1101 @@
 {
- "pitch": 20.0,
+ "pitch": 21.5,
  "chain_note": "chain = physical data order (one chain, addressable pixels); links over 101.6mm need an extension jumper",
  "pixels": [
   {
-   "x": 193.28,
-   "y": 177.93,
+   "x": 238.61,
+   "y": 245.3,
    "color": "yellow",
    "plate": 2,
-   "chain": 0
-  },
-  {
-   "x": 201.76,
-   "y": 190.54,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 1
-  },
-  {
-   "x": 212.49,
-   "y": 206.46,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 2
-  },
-  {
-   "x": 223.6,
-   "y": 223.09,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 3
-  },
-  {
-   "x": 234.83,
-   "y": 239.64,
-   "color": "yellow",
-   "plate": 2,
+   "mount": "plate",
    "chain": 4
   },
   {
-   "x": 253.72,
-   "y": 267.91,
+   "x": 251.54,
+   "y": 264.71,
    "color": "yellow",
    "plate": 4,
+   "mount": "plate",
    "chain": 5
   },
   {
-   "x": 264.9,
-   "y": 284.5,
+   "x": 316.2,
+   "y": 264.56,
    "color": "yellow",
    "plate": 4,
-   "chain": 6
-  },
-  {
-   "x": 276.01,
-   "y": 301.12,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 7
-  },
-  {
-   "x": 287.16,
-   "y": 317.72,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 8
-  },
-  {
-   "x": 297.88,
-   "y": 333.66,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 9
-  },
-  {
-   "x": 306.5,
-   "y": 346.18,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 10
-  },
-  {
-   "x": 330.01,
-   "y": 351.34,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 11
-  },
-  {
-   "x": 350.0,
-   "y": 351.22,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 12
-  },
-  {
-   "x": 369.66,
-   "y": 350.02,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 13
-  },
-  {
-   "x": 362.74,
-   "y": 332.49,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 14
-  },
-  {
-   "x": 351.47,
-   "y": 315.97,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 15
-  },
-  {
-   "x": 340.16,
-   "y": 299.48,
-   "color": "yellow",
-   "plate": 4,
+   "mount": "plate",
    "chain": 16
   },
   {
-   "x": 328.84,
-   "y": 282.99,
+   "x": 303.08,
+   "y": 245.46,
    "color": "yellow",
-   "plate": 4,
+   "plate": 2,
+   "mount": "plate",
    "chain": 17
   },
   {
-   "x": 300.56,
-   "y": 241.76,
+   "x": 162.56,
+   "y": 67.21,
    "color": "yellow",
    "plate": 2,
-   "chain": 18
-  },
-  {
-   "x": 289.22,
-   "y": 225.29,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 19
-  },
-  {
-   "x": 277.9,
-   "y": 208.8,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 20
-  },
-  {
-   "x": 276.68,
-   "y": 190.82,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 21
-  },
-  {
-   "x": 287.92,
-   "y": 174.28,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 22
-  },
-  {
-   "x": 299.25,
-   "y": 157.8,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 23
-  },
-  {
-   "x": 310.55,
-   "y": 141.3,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 24
-  },
-  {
-   "x": 321.82,
-   "y": 124.78,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 25
-  },
-  {
-   "x": 333.16,
-   "y": 108.31,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 26
-  },
-  {
-   "x": 344.48,
-   "y": 91.81,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 27
-  },
-  {
-   "x": 355.8,
-   "y": 75.33,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 28
-  },
-  {
-   "x": 367.06,
-   "y": 58.8,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 29
-  },
-  {
-   "x": 378.13,
-   "y": 42.14,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 30
-  },
-  {
-   "x": 370.31,
-   "y": 29.26,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 31
-  },
-  {
-   "x": 350.31,
-   "y": 28.98,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 32
-  },
-  {
-   "x": 330.31,
-   "y": 28.98,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 33
-  },
-  {
-   "x": 310.31,
-   "y": 28.98,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 34
-  },
-  {
-   "x": 290.31,
-   "y": 28.98,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 35
-  },
-  {
-   "x": 270.31,
-   "y": 28.98,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 36
-  },
-  {
-   "x": 255.07,
-   "y": 38.98,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 37
-  },
-  {
-   "x": 244.79,
-   "y": 56.14,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 38
-  },
-  {
-   "x": 234.47,
-   "y": 73.27,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 39
-  },
-  {
-   "x": 224.19,
-   "y": 90.42,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 40
-  },
-  {
-   "x": 213.87,
-   "y": 107.56,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 41
-  },
-  {
-   "x": 202.47,
-   "y": 123.64,
-   "color": "yellow",
-   "plate": 2,
-   "chain": 42
-  },
-  {
-   "x": 189.02,
-   "y": 111.81,
-   "color": "yellow",
-   "plate": 2,
+   "mount": "plate",
    "chain": 43
   },
   {
-   "x": 178.84,
-   "y": 94.6,
+   "x": 153.0,
+   "y": 51.06,
    "color": "yellow",
    "plate": 2,
+   "mount": "bracket",
    "chain": 44
   },
   {
-   "x": 168.61,
-   "y": 77.41,
+   "x": 143.38,
+   "y": 35.24,
    "color": "yellow",
-   "plate": 2,
+   "plate": 1,
+   "mount": "plate",
    "chain": 45
   },
   {
-   "x": 140.43,
-   "y": 31.4,
+   "x": 106.08,
+   "y": 245.31,
    "color": "yellow",
    "plate": 1,
-   "chain": 46
-  },
-  {
-   "x": 121.24,
-   "y": 28.66,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 47
-  },
-  {
-   "x": 101.25,
-   "y": 28.43,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 48
-  },
-  {
-   "x": 81.25,
-   "y": 28.43,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 49
-  },
-  {
-   "x": 61.25,
-   "y": 28.43,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 50
-  },
-  {
-   "x": 41.25,
-   "y": 28.43,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 51
-  },
-  {
-   "x": 30.01,
-   "y": 38.13,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 52
-  },
-  {
-   "x": 40.85,
-   "y": 54.89,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 53
-  },
-  {
-   "x": 52.0,
-   "y": 71.5,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 54
-  },
-  {
-   "x": 63.22,
-   "y": 88.06,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 55
-  },
-  {
-   "x": 74.42,
-   "y": 104.62,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 56
-  },
-  {
-   "x": 85.6,
-   "y": 121.21,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 57
-  },
-  {
-   "x": 96.8,
-   "y": 137.77,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 58
-  },
-  {
-   "x": 107.97,
-   "y": 154.36,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 59
-  },
-  {
-   "x": 119.2,
-   "y": 170.92,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 60
-  },
-  {
-   "x": 130.4,
-   "y": 187.49,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 61
-  },
-  {
-   "x": 133.66,
-   "y": 205.41,
-   "color": "yellow",
-   "plate": 1,
+   "mount": "plate",
    "chain": 62
   },
   {
-   "x": 122.35,
-   "y": 221.9,
+   "x": 92.71,
+   "y": 264.68,
    "color": "yellow",
-   "plate": 1,
+   "plate": 3,
+   "mount": "plate",
    "chain": 63
   },
   {
-   "x": 110.95,
-   "y": 238.33,
-   "color": "yellow",
-   "plate": 1,
-   "chain": 64
-  },
-  {
-   "x": 90.44,
-   "y": 267.91,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 65
-  },
-  {
-   "x": 79.06,
-   "y": 284.36,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 66
-  },
-  {
-   "x": 67.69,
-   "y": 300.81,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 67
-  },
-  {
-   "x": 56.3,
-   "y": 317.25,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 68
-  },
-  {
-   "x": 45.06,
-   "y": 333.8,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 69
-  },
-  {
-   "x": 40.94,
+   "x": 116.5,
    "y": 350.4,
    "color": "yellow",
    "plate": 3,
-   "chain": 70
-  },
-  {
-   "x": 60.94,
-   "y": 350.4,
-   "color": "yellow",
-   "plate": 3,
+   "mount": "plate",
    "chain": 71
   },
   {
-   "x": 78.54,
-   "y": 350.4,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 72
-  },
-  {
-   "x": 93.74,
-   "y": 350.4,
-   "color": "yellow",
-   "plate": 3,
-   "chain": 73
-  },
-  {
-   "x": 138.92,
+   "x": 135.74,
    "y": 350.12,
    "color": "yellow",
    "plate": 4,
-   "chain": 74
+   "mount": "plate",
+   "chain": 72
   },
   {
-   "x": 158.92,
-   "y": 350.4,
+   "x": 192.5,
+   "y": 264.73,
    "color": "yellow",
    "plate": 4,
-   "chain": 75
-  },
-  {
-   "x": 178.92,
-   "y": 350.4,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 76
-  },
-  {
-   "x": 198.92,
-   "y": 350.4,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 77
-  },
-  {
-   "x": 210.46,
-   "y": 341.08,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 78
-  },
-  {
-   "x": 206.03,
-   "y": 321.58,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 79
-  },
-  {
-   "x": 201.48,
-   "y": 302.11,
-   "color": "yellow",
-   "plate": 4,
+   "mount": "plate",
    "chain": 80
   },
   {
-   "x": 196.8,
-   "y": 282.66,
+   "x": 187.82,
+   "y": 245.27,
    "color": "yellow",
-   "plate": 4,
+   "plate": 2,
+   "mount": "plate",
    "chain": 81
   },
   {
-   "x": 187.02,
-   "y": 241.82,
+   "x": 263.95,
+   "y": 283.1,
    "color": "yellow",
-   "plate": 2,
-   "chain": 82
+   "plate": 4,
+   "mount": "plate",
+   "chain": 6
   },
   {
-   "x": 182.36,
-   "y": 222.37,
+   "x": 276.29,
+   "y": 301.53,
    "color": "yellow",
-   "plate": 2,
-   "chain": 83
+   "plate": 4,
+   "mount": "plate",
+   "chain": 7
   },
   {
-   "x": 177.74,
-   "y": 202.91,
+   "x": 288.65,
+   "y": 319.95,
    "color": "yellow",
-   "plate": 2,
-   "chain": 84
+   "plate": 4,
+   "mount": "plate",
+   "chain": 8
   },
   {
-   "x": 174.27,
-   "y": 188.11,
+   "x": 301.06,
+   "y": 338.35,
    "color": "yellow",
-   "plate": 2,
-   "chain": 85
+   "plate": 4,
+   "mount": "plate",
+   "chain": 9
   },
   {
-   "x": 170.71,
-   "y": 173.33,
+   "x": 341.64,
+   "y": 351.22,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 10
+  },
+  {
+   "x": 360.63,
+   "y": 351.22,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 11
+  },
+  {
+   "x": 365.85,
+   "y": 337.14,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 12
+  },
+  {
+   "x": 353.84,
+   "y": 319.44,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 13
+  },
+  {
+   "x": 341.29,
+   "y": 301.15,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 14
+  },
+  {
+   "x": 328.75,
+   "y": 282.85,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 15
+  },
+  {
+   "x": 290.87,
+   "y": 227.7,
    "color": "yellow",
    "plate": 2,
-   "chain": 86
+   "mount": "plate",
+   "chain": 18
+  },
+  {
+   "x": 278.68,
+   "y": 209.93,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 19
+  },
+  {
+   "x": 276.78,
+   "y": 190.67,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 20
+  },
+  {
+   "x": 288.9,
+   "y": 172.86,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 21
+  },
+  {
+   "x": 301.07,
+   "y": 155.07,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 22
+  },
+  {
+   "x": 313.28,
+   "y": 137.31,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 23
+  },
+  {
+   "x": 325.47,
+   "y": 119.54,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 24
+  },
+  {
+   "x": 337.64,
+   "y": 101.76,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 25
+  },
+  {
+   "x": 349.84,
+   "y": 83.99,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 26
+  },
+  {
+   "x": 362.02,
+   "y": 66.21,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 27
+  },
+  {
+   "x": 374.06,
+   "y": 48.33,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 28
+  },
+  {
+   "x": 380.13,
+   "y": 29.34,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 29
+  },
+  {
+   "x": 358.62,
+   "y": 29.13,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 30
+  },
+  {
+   "x": 337.07,
+   "y": 28.98,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 31
+  },
+  {
+   "x": 315.52,
+   "y": 28.98,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 32
+  },
+  {
+   "x": 293.97,
+   "y": 28.98,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 33
+  },
+  {
+   "x": 272.42,
+   "y": 28.98,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 34
+  },
+  {
+   "x": 255.36,
+   "y": 38.51,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 35
+  },
+  {
+   "x": 244.27,
+   "y": 56.99,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 36
+  },
+  {
+   "x": 233.16,
+   "y": 75.46,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 37
+  },
+  {
+   "x": 222.07,
+   "y": 93.94,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 38
+  },
+  {
+   "x": 210.9,
+   "y": 112.37,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 39
+  },
+  {
+   "x": 196.01,
+   "y": 122.48,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 40
+  },
+  {
+   "x": 184.55,
+   "y": 104.28,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 41
+  },
+  {
+   "x": 173.56,
+   "y": 85.74,
+   "color": "yellow",
+   "plate": 2,
+   "mount": "plate",
+   "chain": 42
+  },
+  {
+   "x": 124.01,
+   "y": 28.7,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 46
+  },
+  {
+   "x": 101.94,
+   "y": 28.43,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 47
+  },
+  {
+   "x": 79.86,
+   "y": 28.43,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 48
+  },
+  {
+   "x": 57.78,
+   "y": 28.43,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 49
+  },
+  {
+   "x": 35.7,
+   "y": 28.43,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 50
+  },
+  {
+   "x": 32.86,
+   "y": 42.96,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 51
+  },
+  {
+   "x": 45.16,
+   "y": 61.29,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 52
+  },
+  {
+   "x": 57.43,
+   "y": 79.65,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 53
+  },
+  {
+   "x": 69.82,
+   "y": 97.93,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 54
+  },
+  {
+   "x": 82.19,
+   "y": 116.21,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 55
+  },
+  {
+   "x": 94.56,
+   "y": 134.51,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 56
+  },
+  {
+   "x": 106.93,
+   "y": 152.79,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 57
+  },
+  {
+   "x": 119.31,
+   "y": 171.08,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 58
+  },
+  {
+   "x": 131.68,
+   "y": 189.36,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 59
+  },
+  {
+   "x": 131.26,
+   "y": 209.04,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 60
+  },
+  {
+   "x": 118.68,
+   "y": 227.18,
+   "color": "yellow",
+   "plate": 1,
+   "mount": "plate",
+   "chain": 61
+  },
+  {
+   "x": 79.91,
+   "y": 283.11,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 64
+  },
+  {
+   "x": 67.16,
+   "y": 301.58,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 65
+  },
+  {
+   "x": 54.39,
+   "y": 320.03,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 66
+  },
+  {
+   "x": 42.32,
+   "y": 337.99,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 67
+  },
+  {
+   "x": 49.99,
+   "y": 350.4,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 68
+  },
+  {
+   "x": 71.63,
+   "y": 350.4,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 69
+  },
+  {
+   "x": 87.67,
+   "y": 350.4,
+   "color": "yellow",
+   "plate": 3,
+   "mount": "plate",
+   "chain": 70
+  },
+  {
+   "x": 155.94,
+   "y": 350.4,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 73
+  },
+  {
+   "x": 176.14,
+   "y": 350.4,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 74
+  },
+  {
+   "x": 196.35,
+   "y": 350.4,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 75
+  },
+  {
+   "x": 210.73,
+   "y": 343.43,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 76
+  },
+  {
+   "x": 206.53,
+   "y": 323.69,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 77
+  },
+  {
+   "x": 201.92,
+   "y": 304.02,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 78
+  },
+  {
+   "x": 197.21,
+   "y": 284.38,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 79
   },
   {
    "x": 183.0,
-   "y": 167.45,
+   "y": 225.04,
    "color": "yellow",
    "plate": 2,
-   "chain": 87
+   "mount": "plate",
+   "chain": 82
   },
   {
-   "x": 316.07,
-   "y": 358.16,
+   "x": 178.17,
+   "y": 204.81,
    "color": "yellow",
-   "plate": 4,
-   "chain": 109
+   "plate": 2,
+   "mount": "plate",
+   "chain": 83
   },
   {
-   "x": 323.18,
-   "y": 371.46,
+   "x": 174.35,
+   "y": 188.45,
    "color": "yellow",
-   "plate": 4,
-   "chain": 110
+   "plate": 2,
+   "mount": "plate",
+   "chain": 84
   },
   {
-   "x": 333.87,
-   "y": 387.41,
+   "x": 170.8,
+   "y": 173.67,
    "color": "yellow",
-   "plate": 4,
-   "chain": 111
+   "plate": 2,
+   "mount": "plate",
+   "chain": 85
   },
   {
-   "x": 336.36,
-   "y": 403.87,
+   "x": 184.26,
+   "y": 168.48,
    "color": "yellow",
-   "plate": 4,
-   "chain": 112
+   "plate": 2,
+   "mount": "plate",
+   "chain": 86
   },
   {
-   "x": 316.36,
-   "y": 403.87,
+   "x": 194.4,
+   "y": 179.58,
    "color": "yellow",
-   "plate": 4,
-   "chain": 113
+   "plate": 2,
+   "mount": "plate",
+   "chain": 0
   },
   {
-   "x": 296.36,
-   "y": 403.87,
+   "x": 203.77,
+   "y": 193.53,
    "color": "yellow",
-   "plate": 4,
-   "chain": 114
+   "plate": 2,
+   "mount": "plate",
+   "chain": 1
   },
   {
-   "x": 276.36,
-   "y": 403.87,
+   "x": 215.4,
+   "y": 210.77,
    "color": "yellow",
-   "plate": 4,
-   "chain": 115
+   "plate": 2,
+   "mount": "plate",
+   "chain": 2
   },
   {
-   "x": 256.37,
-   "y": 403.6,
+   "x": 226.99,
+   "y": 228.05,
    "color": "yellow",
-   "plate": 4,
-   "chain": 116
+   "plate": 2,
+   "mount": "plate",
+   "chain": 3
   },
   {
-   "x": 252.49,
-   "y": 418.59,
+   "x": 314.67,
+   "y": 352.74,
    "color": "yellow",
    "plate": 4,
-   "chain": 117
+   "mount": "plate",
+   "chain": 108
   },
   {
-   "x": 262.73,
-   "y": 435.76,
+   "x": 135.56,
+   "y": 418.61,
    "color": "yellow",
    "plate": 4,
-   "chain": 118
-  },
-  {
-   "x": 272.95,
-   "y": 452.96,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 119
-  },
-  {
-   "x": 283.22,
-   "y": 470.12,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 120
-  },
-  {
-   "x": 293.46,
-   "y": 487.3,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 121
-  },
-  {
-   "x": 303.64,
-   "y": 504.51,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 122
-  },
-  {
-   "x": 306.43,
-   "y": 521.53,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 123
-  },
-  {
-   "x": 286.43,
-   "y": 521.58,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 124
-  },
-  {
-   "x": 266.43,
-   "y": 521.58,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 125
-  },
-  {
-   "x": 246.43,
-   "y": 521.58,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 126
-  },
-  {
-   "x": 226.43,
-   "y": 521.58,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 127
-  },
-  {
-   "x": 206.43,
-   "y": 521.58,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 128
-  },
-  {
-   "x": 188.65,
-   "y": 515.98,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 129
-  },
-  {
-   "x": 179.08,
-   "y": 498.42,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 130
-  },
-  {
-   "x": 169.5,
-   "y": 480.87,
-   "color": "yellow",
-   "plate": 4,
-   "chain": 131
-  },
-  {
-   "x": 159.93,
-   "y": 463.31,
-   "color": "yellow",
-   "plate": 4,
+   "mount": "plate",
    "chain": 132
   },
   {
-   "x": 150.35,
-   "y": 445.75,
+   "x": 126.0,
+   "y": 401.04,
    "color": "yellow",
    "plate": 4,
+   "mount": "bracket",
    "chain": 133
   },
   {
-   "x": 140.78,
-   "y": 428.19,
+   "x": 116.44,
+   "y": 383.47,
    "color": "yellow",
-   "plate": 4,
+   "plate": 3,
+   "mount": "plate",
    "chain": 134
   },
   {
-   "x": 113.05,
-   "y": 377.25,
+   "x": 102.35,
+   "y": 351.63,
    "color": "yellow",
    "plate": 3,
-   "chain": 135
+   "mount": "plate",
+   "chain": 136
   },
   {
-   "x": 104.63,
-   "y": 360.94,
+   "x": 323.52,
+   "y": 371.97,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 109
+  },
+  {
+   "x": 334.96,
+   "y": 389.12,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 110
+  },
+  {
+   "x": 331.32,
+   "y": 403.87,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 111
+  },
+  {
+   "x": 310.71,
+   "y": 403.87,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 112
+  },
+  {
+   "x": 289.29,
+   "y": 403.87,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 113
+  },
+  {
+   "x": 267.89,
+   "y": 403.78,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 114
+  },
+  {
+   "x": 248.36,
+   "y": 406.39,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 115
+  },
+  {
+   "x": 256.73,
+   "y": 425.72,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 116
+  },
+  {
+   "x": 267.69,
+   "y": 444.12,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 117
+  },
+  {
+   "x": 278.66,
+   "y": 462.51,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 118
+  },
+  {
+   "x": 289.64,
+   "y": 480.89,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 119
+  },
+  {
+   "x": 300.56,
+   "y": 499.31,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 120
+  },
+  {
+   "x": 309.2,
+   "y": 518.64,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 121
+  },
+  {
+   "x": 289.65,
+   "y": 521.58,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 122
+  },
+  {
+   "x": 268.24,
+   "y": 521.58,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 123
+  },
+  {
+   "x": 246.83,
+   "y": 521.58,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 124
+  },
+  {
+   "x": 225.41,
+   "y": 521.58,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 125
+  },
+  {
+   "x": 204.0,
+   "y": 521.58,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 126
+  },
+  {
+   "x": 186.8,
+   "y": 512.62,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 127
+  },
+  {
+   "x": 176.54,
+   "y": 493.82,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 128
+  },
+  {
+   "x": 166.29,
+   "y": 475.03,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 129
+  },
+  {
+   "x": 156.05,
+   "y": 456.22,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 130
+  },
+  {
+   "x": 145.82,
+   "y": 437.41,
+   "color": "yellow",
+   "plate": 4,
+   "mount": "plate",
+   "chain": 131
+  },
+  {
+   "x": 108.09,
+   "y": 368.06,
    "color": "yellow",
    "plate": 3,
-   "chain": 136
+   "mount": "plate",
+   "chain": 135
   },
   {
    "x": 255.5,
    "y": 494.43,
    "color": "red",
    "plate": 4,
-   "chain": 108
-  },
-  {
-   "x": 241.8,
-   "y": 479.86,
-   "color": "red",
-   "plate": 4,
+   "mount": "plate",
    "chain": 107
   },
   {
-   "x": 228.1,
-   "y": 465.29,
+   "x": 221.5,
+   "y": 267.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
+   "chain": 87
+  },
+  {
+   "x": 241.1,
+   "y": 479.12,
+   "color": "red",
+   "plate": 4,
+   "mount": "plate",
    "chain": 106
   },
   {
-   "x": 214.4,
-   "y": 450.72,
+   "x": 226.7,
+   "y": 463.8,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 105
   },
   {
-   "x": 200.7,
-   "y": 436.14,
+   "x": 212.3,
+   "y": 448.49,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 104
   },
   {
-   "x": 187.0,
-   "y": 421.57,
+   "x": 197.91,
+   "y": 433.17,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 103
   },
   {
-   "x": 173.3,
-   "y": 407.0,
+   "x": 183.51,
+   "y": 417.86,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 102
   },
   {
-   "x": 159.6,
-   "y": 392.43,
+   "x": 169.11,
+   "y": 402.54,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 101
   },
   {
-   "x": 145.9,
-   "y": 377.86,
+   "x": 157.45,
+   "y": 390.14,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 100
   },
   {
-   "x": 164.91,
+   "x": 149.08,
    "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 99
   },
   {
-   "x": 184.91,
+   "x": 174.1,
    "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 98
   },
   {
-   "x": 204.91,
+   "x": 195.12,
    "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 97
   },
   {
-   "x": 224.91,
+   "x": 216.14,
    "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 96
   },
   {
-   "x": 244.91,
+   "x": 237.16,
    "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 95
   },
   {
-   "x": 264.91,
+   "x": 258.18,
    "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 94
   },
   {
-   "x": 274.16,
-   "y": 365.61,
+   "x": 279.2,
+   "y": 377.43,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 93
   },
   {
-   "x": 264.71,
-   "y": 347.99,
+   "x": 271.18,
+   "y": 360.05,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 92
   },
   {
-   "x": 255.25,
-   "y": 330.36,
+   "x": 261.24,
+   "y": 341.53,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 91
   },
   {
-   "x": 245.8,
-   "y": 312.74,
+   "x": 251.31,
+   "y": 323.0,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 90
   },
   {
-   "x": 236.35,
-   "y": 295.11,
+   "x": 241.37,
+   "y": 304.48,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 89
   },
   {
-   "x": 226.89,
-   "y": 277.49,
+   "x": 231.44,
+   "y": 285.95,
    "color": "red",
    "plate": 4,
+   "mount": "plate",
    "chain": 88
   }
  ]
