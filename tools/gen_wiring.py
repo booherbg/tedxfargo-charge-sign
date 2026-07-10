@@ -108,7 +108,10 @@ def ledmap(chain, name, w_mm, h_mm, ox=0.0, oy=0.0, cell=10.0):
         idx = gy * W_ + gx
         assert grid[idx] == -1, "cell collision at %s" % ((p["x"], p["y"]),)
         grid[idx] = p["chain"]
-    return {"n": name, "w": W_, "h": H_, "map": grid}
+    # WLED 16.x deserializeMap reads "width"/"height" (NOT "w"/"h"); extra keys
+    # like "n" pass through its filter harmlessly. Array is grid-position-indexed
+    # (row 0 = top), values = physical LED index, -1 = no LED in that cell.
+    return {"n": name, "width": W_, "height": H_, "map": grid}
 
 json.dump(ledmap(board, "CHARGE bolt board", FW, FH),
           open("dist/wled/ledmap_board.json", "w"))
@@ -304,18 +307,25 @@ color runs start-to-end along this gradient:</p>
 Chain runs each tube end-to-end, nearest-end hops between tubes, letters strictly
 left→right (C first, nearest the controller/PSU side).</div>
 
-<h2>WLED setup</h2>
+<h2>WLED setup (verified against WLED 16.x)</h2>
 <ol style="padding-left:22px">
+<li><b>Use 16.0.1 or newer</b> — 16.0.1 fixed a ledmap parser bounds bug
+(reading past the end of the map array).</li>
 <li>Two controllers (or two outputs): board GPIO → 137 px, word GPIO → {{WPX}} px.</li>
-<li>Upload the 2D maps in the WLED web UI → <b>Config → LED Preferences → led­map</b>, or
-copy to the filesystem at <code>/edit</code> as <code>ledmap.json</code>
-(files: <code>dist/wled/ledmap_board.json</code> — {{BGRID}} grid,
-<code>dist/wled/ledmap_word.json</code> — {{WGRID}} grid; 10&nbsp;mm cells, −1 = gap).
-With the map loaded, 2D effects (Matrix, DNA, plasma…) render in true sign space.</li>
-<li>Segment scenes to start from: <code>dist/wled/preset_board.json</code> (yellow/red/yellow)
-and <code>dist/wled/preset_word.json</code> (one segment per letter) — import via
-Presets → backup/restore, or paste each <code>seg</code> array into the JSON API
-(<code>/json/state</code>).</li>
+<li>Upload each map to the controller's filesystem at <code>/edit</code>, renamed to
+<code>ledmap.json</code> (or <code>ledmap1.json</code>… for switchable maps):
+<code>ledmap_board.json</code> — {{BGRID}} grid, <code>ledmap_word.json</code> —
+{{WGRID}} grid; 10&nbsp;mm cells, −1 = empty cell. Files use the
+<code>"width"/"height"</code> keys WLED 16.x parses. With the map loaded, 2D effects
+(plasma, Matrix, DNA…) render in true sign space.</li>
+<li>Also enable 2D in <b>Config → 2D Configuration</b> with the SAME dimensions
+({{BGRID}} / {{WGRID}}). Known quirk since 0.15 (issue #5082): if the sign boots as a
+single line of pixels, open 2D Configuration and hit Save once — then it sticks.</li>
+<li>Segment scenes to start from: <code>preset_board.json</code> (yellow/red/yellow) and
+<code>preset_word.json</code> (one segment per letter) — merge into the controller's
+<code>presets.json</code> via the Presets backup/restore, or paste each <code>seg</code>
+array into the JSON API (<code>/json/state</code>). Segment fields (start/stop/col/fx)
+are unchanged in 16.x; stop is exclusive.</li>
 <li>Colors are software — the bolt's red zone is chain 87–107 no matter what's playing.</li>
 </ol>
 </div>
@@ -337,7 +347,8 @@ for k, v in {
     "{{BEXT}}": str(len(bext)), "{{WEXT}}": str(len(wext)),
     "{{BMAX}}": "%.0f" % max(blinks), "{{WMAX}}": "%.0f" % max(wlinks),
     "{{WPX}}": str(len(word)),
-    "{{BGRID}}": "%d×%d" % (bm["w"], bm["h"]), "{{WGRID}}": "%d×%d" % (wm["w"], wm["h"]),
+    "{{BGRID}}": "%d×%d" % (bm["width"], bm["height"]),
+    "{{WGRID}}": "%d×%d" % (wm["width"], wm["height"]),
 }.items():
     html = html.replace(k, v)
 open("docs/sign-preview/wiring.html", "w").write(html)
