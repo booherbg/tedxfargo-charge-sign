@@ -16,25 +16,93 @@ Swatch colors come from the two filaments loaded in your Bambu project (set slot
 import os, sys, zipfile
 
 def parse_stl(path):
-    verts, tris, vmap, cur = [], [], {}, []
+    """Read an ASCII STL and build an edge-manifold indexed mesh.
+
+    Vertices are welded through GLUED EDGES, not by raw position: each directed
+    edge side is paired with exactly one opposite-orientation side at the same
+    position. Where a position-edge has >2 sides (two solids of a CGAL union
+    touching along a line, e.g. V8 facet-field tangencies), the extra pair keeps
+    its own duplicate vertices — the sheets separate topologically while every
+    written coordinate stays identical, so the sliced result is unchanged but
+    Bambu's non-manifold-edge check passes."""
+    corners, cur = [], []          # position strings, 3 per triangle
     with open(path) as f:
         for line in f:
             s = line.split()
             if len(s) == 4 and s[0] == "vertex":
-                key = (s[1], s[2], s[3])
-                idx = vmap.get(key)
-                if idx is None:
-                    idx = len(verts); vmap[key] = idx; verts.append(key)
-                cur.append(idx)
+                cur.append((s[1], s[2], s[3]))
                 if len(cur) == 3:
-                    tris.append(tuple(cur)); cur = []
+                    if cur[0] != cur[1] and cur[1] != cur[2] and cur[0] != cur[2]:
+                        corners.extend(cur)          # drop degenerate tris
+                    cur = []
+    ntri = len(corners) // 3
+
+    parent = list(range(len(corners)))               # union-find over corners
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]; a = parent[a]
+        return a
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb: parent[rb] = ra
+
+    from collections import defaultdict
+    sides = defaultdict(list)                        # pos-edge -> [(corner_u, corner_v)]
+    for t in range(ntri):
+        for s in range(3):
+            cu, cv = 3 * t + s, 3 * t + (s + 1) % 3
+            u, v = corners[cu], corners[cv]
+            side = (cu, cv) if u < v else (cv, cu)   # corners in key order
+            sides[min(u, v), max(u, v)].append(side)
+    # Weld only through clean 2-side edges. Pinch edges (>2 sides: one self-tangent
+    # CGAL surface crossing itself along a line) get NO welds — each wing's corners
+    # then unify around the vertex umbrellas via its own sheet's clean edges, so the
+    # sheets come out with separate indices at the seam and every edge ends up 2-sided.
+    pinch_edges = []
+    for key, ss in sides.items():
+        if len(ss) == 2:
+            union(ss[0][0], ss[1][0]); union(ss[0][1], ss[1][1])
+        elif len(ss) > 2:
+            pinch_edges.append(ss)
+    if pinch_edges:
+        # Pair the wings sheet-by-sheet: two sides belong to the same sheet iff
+        # their corners already share a class at one endpoint (welded around the
+        # seam-endpoint umbrellas). Weld the paired sides' other corners, and
+        # iterate so the pairing propagates inward along pinch CHAINS (a chain-
+        # interior vertex has no umbrella path that avoids the seam).
+        changed = True
+        while changed:
+            changed = False
+            for ss in pinch_edges:
+                for slot in (0, 1):
+                    groups = defaultdict(list)
+                    for side in ss:
+                        groups[find(side[slot])].append(side)
+                    for g in groups.values():
+                        if len(g) == 2:
+                            oa, ob = g[0][1 - slot], g[1][1 - slot]
+                            if find(oa) != find(ob):
+                                union(oa, ob); changed = True
+        print("healed %s: %d pinch edge(s) fan-split (geometry unchanged)"
+              % (os.path.basename(path), len(pinch_edges)))
+
+    verts, vid, tris = [], {}, []
+    for t in range(ntri):
+        idx = []
+        for s in range(3):
+            r = find(3 * t + s)
+            i = vid.get(r)
+            if i is None:
+                i = len(verts); vid[r] = i; verts.append(corners[3 * t + s])
+            idx.append(i)
+        tris.append(tuple(idx))
     audit_manifold(path, tris)
     return verts, tris
 
 def audit_manifold(path, tris):
     """Every edge of a closed manifold mesh is shared by exactly 2 triangles.
-    Slicers tolerate small violations, but flag them here so defects are caught
-    at build time, not on the printer's machine (learned via fuzz pinch edges)."""
+    Hard gate: a violation here is exactly what Bambu will flag on the object
+    (learned via fuzz pinch edges — and warn-only let V8 facet pinches ship)."""
     from collections import Counter
     edges, degen = Counter(), 0
     for a, b, c in tris:
@@ -45,8 +113,8 @@ def audit_manifold(path, tris):
             edges[tuple(sorted(e))] += 1
     bad = sum(1 for n in edges.values() if n != 2)
     if bad or degen:
-        print("WARNING: %s: %d non-manifold edge(s), %d degenerate tri(s)"
-              % (path, bad, degen))
+        raise SystemExit("FAIL: %s: %d non-manifold edge(s), %d degenerate tri(s) "
+                         "after heal — fix the geometry, do not ship" % (path, bad, degen))
 
 def mesh_xml(verts, tris):
     v = "".join('<vertex x="%s" y="%s" z="%s"/>' % t for t in verts)
