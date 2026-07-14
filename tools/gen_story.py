@@ -222,8 +222,10 @@ corner by 0.8&nbsp;mm. Fixed, re-rendered, re-audited, then printed.</p>
 <p>Wiring diagrams are drawn <b>as seen from behind</b>, because that's where the
 person with the wire strippers stands. One data chain per sign — the word runs
 C→E letter by letter, the bolt's red strike falls out as one contiguous block
-(chain 87–107), and exactly <b>eight links in the whole sign need a splice
-extension</b>; everything else folds its slack into the plenum. The chains compile
+(chain 87–107), and exactly <b>seven links in the whole sign need a splice
+extension</b> — it was eight until the human wiring the R spotted a smarter loop
+entry than the algorithm did and saved a jumper (the map was updated to match the
+sign, as-built). Everything else folds its slack into the plenum. The chains compile
 straight into WLED&nbsp;16 mappings: 2D grids at 10&nbsp;mm resolution, so plasma
 and fire effects render in true sign-space, plus ready-made segment presets for the
 color zones.</p>
