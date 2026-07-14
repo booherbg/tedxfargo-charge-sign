@@ -462,7 +462,13 @@ def build(
         from .leds import wled_ledmap
 
         wpath = out / "wled_ledmap.json"
-        wpath.write_text(_json.dumps(wled_ledmap(ledplan.pixels, ledplan.per_stroke)))
+        # compact separators are load-bearing: WLED 16.x streams the map with
+        # a byte-exact '"map":[' search — '"map": [' (space) loads zero entries
+        wpath.write_text(
+            _json.dumps(
+                wled_ledmap(ledplan.pixels, ledplan.per_stroke), separators=(",", ":")
+            )
+        )
         files.append(str(wpath))
 
     params_path = out / "params.json"

@@ -52,6 +52,9 @@ def test_kit_ships_wled_map(tmp_path, bungee):
     assert wf.exists() and str(wf) in result.files
     data = json.loads(wf.read_text())
     assert data["n"] == result.stats["pixels"]
+    # WLED 16.x streams the map with a byte-exact '"map":[' search; a space
+    # after the colon silently loads zero entries — keep the file compact
+    assert '"map":[' in wf.read_text()
     bom = (tmp_path / "out" / "BOM.md").read_text()
     assert "wled_ledmap.json" in bom
 

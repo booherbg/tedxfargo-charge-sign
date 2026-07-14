@@ -28,7 +28,10 @@ def wled_ledmap(
 
     LED indices follow the wiring chain. Cells hold the LED index or -1.
     Rows are top-first (WLED's y grows downward). Upload the JSON as
-    `ledmap.json`; set LED Preferences → 2D → matrix W×H."""
+    `ledmap.json`; on WLED 16.x the width/height keys switch the controller
+    into 2D matrix mode at boot (no 2D Configuration needed). NOTE: once the
+    map loads, segments are rectangles (start/stop = columns, startY/stopY =
+    rows), not chain ranges."""
     order = [i for run in per_stroke for i in run]
     if not order:
         return {"width": 0, "height": 0, "map": [], "n": 0}
