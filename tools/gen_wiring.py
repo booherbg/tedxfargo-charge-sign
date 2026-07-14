@@ -6,8 +6,8 @@
 - Reads the BOARD chain from src/parts/bolt_pixmap.json.
 - Emits docs/sign-preview/wiring.html: per-sign back-view (as wired) + front
   view, chain gradient with direction arrows, extension cut list, WLED card.
-- Emits dist/wled/: ledmap_board.json, ledmap_word.json (2D grids, 10 mm
-  cells, -1 = empty) + preset_board.json, preset_word.json (segment scenes).
+- Emits wled/{word,board}-controller/: ledmap.json (2D grid, 10 mm cells,
+  -1 = empty) + presets.json (segment scenes) — named ready to upload at /edit.
 4-inch strings: links over 101.6 mm need cutting + an extension splice.
 """
 import json, math, os, re
@@ -112,7 +112,8 @@ bext = [(k, blinks[k]) for k in range(len(blinks)) if blinks[k] > LINK_MM]
 wext = [(k, wlinks[k]) for k in range(len(wlinks)) if wlinks[k] > LINK_MM]
 
 # ---------- WLED ledmaps + presets ----------
-os.makedirs("dist/wled", exist_ok=True)
+os.makedirs("wled/word-controller", exist_ok=True)
+os.makedirs("wled/board-controller", exist_ok=True)
 def ledmap(chain, name, w_mm, h_mm, ox=0.0, oy=0.0, cell=10.0):
     W_, H_ = math.ceil(w_mm / cell), math.ceil(h_mm / cell)
     grid = [-1] * (W_ * H_)
@@ -128,9 +129,9 @@ def ledmap(chain, name, w_mm, h_mm, ox=0.0, oy=0.0, cell=10.0):
     return {"n": name, "width": W_, "height": H_, "map": grid}
 
 json.dump(ledmap(board, "CHARGE bolt board", FW, FH),
-          open("dist/wled/ledmap_board.json", "w"))
+          open("wled/board-controller/ledmap.json", "w"))
 json.dump(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0),
-          open("dist/wled/ledmap_word.json", "w"))
+          open("wled/word-controller/ledmap.json", "w"))
 
 def seg(start, stop_excl, col, name):
     return {"start": start, "stop": stop_excl, "col": [col, [0,0,0], [0,0,0]],
@@ -146,7 +147,7 @@ json.dump({"1": {"n": "Bolt zones", "mainseg": 0, "on": True, "bri": 200,
                  "seg": [seg(a, b + 1, [255, 190, 30] if c == "yellow"
                              else [255, 40, 20], "%s %d-%d" % (c, a, b))
                          for c, a, b in bruns]}},
-          open("dist/wled/preset_board.json", "w"), indent=1)
+          open("wled/board-controller/presets.json", "w"), indent=1)
 lruns, cur = [], None
 for p in word:
     if cur and cur[0] == p["letter"]:
@@ -157,7 +158,7 @@ for p in word:
 json.dump({"1": {"n": "Word letters", "mainseg": 0, "on": True, "bri": 200,
                  "seg": [seg(a, b + 1, [235, 245, 255], "%s %d-%d" % (L, a, b))
                          for L, a, b in lruns]}},
-          open("dist/wled/preset_word.json", "w"), indent=1)
+          open("wled/word-controller/presets.json", "w"), indent=1)
 
 # ---------- wiring page ----------
 def hue(f):                              # chain-position gradient, readable on dark
@@ -328,15 +329,15 @@ left→right (C first, nearest the controller/PSU side).</div>
 <li>Two controllers (or two outputs): board GPIO → 137 px, word GPIO → {{WPX}} px.</li>
 <li>Upload each map to the controller's filesystem at <code>/edit</code>, renamed to
 <code>ledmap.json</code> (or <code>ledmap1.json</code>… for switchable maps):
-<code>ledmap_board.json</code> — {{BGRID}} grid, <code>ledmap_word.json</code> —
+<code>wled/board-controller/ledmap.json</code> — {{BGRID}} grid, <code>wled/word-controller/ledmap.json</code> —
 {{WGRID}} grid; 10&nbsp;mm cells, −1 = empty cell. Files use the
 <code>"width"/"height"</code> keys WLED 16.x parses. With the map loaded, 2D effects
 (plasma, Matrix, DNA…) render in true sign space.</li>
 <li>Also enable 2D in <b>Config → 2D Configuration</b> with the SAME dimensions
 ({{BGRID}} / {{WGRID}}). Known quirk since 0.15 (issue #5082): if the sign boots as a
 single line of pixels, open 2D Configuration and hit Save once — then it sticks.</li>
-<li>Segment scenes to start from: <code>preset_board.json</code> (yellow/red/yellow) and
-<code>preset_word.json</code> (one segment per letter) — merge into the controller's
+<li>Segment scenes to start from: <code>wled/board-controller/presets.json</code> (yellow/red/yellow) and
+<code>wled/word-controller/presets.json</code> (one segment per letter) — merge into the controller's
 <code>presets.json</code> via the Presets backup/restore, or paste each <code>seg</code>
 array into the JSON API (<code>/json/state</code>). Segment fields (start/stop/col/fx)
 are unchanged in 16.x; stop is exclusive.</li>
@@ -370,4 +371,4 @@ print("word chain: %d px, run %.1fm, %d extensions (max link %.0fmm)"
       % (len(word), sum(wlinks) / 1000, len(wext), max(wlinks)))
 print("board chain: %d px, run %.1fm, %d extensions (max link %.0fmm)"
       % (len(board), sum(blinks) / 1000, len(bext), max(blinks)))
-print("wrote wiring.html + word_pixmap.json + dist/wled/{ledmap,preset}_{board,word}.json")
+print("wrote wiring.html + word_pixmap.json + wled/{word,board}-controller/{ledmap,presets}.json")
