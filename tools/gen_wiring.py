@@ -7,7 +7,10 @@
 - Emits docs/sign-preview/wiring.html: per-sign back-view (as wired) + front
   view, chain gradient with direction arrows, extension cut list, WLED card.
 - Emits wled/{word,board}-controller/: ledmap.json (2D grid, 10 mm cells,
-  -1 = empty) + presets.json (segment scenes) — named ready to upload at /edit.
+  -1 = empty) + presets.json (2D rect segment scenes) — named ready to upload
+  at /edit. NOTE: once the ledmap loads, WLED is a 2D matrix and segments are
+  RECTANGLES (start/stop = columns, startY/stopY = rows, stops exclusive);
+  chain-index segments would be reinterpreted as garbage rectangles.
 4-inch strings: links over 101.6 mm need cutting + an extension splice.
 """
 import json, math, os, re
@@ -114,28 +117,126 @@ wext = [(k, wlinks[k]) for k in range(len(wlinks)) if wlinks[k] > LINK_MM]
 # ---------- WLED ledmaps + presets ----------
 os.makedirs("wled/word-controller", exist_ok=True)
 os.makedirs("wled/board-controller", exist_ok=True)
-def ledmap(chain, name, w_mm, h_mm, ox=0.0, oy=0.0, cell=10.0):
-    W_, H_ = math.ceil(w_mm / cell), math.ceil(h_mm / cell)
+CELL = 10.0
+def grid_xy(p, w_mm, h_mm, ox=0.0, oy=0.0):
+    W_, H_ = math.ceil(w_mm / CELL), math.ceil(h_mm / CELL)
+    return (min(W_ - 1, int((p["x"] - ox) / CELL)),
+            min(H_ - 1, int((h_mm - (p["y"] - oy) - 0.001) / CELL)))  # row 0 = top
+
+def ledmap(chain, name, w_mm, h_mm, ox=0.0, oy=0.0):
+    W_, H_ = math.ceil(w_mm / CELL), math.ceil(h_mm / CELL)
     grid = [-1] * (W_ * H_)
     for p in chain:
-        gx = min(W_ - 1, int((p["x"] - ox) / cell))
-        gy = min(H_ - 1, int((h_mm - (p["y"] - oy) - 0.001) / cell))  # row 0 = top
+        gx, gy = grid_xy(p, w_mm, h_mm, ox, oy)
         idx = gy * W_ + gx
         assert grid[idx] == -1, "cell collision at %s" % ((p["x"], p["y"]),)
         grid[idx] = p["chain"]
     # WLED 16.x deserializeMap reads "width"/"height" (NOT "w"/"h"); extra keys
     # like "n" pass through its filter harmlessly. Array is grid-position-indexed
     # (row 0 = top), values = physical LED index, -1 = no LED in that cell.
+    # Loading a default ledmap with width/height sets matrix dims + 2D mode at
+    # boot — no 2D Configuration needed, and 2d-gaps.json is ignored entirely.
     return {"n": name, "width": W_, "height": H_, "map": grid}
 
-json.dump(ledmap(board, "CHARGE bolt board", FW, FH),
-          open("wled/board-controller/ledmap.json", "w"))
-json.dump(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0),
-          open("wled/word-controller/ledmap.json", "w"))
+# COMPACT separators are load-bearing: WLED 16.x streams the map with a raw
+# byte search for `"map":[` (FX_fcn.cpp deserializeMap) — `"map": [` with a
+# space silently loads ZERO entries and the matrix falls back to an identity
+# map (chain crammed into the top rows). width/height still apply, which
+# makes the failure look like a scrambled 2D layout, not a missing file.
+for path, m in (("wled/board-controller/ledmap.json",
+                 ledmap(board, "CHARGE bolt board", FW, FH)),
+                ("wled/word-controller/ledmap.json",
+                 ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"],
+                        ox=wx0, oy=wy0))):
+    json.dump(m, open(path, "w"), separators=(",", ":"))
+    assert '"map":[' in open(path).read(), "%s: map key not byte-exact" % path
 
-def seg(start, stop_excl, col, name):
-    return {"start": start, "stop": stop_excl, "col": [col, [0,0,0], [0,0,0]],
-            "fx": 0, "n": name, "on": True, "bri": 255}
+# Segments in 2D mode are rectangles; WLED v16 composites them in id order
+# with blend mode 0 ("top"), so a later rect paints over an earlier one.
+def rseg(i, x0, x1, y0, y1, col, name):
+    return {"id": i, "start": x0, "stop": x1, "startY": y0, "stopY": y1,
+            "col": [col, [0, 0, 0], [0, 0, 0]], "fx": 0, "n": name,
+            "on": True, "bri": 255}
+
+def pad(segs):  # {"stop":0} deletes leftover segments on the controller
+    return segs + [{"id": i, "stop": 0} for i in range(len(segs), 32)]
+
+def paint(segs, W_, H_):  # emulate v16: rects in id order, later wins
+    px = {}
+    for s in segs:
+        assert 0 < s["stop"] <= W_ and s["stopY"] <= H_, \
+            "segment %r exceeds the grid — WLED would clamp it" % s["n"]
+        for y in range(s["startY"], s["stopY"]):
+            for x in range(s["start"], s["stop"]):
+                px[(x, y)] = s["n"]
+    return px
+
+# Bolt: yellow base rect + fewest red rects that trap no yellow cell (empty
+# cells are free — no LED, nothing to mis-color). Candidates are maximal
+# yellow-free column runs per row band; greedy set cover over red cells.
+BW, BH = math.ceil(FW / CELL), math.ceil(FH / CELL)
+bcell = {grid_xy(p, FW, FH): p["color"] for p in board}
+red = {c for c, v in bcell.items() if v == "red"}
+yel = {c for c, v in bcell.items() if v == "yellow"}
+cands = []
+for y0 in range(BH):
+    for y1 in range(y0, BH):
+        ok = [all((x, y) not in yel for y in range(y0, y1 + 1)) for x in range(BW)]
+        x = 0
+        while x < BW:
+            if not ok[x]:
+                x += 1
+                continue
+            x2 = x
+            while x2 + 1 < BW and ok[x2 + 1]:
+                x2 += 1
+            cov = frozenset(c for c in red if x <= c[0] <= x2 and y0 <= c[1] <= y1)
+            if cov:
+                cands.append((cov, (x, x2, y0, y1)))
+            x = x2 + 1
+uncov, rrects = set(red), []
+while uncov:
+    cov, r = max(cands, key=lambda cr: (len(cr[0] & uncov),
+                                        -(cr[1][1] - cr[1][0] + 1) * (cr[1][3] - cr[1][2] + 1)))
+    rrects.append(r)
+    uncov -= cov
+bsegs = [rseg(0, 0, BW, 0, BH, [255, 190, 30], "yellow")] + \
+        [rseg(k + 1, x0, x1 + 1, y0, y1 + 1, [255, 40, 20], "red %d" % (k + 1))
+         for k, (x0, x1, y0, y1) in enumerate(sorted(rrects, key=lambda r: (r[2], r[0])))]
+bpx = paint(bsegs, BW, BH)
+assert all((bcell[c] == "red") == bpx[c].startswith("red") for c in bcell), \
+    "bolt rect stack mis-colors a pixel — red cover no longer clean"
+
+# Word: one column band per letter, full height; cut columns chosen to
+# misassign the fewest cells where slanted neighbors interleave.
+WW = math.ceil((wx1 - wx0) / CELL)
+WH = math.ceil(W["face_h"] / CELL)
+wcell = {grid_xy(p, wx1 - wx0, W["face_h"], wx0, wy0): p["letter"] for p in word}
+lcols = {L: sorted(x for (x, y), v in wcell.items() if v == L) for L in letters}
+cuts = [0]
+for a, b in zip(letters, letters[1:]):
+    lo = min(min(lcols[b]), max(lcols[a]) + 1)
+    hi = max(max(lcols[a]) + 1, min(lcols[b]))
+    cuts.append(min((sum(1 for x in lcols[a] if x >= k)
+                     + sum(1 for x in lcols[b] if x < k), k)
+                    for k in range(lo, hi + 1))[1])
+cuts.append(WW)
+wsegs = [rseg(i, cuts[i], cuts[i + 1], 0, WH, [235, 245, 255], L)
+         for i, L in enumerate(letters)]
+wpx = paint(wsegs, WW, WH)
+stray = sorted(c for c in wcell if wpx[c] != wcell[c])
+# 16 seam cells (C/H 5, H/A 8, G/E 3) sit in the neighbor's band — invisible
+# while every letter runs the same color; pinned so geometry drift fails loudly.
+assert len(stray) == 16, "letter seam misassignment changed: %d %r" % (len(stray), stray)
+
+json.dump({"1": {"n": "Bolt zones", "mainseg": 0, "on": True, "bri": 200,
+                 "seg": pad(bsegs)}},
+          open("wled/board-controller/presets.json", "w"), indent=1)
+json.dump({"1": {"n": "Word letters", "mainseg": 0, "on": True, "bri": 200,
+                 "seg": pad(wsegs)}},
+          open("wled/word-controller/presets.json", "w"), indent=1)
+
+# chain color runs — physical zone documentation for the wiring tables
 bruns, cur = [], None
 for p in board:
     if cur and cur[0] == p["color"]:
@@ -143,11 +244,6 @@ for p in board:
     else:
         cur = [p["color"], p["chain"], p["chain"]]
         bruns.append(cur)
-json.dump({"1": {"n": "Bolt zones", "mainseg": 0, "on": True, "bri": 200,
-                 "seg": [seg(a, b + 1, [255, 190, 30] if c == "yellow"
-                             else [255, 40, 20], "%s %d-%d" % (c, a, b))
-                         for c, a, b in bruns]}},
-          open("wled/board-controller/presets.json", "w"), indent=1)
 lruns, cur = [], None
 for p in word:
     if cur and cur[0] == p["letter"]:
@@ -155,10 +251,6 @@ for p in word:
     else:
         cur = [p["letter"], p["chain"], p["chain"]]
         lruns.append(cur)
-json.dump({"1": {"n": "Word letters", "mainseg": 0, "on": True, "bri": 200,
-                 "seg": [seg(a, b + 1, [235, 245, 255], "%s %d-%d" % (L, a, b))
-                         for L, a, b in lruns]}},
-          open("wled/word-controller/presets.json", "w"), indent=1)
 
 # ---------- wiring page ----------
 def hue(f):                              # chain-position gradient, readable on dark
@@ -277,7 +369,7 @@ color runs start-to-end along this gradient:</p>
   <div class="stat"><b>{{BRUN}} m</b><span>total run</span></div>
   <div class="stat"><b>{{BEXT}}</b><span>extensions needed</span></div>
   <div class="stat"><b>{{BMAX}} mm</b><span>longest link</span></div>
-  <div class="stat"><b>3</b><span>WLED segments (Y/R/Y)</span></div>
+  <div class="stat"><b>{{BSEGN}}</b><span>WLED segments (Y base + red rects)</span></div>
 </div>
 <h3>Back view — wire it from this</h3>
 <div class="wide">{{BOARD_BACK}}</div>
@@ -290,7 +382,7 @@ color runs start-to-end along this gradient:</p>
 </table></div>
 <div class="note">The two extensions are exactly the yellow→red→red→yellow zone hops
 (the red inner is its own shape). Every other link folds its ~85&nbsp;mm slack into the plenum.</div>
-<h3>WLED segments (bolt)</h3>
+<h3>Color zones (chain order — physical reference)</h3>
 <div style="overflow-x:auto"><table>
 <tr><th>zone</th><th>chain range</th><th>count</th><th>suggested color</th></tr>
 {{BOARD_SEG}}
@@ -312,7 +404,7 @@ color runs start-to-end along this gradient:</p>
 <tr><th>chain link</th><th>from → to (front coords, mm)</th><th>straight run</th><th>action</th></tr>
 {{WORD_EXT}}
 </table></div>
-<h3>WLED segments (word)</h3>
+<h3>Letter runs (chain order — physical reference)</h3>
 <div style="overflow-x:auto"><table>
 <tr><th>letter</th><th>chain range</th><th>count</th><th>suggested color</th></tr>
 {{WORD_SEG}}
@@ -328,19 +420,28 @@ left→right (C first, nearest the controller/PSU side).</div>
 (reading past the end of the map array).</li>
 <li>Two controllers (or two outputs): board GPIO → 137 px, word GPIO → {{WPX}} px.</li>
 <li>Upload each map to the controller's filesystem at <code>/edit</code>, renamed to
-<code>ledmap.json</code> (or <code>ledmap1.json</code>… for switchable maps):
-<code>wled/board-controller/ledmap.json</code> — {{BGRID}} grid, <code>wled/word-controller/ledmap.json</code> —
-{{WGRID}} grid; 10&nbsp;mm cells, −1 = empty cell. Files use the
-<code>"width"/"height"</code> keys WLED 16.x parses. With the map loaded, 2D effects
-(plasma, Matrix, DNA…) render in true sign space.</li>
-<li>Also enable 2D in <b>Config → 2D Configuration</b> with the SAME dimensions
-({{BGRID}} / {{WGRID}}). Known quirk since 0.15 (issue #5082): if the sign boots as a
-single line of pixels, open 2D Configuration and hit Save once — then it sticks.</li>
-<li>Segment scenes to start from: <code>wled/board-controller/presets.json</code> (yellow/red/yellow) and
-<code>wled/word-controller/presets.json</code> (one segment per letter) — merge into the controller's
-<code>presets.json</code> via the Presets backup/restore, or paste each <code>seg</code>
-array into the JSON API (<code>/json/state</code>). Segment fields (start/stop/col/fx)
-are unchanged in 16.x; stop is exclusive.</li>
+<code>ledmap.json</code>: <code>wled/board-controller/ledmap.json</code> — {{BGRID}} grid,
+<code>wled/word-controller/ledmap.json</code> — {{WGRID}} grid; 10&nbsp;mm cells, −1 = empty
+cell. On reboot the map's <code>"width"/"height"</code> switch the controller into 2D
+matrix mode by itself (16.x <code>deserializeMap</code> sets the dims at boot) — 2D effects
+(plasma, Matrix, DNA…) then render in true sign space. Check Info shows the grid size.
+<b>Never pretty-print these files</b>: 16.x streams the map with a byte-exact
+<code>"map":[</code> search — <code>"map": [</code> (space) silently loads zero entries
+and the sign renders as if the chain were crammed into the top rows.</li>
+<li><b>No Config → 2D Configuration needed, and no <code>2d-gaps.json</code></b> — gap
+files only patch panel-scan matrices and WLED ignores them whenever a custom ledmap
+exists. If the sign ever boots as a single line of pixels, open 2D Configuration and
+hit Save once (0.15-era quirk, issue #5082) — the ledmap re-wins on next boot.</li>
+<li><b>Segments become RECTANGLES once the map loads</b>: <code>start/stop</code> = column
+range, <code>startY/stopY</code> = row range (stops exclusive), origin top-left. Chain-index
+segments (e.g. 87–107) would be read as columns — off-grid starts collapse to
+overlapping full-width strips, which looks like a few random cells lit. The shipped
+presets are rect stacks: bolt = full-grid yellow base + {{BREDN}} red rectangles painted
+over it (v16 composites segments in id order, blend "top"); word = one column band per
+letter, cut at columns {{WCUTS}}. {{WSTRAY}} seam cells sit in the neighbor's band —
+invisible while all letters run one color. Upload each as <code>presets.json</code> at
+<code>/edit</code> (replaces all presets), or merge via Presets backup/restore. Trailing
+<code>{"stop":0}</code> entries clear any leftover segments from earlier experiments.</li>
 <li>Colors are software — the bolt's red zone is chain 87–107 no matter what's playing.</li>
 </ol>
 </div>
@@ -364,6 +465,10 @@ for k, v in {
     "{{WPX}}": str(len(word)),
     "{{BGRID}}": "%d×%d" % (bm["width"], bm["height"]),
     "{{WGRID}}": "%d×%d" % (wm["width"], wm["height"]),
+    "{{BSEGN}}": str(len(bsegs)),
+    "{{BREDN}}": str(len(bsegs) - 1),
+    "{{WCUTS}}": "/".join(str(k) for k in cuts[1:-1]),
+    "{{WSTRAY}}": str(len(stray)),
 }.items():
     html = html.replace(k, v)
 open("docs/sign-preview/wiring.html", "w").write(html)

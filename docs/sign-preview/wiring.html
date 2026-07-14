@@ -49,7 +49,7 @@ color runs start-to-end along this gradient:</p>
   <div class="stat"><b>3.1 m</b><span>total run</span></div>
   <div class="stat"><b>2</b><span>extensions needed</span></div>
   <div class="stat"><b>154 mm</b><span>longest link</span></div>
-  <div class="stat"><b>3</b><span>WLED segments (Y/R/Y)</span></div>
+  <div class="stat"><b>6</b><span>WLED segments (Y base + red rects)</span></div>
 </div>
 <h3>Back view — wire it from this</h3>
 <div class="wide"><svg viewBox="-14 -14 438 578" xmlns="http://www.w3.org/2000/svg">
@@ -644,7 +644,7 @@ color runs start-to-end along this gradient:</p>
 </table></div>
 <div class="note">The two extensions are exactly the yellow→red→red→yellow zone hops
 (the red inner is its own shape). Every other link folds its ~85&nbsp;mm slack into the plenum.</div>
-<h3>WLED segments (bolt)</h3>
+<h3>Color zones (chain order — physical reference)</h3>
 <div style="overflow-x:auto"><table>
 <tr><th>zone</th><th>chain range</th><th>count</th><th>suggested color</th></tr>
 <tr><td>yellow</td><td>0 – 86</td><td>87 px</td><td>255,190,30 (amber)</td></tr>
@@ -2593,7 +2593,7 @@ color runs start-to-end along this gradient:</p>
 <tr><td>link 295 → 296</td><td>(1008, 148) → (1119, 151)</td><td>111 mm</td><td>cut + splice ≥ 29 mm in</td></tr>
 <tr><td>link 378 → 379</td><td>(1129, 212) → (1376, 216)</td><td>247 mm</td><td>cut + splice ≥ 165 mm in</td></tr>
 </table></div>
-<h3>WLED segments (word)</h3>
+<h3>Letter runs (chain order — physical reference)</h3>
 <div style="overflow-x:auto"><table>
 <tr><th>letter</th><th>chain range</th><th>count</th><th>suggested color</th></tr>
 <tr><td>C</td><td>0 – 61</td><td>62 px</td><td>235,245,255 (white)</td></tr>
@@ -2614,19 +2614,28 @@ left→right (C first, nearest the controller/PSU side).</div>
 (reading past the end of the map array).</li>
 <li>Two controllers (or two outputs): board GPIO → 137 px, word GPIO → 459 px.</li>
 <li>Upload each map to the controller's filesystem at <code>/edit</code>, renamed to
-<code>ledmap.json</code> (or <code>ledmap1.json</code>… for switchable maps):
-<code>wled/board-controller/ledmap.json</code> — 41×55 grid, <code>wled/word-controller/ledmap.json</code> —
-160×30 grid; 10&nbsp;mm cells, −1 = empty cell. Files use the
-<code>"width"/"height"</code> keys WLED 16.x parses. With the map loaded, 2D effects
-(plasma, Matrix, DNA…) render in true sign space.</li>
-<li>Also enable 2D in <b>Config → 2D Configuration</b> with the SAME dimensions
-(41×55 / 160×30). Known quirk since 0.15 (issue #5082): if the sign boots as a
-single line of pixels, open 2D Configuration and hit Save once — then it sticks.</li>
-<li>Segment scenes to start from: <code>wled/board-controller/presets.json</code> (yellow/red/yellow) and
-<code>wled/word-controller/presets.json</code> (one segment per letter) — merge into the controller's
-<code>presets.json</code> via the Presets backup/restore, or paste each <code>seg</code>
-array into the JSON API (<code>/json/state</code>). Segment fields (start/stop/col/fx)
-are unchanged in 16.x; stop is exclusive.</li>
+<code>ledmap.json</code>: <code>wled/board-controller/ledmap.json</code> — 41×55 grid,
+<code>wled/word-controller/ledmap.json</code> — 160×30 grid; 10&nbsp;mm cells, −1 = empty
+cell. On reboot the map's <code>"width"/"height"</code> switch the controller into 2D
+matrix mode by itself (16.x <code>deserializeMap</code> sets the dims at boot) — 2D effects
+(plasma, Matrix, DNA…) then render in true sign space. Check Info shows the grid size.
+<b>Never pretty-print these files</b>: 16.x streams the map with a byte-exact
+<code>"map":[</code> search — <code>"map": [</code> (space) silently loads zero entries
+and the sign renders as if the chain were crammed into the top rows.</li>
+<li><b>No Config → 2D Configuration needed, and no <code>2d-gaps.json</code></b> — gap
+files only patch panel-scan matrices and WLED ignores them whenever a custom ledmap
+exists. If the sign ever boots as a single line of pixels, open 2D Configuration and
+hit Save once (0.15-era quirk, issue #5082) — the ledmap re-wins on next boot.</li>
+<li><b>Segments become RECTANGLES once the map loads</b>: <code>start/stop</code> = column
+range, <code>startY/stopY</code> = row range (stops exclusive), origin top-left. Chain-index
+segments (e.g. 87–107) would be read as columns — off-grid starts collapse to
+overlapping full-width strips, which looks like a few random cells lit. The shipped
+presets are rect stacks: bolt = full-grid yellow base + 5 red rectangles painted
+over it (v16 composites segments in id order, blend "top"); word = one column band per
+letter, cut at columns 25/54/77/106/132. 16 seam cells sit in the neighbor's band —
+invisible while all letters run one color. Upload each as <code>presets.json</code> at
+<code>/edit</code> (replaces all presets), or merge via Presets backup/restore. Trailing
+<code>{"stop":0}</code> entries clear any leftover segments from earlier experiments.</li>
 <li>Colors are software — the bolt's red zone is chain 87–107 no matter what's playing.</li>
 </ol>
 </div>
