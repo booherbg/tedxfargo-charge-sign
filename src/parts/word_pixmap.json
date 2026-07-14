@@ -1,5 +1,5 @@
 {
- "chain_note": "physical data order \u2014 letters C->E, tube runs greedy; links over 101.6mm need an extension splice",
+ "chain_note": "physical data order \u2014 letters C->E, tube runs greedy; links over 101.6mm need an extension splice. AS-BUILT: R block 237-247 rotated (row-start taken early) to kill the 104.9mm tube hop \u2014 matches the wired sign.",
  "pixels": [
   {
    "x": 60.87,
@@ -1661,78 +1661,78 @@
    "chain": 236
   },
   {
+   "x": 954.63,
+   "y": 197.58,
+   "letter": "R",
+   "piece": 4,
+   "chain": 237
+  },
+  {
    "x": 959.14,
    "y": 177.01,
    "letter": "R",
    "piece": 4,
-   "chain": 237
+   "chain": 238
   },
   {
    "x": 955.13,
    "y": 161.48,
    "letter": "R",
    "piece": 4,
-   "chain": 238
+   "chain": 239
   },
   {
    "x": 948.33,
    "y": 145.75,
    "letter": "R",
    "piece": 4,
-   "chain": 239
+   "chain": 240
   },
   {
    "x": 935.31,
    "y": 134.66,
    "letter": "R",
    "piece": 4,
-   "chain": 240
+   "chain": 241
   },
   {
    "x": 918.75,
    "y": 130.15,
    "letter": "R",
    "piece": 4,
-   "chain": 241
+   "chain": 242
   },
   {
    "x": 901.49,
    "y": 129.9,
    "letter": "R",
    "piece": 4,
-   "chain": 242
+   "chain": 243
   },
   {
    "x": 884.22,
    "y": 129.9,
    "letter": "R",
    "piece": 4,
-   "chain": 243
+   "chain": 244
   },
   {
    "x": 868.55,
    "y": 129.9,
    "letter": "R",
    "piece": 4,
-   "chain": 244
+   "chain": 245
   },
   {
    "x": 856.53,
    "y": 138.95,
    "letter": "R",
    "piece": 4,
-   "chain": 245
+   "chain": 246
   },
   {
    "x": 859.04,
    "y": 154.41,
-   "letter": "R",
-   "piece": 4,
-   "chain": 246
-  },
-  {
-   "x": 954.63,
-   "y": 197.58,
    "letter": "R",
    "piece": 4,
    "chain": 247

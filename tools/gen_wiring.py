@@ -82,10 +82,24 @@ for L in letters:                       # left -> right, C first (data enters le
                          "letter": path_letter[si][0], "piece": path_letter[si][1]})
         tail = (word[-1]["x"], word[-1]["y"])
         done.add(si)
+# AS-BUILT OVERRIDE (2026-07-13, user-wired): in R, the planned 104.9 mm
+# tube hop (bowl end -> y=197 row) was avoided by taking the row-start pixel
+# EARLY: as-built 237 = plan-247's position, then down and around the bowl
+# (as-built 238..247 = plan 237..246), then an 89.6 mm no-cut jump to 248.
+# A rotate-by-one of the block; coordinates pinned so any upstream change fails.
+def _near(p, xy):
+    return math.dist((p["x"], p["y"]), xy) < 0.5
+assert _near(word[247], (954.63, 197.58)) and _near(word[246], (859.04, 154.41)) \
+    and _near(word[237], (959.14, 177.01)) and _near(word[248], (937.51, 197.71)), \
+    "R as-built override no longer matches the computed chain — re-derive it"
+word[237:248] = [word[247]] + word[237:247]
+
 for i, p in enumerate(word):
     p["chain"] = i
 json.dump({"chain_note": "physical data order — letters C->E, tube runs greedy; "
-                         "links over %.1fmm need an extension splice" % LINK_MM,
+                         "links over %.1fmm need an extension splice. AS-BUILT: "
+                         "R block 237-247 rotated (row-start taken early) to kill "
+                         "the 104.9mm tube hop — matches the wired sign." % LINK_MM,
            "pixels": word}, open("src/parts/word_pixmap.json", "w"), indent=1)
 
 def links_of(chain):
