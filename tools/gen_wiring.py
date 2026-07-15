@@ -128,10 +128,19 @@ def ledmap(chain, name, w_mm, h_mm, ox=0.0, oy=0.0, cell=10.0):
     # (row 0 = top), values = physical LED index, -1 = no LED in that cell.
     return {"n": name, "width": W_, "height": H_, "map": grid}
 
-json.dump(ledmap(board, "CHARGE bolt board", FW, FH),
-          open("wled/board-controller/ledmap.json", "w"))
-json.dump(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0),
-          open("wled/word-controller/ledmap.json", "w"))
+# COMPACT is not cosmetic: deserializeMap finds the array with a raw byte search
+# for "map":[ -- a space after the colon loads ZERO cells while width/height still
+# parse, so the sign silently goes identity-mapped. See tools/test_wled_ledmap.py.
+COMPACT = {"separators": (",", ":")}
+
+def dump_ledmap(obj, path):
+    json.dump(obj, open(path, "w"), **COMPACT)
+    assert '"map":[' in open(path).read(), path  # byte-exact or WLED ignores it
+
+dump_ledmap(ledmap(board, "CHARGE bolt board", FW, FH),
+            "wled/board-controller/ledmap.json")
+dump_ledmap(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0),
+            "wled/word-controller/ledmap.json")
 
 def seg(start, stop_excl, col, name):
     return {"start": start, "stop": stop_excl, "col": [col, [0,0,0], [0,0,0]],
