@@ -63,7 +63,8 @@ Cross-section = **white reflective shell + ~15mm air gap + chunky clear lens wit
   `stl/bedcheck_316x295.stl` (chamfer = orientation) with the real 3-filament profile.
 - Multi-color pieces must sit ENTIRELY between the side bands (every region needs both
   nozzles). Panelizer limits stay `--bed-long 316 --bed-short 296`.
-- Print-card notes: prime tower OFF (purge to chute — no room), brim OFF on the long
+- Print-card notes: prime tower **ON** (right-nozzle-only column — it fits: every plate and
+  letter is ≤316 across, and the tower absorbs the black→clear flush), brim OFF on the long
   sides (~2mm spare); consider inner mouse-ears on big black plate corners.
 
 ## Letters — build pipeline ✅ LIVE (2026-07-02)

@@ -87,7 +87,8 @@ Labels debossed on bed faces (B1–B4).
   with `stl/bedcheck_316x295.stl`.
 - 0.16 mm layer · 0.42 line · 2 walls · 10% gyroid · 6 top / **7 bottom** (the +1 kills the
   fuzzy-top shell islands) · concentric top · supports OFF · **brim OFF** · bridge fan ON ·
-  **prime tower OFF, purge to chute**.
+  **prime tower ON** (see above — the tower is what absorbs the black→clear flush; do not
+  re-flip this to OFF).
 - Lens texture is **V8** (PETG bake-off winner): jittered pyramid facets, 2.0 mm cells /
   0.6 mm peaks — "uniform but scattered," brighter and clearer than the old V3 frost.
 - **Import note:** R, G, E and board B4 may trigger Bambu's "model has issues → Fix?" on
@@ -111,6 +112,13 @@ Labels debossed on bed faces (B1–B4).
    THEN pixels — brackets-first means wires can never be pinched under a strap.
 2. Word pieces butt left→right (1→6); seams are pre-relieved 0.12 mm/joint. Screw through
    the pre-drilled Ø4.5 holes (6 per piece: 4 corners + 2 mids) with black pan-heads into the rails.
+   **Snug, not tight — let the pieces float.** PETG moves ~14× more than a wood rail along grain
+   (70 vs 5 µm/m/°C): across the 1597 mm run a 10 °C rise wants 1.04 mm the frame won't give, and
+   the 5 seams relieve only 0.6 mm total — the balance becomes bow, seam crush, or elongated holes
+   (20 °C → 1.48 mm over). The LEDs make this a **standing** delta, not a seasonal one: they warm
+   the PETG inside the plenum while the rail stays at ambient. If it bows, slot the outer holes on
+   pieces 1 and 6. (Matched-CTE printed frame would remove it — priced and declined in
+   `docs/superpowers/specs/2026-07-15-printed-frame-feasibility.md`.)
 3. Pixels press into collars from behind, chained in path order within each letter, jumper
    slack across seams. 4-inch strings → ~85 mm folds; tuck loose in the plenum.
    (Zip-tie holes removed 2026-07-06: through-holes in the black face leak light
