@@ -11,6 +11,7 @@
 4-inch strings: links over 101.6 mm need cutting + an extension splice.
 """
 import json, math, os, re
+import charge_geometry
 
 LINK_MM = 101.6
 
@@ -154,6 +155,13 @@ dump_ledmap(ledmap(board, "CHARGE bolt board", FW, FH, cell=BOARD_CELL_MM),
 dump_ledmap(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0,
                    cell=WORD_CELL_MM),
             "wled/word-controller/ledmap.json")
+
+# Baked C geometry header for the tedxfargo WLED usermod — same mapping, same
+# cell size, emitted in the same run so COL/ROW can never drift from the ledmap.
+os.makedirs("wled/usermods/tedxfargo", exist_ok=True)
+charge_geometry.emit_header(
+    charge_geometry.compute(word, wx1 - wx0, W["face_h"], wx0, wy0, WORD_CELL_MM),
+    "wled/usermods/tedxfargo/charge_geometry.h")
 
 def seg(start, stop_excl, col, name):
     return {"start": start, "stop": stop_excl, "col": [col, [0,0,0], [0,0,0]],
