@@ -195,21 +195,22 @@ The `pre:pio-scripts/load_usermods.py` script includes it from the folder name.
 
 ## 8. Writing an effect (verified API)
 
-A WLED effect is a free/static function `uint16_t mode_x()` that returns the delay
-in ms until its next call (return `FRAMETIME` for "every frame"). It reads/writes
-through the `SEGMENT` macro.
+A WLED effect is a free/static function `void mode_x()` (WLED 16.0.1 —
+`typedef void (*mode_ptr)()`; older WLED returned `uint16_t`). It reads/writes
+through the `SEGMENT` macro; frame timing is derived from `strip.now`
+(frame-coherent millis) inside the effect, not from a return value.
 
 ```c
 static const char _data_CHARGE_BOOTUP[] PROGMEM = "CHARGE Boot@Speed,Flicker;;!;2";
 
-uint16_t mode_charge_bootup() {
-  // SEGENV.call = frame counter; SEGENV.step / .aux0 = free per-segment state
+void mode_charge_bootup() {
+  // strip.now = frame-coherent millis (drive time-based animation from this)
+  // SEGENV.step / .aux0 = free per-segment state; SEGENV.call = frame counter
   // SEGMENT.speed, SEGMENT.intensity = the two sliders (0..255)
-  // SEGMENT.color_from_palette(...) or a fixed CRGB for the cyan
   // ... compute per pixel, then:
   //   SEGMENT.setPixelColorXY(pgm_read_byte(&CHARGE_COL[i]),
   //                           pgm_read_byte(&CHARGE_ROW[i]), color);
-  return FRAMETIME;
+  // no return (void)
 }
 ```
 
@@ -233,7 +234,7 @@ Verified API surface (all in the clean WLED 16.0.1 checkout):
 | Per-segment runtime state | `SEGENV.call/.step/.aux0/.aux1`, `SEGENV.allocateData()` | `FX.h` |
 | Sliders / options | `SEGMENT.speed/.intensity/.custom1..3/.check1..3` | `FX.h` |
 | Palette color | `SEGMENT.color_from_palette(...)` | `FX.cpp` |
-| Frame pacing | return value in ms; `FRAMETIME` | `FX.h` |
+| Frame timing | `strip.now` (frame-coherent millis); mode fn is `void` | `FX.h` / `FX_fcn.cpp` |
 | Is this segment 2D | `SEGMENT.is2D()`, `.virtualWidth()`, `.virtualHeight()` | `FX.h` |
 
 ---
