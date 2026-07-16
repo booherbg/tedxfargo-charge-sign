@@ -137,9 +137,22 @@ def dump_ledmap(obj, path):
     json.dump(obj, open(path, "w"), **COMPACT)
     assert '"map":[' in open(path).read(), path  # byte-exact or WLED ignores it
 
-dump_ledmap(ledmap(board, "CHARGE bolt board", FW, FH),
+# Grid cell size (mm). Coarser cell => smaller width*height => less effect RAM
+# on the no-PSRAM ESP32 (measured ~73KB free heap; heavy 2D effects deplete it).
+# Frame/canvas buffers cost width*height*4 bytes each; particle-system effects
+# cost min(width*height, 2048) particles. Hard floor is the closest LED pair
+# (word 14.5mm, board 14.2mm) — cells must stay under it so no two LEDs collide
+# in one cell (asserted in ledmap()). Verified collision-free at these sizes.
+#   WORD 12mm -> 134x25 (was 160x30): frees ~5.7KB framebuffer. Still above the
+#     2048 particle cap (3350 cells), so PS-effect RAM is unchanged there.
+#   BOARD 15mm -> 28x37 (was 41x55): frees framebuffer AND drops to 1036 cells,
+#     under the 2048 cap, so PS-effect particle RAM drops too.
+WORD_CELL_MM = 12.0
+BOARD_CELL_MM = 15.0
+dump_ledmap(ledmap(board, "CHARGE bolt board", FW, FH, cell=BOARD_CELL_MM),
             "wled/board-controller/ledmap.json")
-dump_ledmap(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0),
+dump_ledmap(ledmap(word, "CHARGE word", wx1 - wx0, W["face_h"], ox=wx0, oy=wy0,
+                   cell=WORD_CELL_MM),
             "wled/word-controller/ledmap.json")
 
 def seg(start, stop_excl, col, name):
