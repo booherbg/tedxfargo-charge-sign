@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHARGE — how the effects were built</title>
+<style>
+:root { --bg:#14161a; --panel:#1d222a; --line:#2c333d; --ink:#e9e5db;
+  --mut:#8b94a1; --yel:#ffc93c; --ok:#7ad48a; --red:#ff5340; --cyan:#9fd8ff; }
+html { background:var(--bg); }
+body { margin:0; color:var(--ink); background:var(--bg);
+  font:15.5px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.wrap { max-width:880px; margin:0 auto; padding:40px 22px 90px; }
+h1,h2,h3,.stamp,code,pre,.cap { font-family:ui-monospace,Menlo,Consolas,monospace; }
+h1 { font-size:28px; margin:0 0 6px; }
+h2 { font-size:16px; letter-spacing:.14em; text-transform:uppercase; color:var(--yel);
+  margin:58px 0 14px; }
+h2:after { content:""; display:block; height:1px; background:var(--line); margin-top:8px; }
+h3 { font-size:13.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--mut);
+  margin:26px 0 8px; }
+.sub { color:var(--mut); margin:0 0 8px; }
+p { max-width:76ch; }
+a { color:var(--cyan); }
+code { background:#232830; border-radius:4px; padding:1px 6px; font-size:13px; }
+pre { background:#111318; border:1px solid var(--line); border-radius:8px;
+  padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.5; color:#c7cdd6; }
+pre code { background:none; padding:0; }
+blockquote { margin:18px 0; padding:10px 18px; border-left:3px solid var(--yel);
+  background:var(--panel); border-radius:0 8px 8px 0; color:var(--ink);
+  font-style:italic; max-width:72ch; }
+blockquote .who { display:block; margin-top:6px; font-style:normal; font-size:12px;
+  color:var(--mut); font-family:ui-monospace,Menlo,monospace; text-transform:uppercase;
+  letter-spacing:.08em; }
+.note { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--yel);
+  border-radius:8px; padding:12px 16px; color:var(--mut); font-size:14px; margin:16px 0;
+  max-width:76ch; }
+figure { margin:22px 0; }
+figure img { max-width:100%; border-radius:10px; border:1px solid var(--line); display:block; }
+figcaption { font-size:12.5px; color:var(--mut); margin-top:8px; letter-spacing:.03em;
+  font-family:ui-monospace,Menlo,monospace; max-width:76ch; }
+figcaption a { color:var(--yel); }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media (max-width:700px){ .grid2 { grid-template-columns:1fr; } }
+table { border-collapse:collapse; width:100%; font-size:13.5px; margin:14px 0; }
+th { text-align:left; color:var(--mut); font-size:11.5px; letter-spacing:.1em;
+  text-transform:uppercase; padding:6px 14px 6px 0; }
+td { padding:6px 14px 6px 0; border-top:1px solid var(--line); vertical-align:top; }
+ul { max-width:76ch; }
+li { margin:5px 0; }
+.stamp { display:inline-block; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--bg); background:var(--yel); border-radius:4px; padding:2px 9px; margin:44px 0 -40px; }
+.demo { display:inline-block; background:#232830; border:1px solid var(--yel);
+  border-radius:6px; padding:4px 12px; font-family:ui-monospace,Menlo,monospace;
+  font-size:12.5px; color:var(--yel); text-decoration:none; margin:2px 6px 2px 0; }
+.demo:hover { background:var(--yel); color:var(--bg); }
+footer { border-top:1px solid var(--line); margin-top:70px; padding-top:18px;
+  color:var(--mut); font-size:13px; }
+footer a { margin-right:18px; }
+</style></head><body>
+<div class="wrap">
+
+<h1>Teaching a neon sign to play Pac-Man</h1>
+<p class="sub">How the CHARGE custom effects were built — one C++ header, a bit-exact
+browser simulator, and a long evening of live iteration. July 16–17, 2026.</p>
+<p>
+<a class="demo" href="../sign-preview/simulator/">▶ open the live simulator</a>
+<a class="demo" href="../sign-preview/">← the sign build story</a>
+</p>
+
+<p>The sign is 459 WS281x pixels behind a 3D-printed neon-tube replica of the
+TEDxFargo CHARGE logo, driven by a Gledopto ESP32 controller running WLED
+16.0.1. Stock WLED has hundreds of effects, but none of them know what the
+pixels <em>are</em> — which letter, where in space, where along the tube. This
+is the story of the seventeen effects that do (sixteen shipped; one shelved),
+and of the simulator that made it possible to build them on a couch instead of
+in front of the wall.</p>
+
+<h2>1 · Why the mapping had to exist first</h2>
+
+<p>Everything below rests on one piece of luck and two deliberate files, and it's
+worth understanding why — this duality is what makes every effect on this page
+possible.</p>
+
+<p>Physically, the sign is <em>one wire</em>: a single 459-LED chain snaking
+through six letterforms, wired greedily along the neon path (each tube run
+end-to-end, nearest-end hops between tubes, letters strictly left to right).
+Out of the box, WLED sees that as an anonymous 1D strip — pixel 300 is just
+"pixel 300," with no idea it's halfway up the R.</p>
+
+<p><b>The 2D layer:</b> <code>tools/gen_wiring.py</code> emits
+<code>ledmap.json</code> — a 134×25 grid of 12&nbsp;mm cells where each cell
+holds either <code>-1</code> (no LED) or the chain index of the LED that
+physically sits there. Flash it and WLED becomes a true 2D matrix: stock
+spatial effects (plasma, sweeps, fire) render in real sign space, and custom
+effects can draw in actual geometry — lightning bolts that walk across the sky,
+shockwaves that radiate from a burst point, waves that wash left to right in
+millimeters rather than wire-order.</p>
+
+<p><b>The 1D layer is the luck:</b> because the wiring is greedy along the tube
+path, <em>chain order is tube order</em>. Walking indices 143→214 traces the
+letter A's neon tube end to end, every bend included. That's a free second
+coordinate system — "inside the glass" — that no grid can give you. A comet
+running the chain doesn't wipe across the sign; it <em>threads through every
+letter</em>. Pac-Man's maze corridors, the ants' tunnels, fireworks climbing
+before they burst — all of that is just iterating a contiguous index range.</p>
+
+<p><b>The bridge between them</b> is a baked header, generated in the same
+pass as the ledmap so the two can never drift:</p>
+
+<pre><code>// charge_geometry.h — emitted by tools/gen_wiring.py, indexed by chain i
+const uint8_t  CHARGE_LETTER[459];   // 0=C .. 5=E  (letters are contiguous ranges!)
+const uint8_t  CHARGE_COL[459];      // grid column   — the 2D world
+const uint8_t  CHARGE_ROW[459];      // grid row
+const uint8_t  CHARGE_HEIGHT[459];   // 0..255 within its letter — "gravity" axis
+const uint8_t  CHARGE_XNORM[459];    // 0..255 across the whole sign
+const uint16_t CHARGE_LETTER_START[6], CHARGE_LETTER_COUNT[6];</code></pre>
+
+<p>So a single effect can, in one frame: iterate letter A's tube (1D), find each
+pixel's true position (2D), ask how high it is inside its letterform (height),
+and place color through the same ledmap the device uses. The Storm effect is
+the clearest demo of the duality: its lightning bolts are jagged random walks
+in <em>grid space</em>, but the letter each bolt "loads" is addressed as a
+<em>chain range</em> — two coordinate systems, one strike.</p>
+
+<p>A host-side test (<code>tools/test_charge_geometry.py</code>) proves the
+bridge: for every pixel, <code>ledmap[row·W + col] == chain index</code> —
+the header and the flashed map agree exactly, or CI fails. One hard-won detail
+carried over from earlier work: WLED finds the map array with a <em>raw byte
+search</em> for <code>"map":[</code> — a single space after the colon and the
+device silently loads zero cells. The emitter asserts byte-compactness on
+every write.</p>
+
+<h2>2 · The bet: one source of truth, compiled twice</h2>
+
+<blockquote>"i also want a detailed web simulator that uses the exact algorithms
+and mappings that we're using so we can test effects before actually flashing…
+sweet if we can transpile from c/c++ to js via wasm but not sure if it works
+like that... but the closer to real the better (vs two languages, same
+algorithm, maybe buggy)."<span class="who">— Blaine, opening request</span></blockquote>
+
+<p>That parenthetical — <em>two languages, same algorithm, maybe buggy</em> — is
+the whole design constraint. A JavaScript "port" of each effect would drift the
+moment anyone touched one side. So the architecture guarantees it can't:</p>
+
+<pre><code>wled/usermods/tedxfargo/charge_fx.h     ← ALL effect logic. Zero WLED includes.
+        │
+        ├── tedxfargo.cpp + wled.h      → ESP32 firmware (PlatformIO)
+        └── sim_main.cpp + wled_shim.h  → WebAssembly    (Emscripten)</code></pre>
+
+<p>The effect header is written against a deliberately tiny API surface —
+<code>SEGMENT.setPixelColorXY / fill / speed / intensity / customN / checkN</code>,
+<code>SEGENV.step/aux/call</code>, <code>strip.now</code>, and a handful of
+color functions. The firmware provides that surface via the real
+<code>wled.h</code>; the simulator provides it via a ~200-line shim. The effect
+code itself is <b>never ported</b> — Emscripten compiles the identical
+<code>.h</code> file to wasm. When you drag a slider in the browser, the same
+bytes of arithmetic run that will run on the wall.</p>
+
+<p><b>Why wasm matters here specifically:</b> these effects are full of 8-bit
+integer tricks — <code>qsub8</code> saturating math, fixed-point positions,
+deliberate uint8 wraparound in wave phases, WLED's exact
+<code>color_fade</code> rounding. In a hand-ported JS version every one of
+those is a chance for the sim to lie. Compiled C++ can't lie about its own
+arithmetic. Over the whole session the simulator's predictions held so well
+that <em>every single hardware surprise turned out to be environmental</em>
+(segment flags, buffer recycling, browser caches) — never the effect math.</p>
+
+<h2>3 · The steps, in the order they actually happened</h2>
+
+<ol style="max-width:76ch">
+<li><b>Verify every claim against source.</b> The design spec was written in a
+previous session and read confidently. Rule one of the build session: trust
+nothing that hasn't been grepped in the actual checkout. This immediately paid
+off — the plan's instruction <code>custom_usermods = tedxfargo</code> would
+have silently <em>removed the microphone</em>: the board env inherits
+<code>custom_usermods = audioreactive</code> from its parent, and a child env
+<em>replaces</em> that value rather than extending it. (The legacy
+<code>-D UM_AUDIOREACTIVE_ENABLE</code> define the spec leaned on turns out to
+only set a boot default inside the usermod — it compiles nothing in.) The fix
+is one line, but only if you know to write it:
+<code>custom_usermods = audioreactive tedxfargo</code>.</li>
+<li><b>Geometry header, test-first.</b> <code>charge_geometry.py</code> written
+against a failing test, including the ledmap round-trip check above.</li>
+<li><b>Scaffold the usermod</b> from WLED's own <code>PS_Comet</code> pattern
+(never hand-write registration boilerplate from memory), prove the firmware
+compiles with it enabled.</li>
+<li><b>One effect end-to-end before anything else.</b> "CHARGE Boot" — letters
+igniting C→H→A→R→G→E — was chosen as first light because it's <em>trivially
+falsifiable</em>: if letters light in the right places and the right order, the
+entire chain (header ↔ ledmap agreement, registration, XY routing, build,
+flash) is proven at once. If a letter lights in the wrong spot, the geometry is
+wrong; if nothing lights, the build is wrong. Clean signal either way.</li>
+<li><b>The simulator</b> (shim + wasm + canvas page), then <b>the QA harness</b>,
+then effects in batches — each new effect inheriting the whole test battery
+for free.</li>
+<li><b>Palettes, hardware, and live iteration</b> — the rest of this page.</li>
+</ol>
+
+<blockquote>"also - make sure all effects start w/ the same prefix so i can
+find them all easiliy :) (like "CHARGE" is great)"<span class="who">— Blaine
+(the QA suite now enforces the prefix, so it can never regress)</span></blockquote>
+
+<h2>4 · Inside the simulator (the optional deep dive)</h2>
+
+<p>The shim is honest about what it is. Every piece sits on an explicit
+fidelity ladder, strictest first:</p>
+
+<table>
+<tr><th>Tier</th><th>What</th><th>Examples</th></tr>
+<tr><td><b>1 · Compile the real thing</b></td>
+<td>WLED's own source, vendored byte-for-byte with a 12-line
+<code>pgmspace.h</code> stub</td>
+<td><code>fastled_slim.{h,cpp}</code> — CRGB, CRGBPalette16, gradient loading</td></tr>
+<tr><td><b>2 · Verbatim ports, source cited</b></td>
+<td>Functions copied line-for-line from the checkout, each with a comment
+naming its source file, re-diffed on WLED upgrades</td>
+<td><code>color_fade</code>, <code>color_blend</code>,
+<code>ColorFromPalette</code>, <code>Segment::color_from_palette</code>,
+<code>loadPalette</code>, <code>allocateData</code>,
+<code>setPixelColorXY</code> bounds semantics</td></tr>
+<tr><td><b>3 · Documented approximations</b></td>
+<td>Semantically equivalent, sequence differs — stated on the sim page itself</td>
+<td><code>hw_random8()</code> = seeded xorshift (reproducible runs!); the
+"Random Cycle" palette; browser mic vs. onboard mic</td></tr>
+</table>
+
+<p>Palette <em>data</em> gets a fourth rule: never transcribed.
+<code>sim/extract_palettes.py</code> parses the 7 FastLED tables, 59 gradient
+palettes, and 72 names out of <code>palettes.cpp</code> in the WLED checkout at
+build time; the device's own custom palette backups load alongside them at the
+same IDs WLED assigns. If a byte of palette data is wrong in the sim, it's
+wrong in the firmware too — which is the point.</p>
+
+<p>The page itself closes the loop the same way: it fetches the <em>committed</em>
+<code>ledmap.json</code> and applies it exactly like WLED's
+<code>customMappingTable</code> (grid cell → physical LED), then draws each LED
+at its true wired millimeter position from <code>word_pixmap.json</code>. On
+load it runs prechecks — byte-compact map, grid dimensions match the baked
+header, all 459 pixels routed, geometry round-trips — and refuses quietly
+plausible-looking wrongness.</p>
+
+<p>Two things the sim deliberately does <em>not</em> simulate: stock WLED
+effects, and effect/palette transitions. Both proved relevant on hardware day
+(§7).</p>
+
+<h2>5 · The test battery</h2>
+
+<p>Three layers, all runnable from the repo root, all green before every
+commit:</p>
+
+<ul>
+<li><b><code>sh sim/qa.sh</code></b> — per effect, against the wasm build:
+metadata well-formed with smart defaults and the CHARGE prefix; <b>determinism</b>
+(same seed + ticks twice → identical output); liveness (lights up <em>and</em>
+animates); <b>cleanliness</b> (never writes a grid cell the ledmap doesn't
+route — catches stray geometry writes); <b>every declared slider and checkbox
+provably changes the output</b>, with a retry harness for dependent params
+(palette-gated, checkbox-gated, or slow-cycle params get a longer window with
+other controls enabled); survival across the 49.7-day <code>millis()</code>
+wraparound; audio effects tracking the level.</li>
+<li><b><code>sh sim/test_native.sh</code></b> — the same shared sources compiled
+natively and soaked: every effect × 7 parameter corners × 20 simulated minutes
+at 42 fps, with an audio sweep and a wrap crossing, under UBSan in
+trap-on-error mode. ASan turned out to be broken on this macOS/clang combo, so
+the harness carries its own canary guard bands around the frame buffer — which
+is how a real misaligned-struct bug was caught the frame Pac-Man's game state
+first allocated.</li>
+<li><b>Visual review</b> — §6. The one layer a script can't do.</li>
+</ul>
+
+<p>The param-effectiveness check earned its keep twice: it's how the sim proved
+that a checkbox the code implemented was <em>never declared in the metadata</em>
+(the Gravity "Tube fall" toggle existed with no way to reach it — the QA line
+literally said "3 params verified" where it should have said 4), and it forced
+a design improvement when the Ants colony-size slider changed nothing
+observable, which became "waiting ants visibly mill around the nest."</p>
+
+<h2>6 · "Go watch the demo"</h2>
+
+<blockquote>"do a quality check on everything and use visualization to look at
+the Sims to make sure they're not too jarring or anything like
+that."<span class="who">— Blaine</span></blockquote>
+
+<p>This request produced the harness that ended up catching more real issues
+than anything else: <code>sim/render_dump.mjs</code> runs every effect in the
+wasm and dumps sampled LED frames plus <em>temporal smoothness metrics</em>
+(frame-to-frame luminance jumps, flash events, lit fraction), and
+<code>sim/render_sheets.py</code> renders contact sheets — pure-stdlib PNG
+writer, every LED drawn at its wired position. Then the sheets get
+<em>looked at</em>, frame by frame.</p>
+
+<p>The metrics caught Boot ending its loop with a 66.7% full-sign luminance
+drop in a single frame — a hard cut to black nobody had noticed in motion. The
+eyeball pass caught a muddy Dreamwave, sparse Fireworks, invisible Ant tunnels,
+marble physics that jittered forever at the bottoms of letters. Later in the
+session the harness became the answer to the bluntest possible bug report:</p>
+
+<blockquote>"also gravity - way more balls, and they should respawn more often
+w/ tubes especially. go watch the demo its kind of
+boring/broken"<span class="who">— Blaine</span></blockquote>
+
+<p>…and watching the demo confirmed it exactly: balls spawned dead on the tube
+crest where the height gradient is zero (stuck forever), and oscillated at the
+bottoms because the gradient flips sign every frame. Both visible in eight
+still frames, both invisible in the code.</p>
+
+<div class="grid2">
+<figure><img src="img/premiere-timeline.png" alt="Premiere timeline contact sheet">
+<figcaption>Premiere's full timeline as a contact sheet: motes → spotlight →
+fills → swell → lightning → finale. Sheets like this verified every story
+effect frame-by-frame. <a href="../sign-preview/simulator/?fx=CHARGE%20Premiere">run it live →</a></figcaption></figure>
+<figure><img src="img/storm-v1-timeline.png" alt="Storm v1 timeline">
+<figcaption>Storm v1's weather arc — dusk, rain, a bolt in frame 4, then the
+rainbow. The user's verdict rewrote it around the lightning (§8).
+<a href="../sign-preview/simulator/?fx=CHARGE%20Storm">run v2 live →</a></figcaption></figure>
+<figure><img src="img/boot-electrify.png" alt="Boot with Electrify">
+<figcaption>Boot's "Electrify": the bolt races left-to-right <i>through the
+tubes</i> (frames 4–8), leaving an overcharge glow that cools behind it.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Boot">run it live →</a></figcaption></figure>
+<figure><img src="img/gravity-tubefall.png" alt="Gravity tube-fall">
+<figcaption>Gravity's marble-drain after the physics fix: trains of marbles
+settling into the low bends of each letterform.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Gravity">run it live →</a></figcaption></figure>
+<figure><img src="img/fireworks-grand.png" alt="Grand firework sequence">
+<figcaption>The Grand firework: one rocket threads the whole 459-px chain,
+hangs, then floods the entire sign radially.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Fireworks&pal=250">run on the TEDx palette →</a></figcaption></figure>
+<figure><img src="img/pacman.png" alt="Pac-Man board">
+<figcaption>Pac-Man as a real game: pellets depleting across frames, classic
+ghosts (one frightened blue in frame 2), violet portal markers.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Pac-Man">run it live →</a></figcaption></figure>
+<figure><img src="img/drip-slime.png" alt="Drip in slime">
+<figcaption>Drip on the Slime palette — beads swell at the top of each
+letterform, fall through (x, height) space, splash at the base.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Drip">run it live →</a></figcaption></figure>
+<figure><img src="img/dreamwave.png" alt="Dreamwave interference">
+<figcaption>Dreamwave: six wave sources (one per letter centroid) interfering
+across the sign. Its later "letters take turns speaking" story came from the
+review: <i>"what's the story?"</i>
+<a href="../sign-preview/simulator/?fx=CHARGE%20Dreamwave">run it live →</a></figcaption></figure>
+</div>
+
+<h2>7 · The palette bridge, and the patch it needed</h2>
+
+<p>Rather than invent a color system, the effects joined WLED's: they read the
+segment's palette through the real <code>color_from_palette</code> path, and
+the eight custom "goblin" palettes register as <em>native usermod palettes</em>
+— they appear in the standard WLED dropdown as "CHARGE: Brand Trip" etc., which
+means <b>stock effects can use them too</b>. House rule throughout: palette
+"Default" always reproduces each effect's classic look, so nothing beloved
+ever changed underneath a new feature.</p>
+
+<p>Then the sign's own brand palette exposed a real limitation:</p>
+
+<blockquote>"for the tedx palette - i want to ensure the only options are the
+brightest of all: red, teal, yellow - no gradients that can be
+dimmer."<span class="who">— Blaine</span></blockquote>
+
+<p>First attempt: rebuild the palette as hard full-brightness bands with
+hairline transitions (duplicated gradient stops). It helped — and wasn't
+enough: <i>"double check the TEDx palette - sometimes i still see blended
+colors (weaker) instead of full hue teal/red/yellow."</i> The reason is
+structural: WLED resamples every palette into a <b>16-entry</b> table and the
+renderer <em>always linearly interpolates between adjacent entries</em>. Even a
+zero-width stop in the source data becomes a ~16/255-wide washed transition
+zone after resampling. You cannot fix it in the palette data.</p>
+
+<p>So it's fixed at the picker instead:</p>
+
+<pre><code>// palette color at pos, nudged off blend zones: step aside to the
+// nearest fully saturated hue (spread = max-min channel >= 140)
+static inline uint32_t charge_cfp_vivid(uint8_t pos) {
+  static const int8_t off[5] = { 0, 8, -8, 16, -16 };
+  ...
+}</code></pre>
+
+<p>Every deliberate color <em>choice</em> — per-letter colors, cycle colors,
+finale glitter — goes through <code>charge_cfp_vivid()</code>, plus an
+adjacency rule (<code>charge_letter_colors()</code>) that re-rolls until
+neighboring letters are visibly different. Continuous gradients (Flow's trail,
+Dreamwave's field, the wave washes) stay raw on purpose — there, the blend
+<em>is</em> the look. On TEDx, letters now only ever come up pure teal, pure
+yellow, or pure red.</p>
+
+<h2>8 · Hardware day</h2>
+
+<blockquote>"ok so the firmware flashed, which is good news. bad news - the
+effects partially work. seems like the mapping is off. for example, 'boot'
+light up in reverse - 'e' first... also each of the letters seems to be missing
+maybe every other LED - general locations seem ok - but things are definitely
+'off'."<span class="who">— Blaine, first flash</span></blockquote>
+
+<p>"General locations seem ok" was the diagnostic gift in that report: it
+proved the ledmap had loaded and the geometry agreed with it — broken mapping
+looks like scrambled noise, not mirrored order. Both symptoms mapped to one
+cause: the active <em>segment's transform flags</em>, preserved from an old
+preset on the device filesystem. Reverse flips X across the matrix (letter C's
+pixels render at E's position → "E first"); Spacing=1 turns the 2D canvas into
+a dotted sub-grid ("missing every other LED"). Normalize the segment — one
+full-canvas segment, grouping 1, spacing 0, all transforms off — and:</p>
+
+<blockquote>"heck yeah that did it"<span class="who">— Blaine</span></blockquote>
+
+<p>Hardware then found the one bug class the simulator structurally cannot
+reproduce. Ants ran perfectly in the sim and glitched on the wall ("no
+resources"). Cause: WLED <em>recycles effect data buffers without zeroing</em>
+when you switch effects — if the previous effect's allocation was larger, the
+new effect receives its garbage. The sim's data pool always zeroes, so
+<code>inited == 1</code> was trusting leftovers only on real hardware. All
+stateful effects now use magic-byte init guards (<code>0x9C / 0xA7 /
+0x6B</code>) that garbage can't fake.</p>
+
+<p>And then there was the cache saga — three separate flavors in one session:
+the device's own web UI caches effect metadata keyed by version (both firmwares
+say "16.0.1", so new sliders silently didn't appear); the browser cached
+<code>charge_sim.wasm</code> even after the JS glue was cache-busted (the
+metadata lives in the wasm — <i>"i dont see it in the sim"</i>); and finally
+<code>index.html</code> itself, which <em>carries</em> the busters, was
+cacheable. The end state kills the class: <code>python3 sim/serve.py</code>
+serves everything with <code>Cache-Control: no-store</code>. When a control
+seems missing, it's the server you're not using.</p>
+
+<p class="note">Honesty note: the "missing checkbox" was misdiagnosed as cache
+once when it was actually a metadata line lost to a crashed edit script — the
+QA output said "3 params verified" where it should have said 4, and that line
+got read past. The lesson stuck both ways: the harness had already caught it;
+the human-side failure was not reading the harness.</p>
+
+<h2>9 · Iterating live (the fun part)</h2>
+
+<blockquote>"you're a psychedelic goblin who loves this sign and are creating
+masterpieces"<span class="who">— Blaine, setting the creative
+brief</span></blockquote>
+
+<p>Most of the suite's personality came from a long stretch of the user in the
+browser (later: in front of the wall) firing observations while effects were
+rewritten under them. A sampling of feedback → what it became:</p>
+
+<table>
+<tr><th>The feedback, verbatim</th><th>What it became</th></tr>
+<tr><td>"ants is neat but i feel like its just a version of pacman. ants should
+be *doing* something. maybe there's a pile of resources in one of the letters…
+resource = color?"</td>
+<td>The colony economy: piles are palette colors, a lone scout recruits the
+colony with its first haul, and rich colonies glow their whole letter in the
+color of their latest delivery.</td></tr>
+<tr><td>"boy the lightning is really good, how it criss-crosses and then fires.
+most realistic lightning yet. lets rethink this to focus on the lightning -
+maybe every flash loads one of the letters? and it keeps raining?"</td>
+<td>Storm v2 — the weather-story timeline was deleted; stepped leaders hunt a
+dark letter, the return stroke loads it, rain never stops. (The "criss-cross
+then fire" they loved was stepped-leader flicker between two seeded bolt paths
+before the return stroke — so v2 leaned into exactly that.)</td></tr>
+<tr><td>"the colors dont stay in the air very long. is that gravity? something
+else? fireworks 1d ps has a good way of doing that i think"</td>
+<td>Not gravity — the decay curve. Sparks dimmed on an ease-out that dies fast;
+they now decay on a hold-bright quadratic (<code>255 − t²/256</code>), the same
+fix Comet's tails needed. That curve became a house rule: linear falloffs read
+dim on a physical wall.</td></tr>
+<tr><td>"when a pellette is eaten, reverse and try to eat the ghosts"</td>
+<td>Real Pac-Man rules: power pellets flip pac into a 4-second hunt; ghosts
+flee blue, blink, get eaten, respawn. Portals — tube positions far apart on
+the wire but physically adjacent, computed from the real grid geometry — let a
+cornered pac escape.</td></tr>
+<tr><td>"dreamwave is neat but kind of dim at times, not quite sure what its
+point is again? … what's the story?"</td>
+<td>The letters take turns "speaking": every ~12 s one letter brightens while
+its ripples surge across the other five. (Its later "stutter" report was a
+real discontinuity — integer weight steps re-normalizing the whole field —
+fixed with fixed-point weights.)</td></tr>
+<tr><td>"its weird to me that entire letters just dont fire for sevral
+cycles" / "when switching to grand firework - should wait for all little ones
+to finish then go - it interrupts them currently"</td>
+<td>Every letter fires every window, and Grand mode became <em>era
+choreography</em>: letters simply don't start a window they can't finish
+before the showpiece — they wrap up, one quiet beat, then the big one.</td></tr>
+</table>
+
+<p>A pattern worth naming: the user's "something feels slightly off" reports
+went about six-for-six mapping to genuine discontinuities in the math —
+Premiere's spotlight hand-off jump, its finale brightness snap, Dreamwave's
+weight quantization, Flow's bounce color flip, the post-grand mid-flight
+resume. Perceptual instincts made excellent bug reports precisely because the
+simulator was trustworthy enough to rule out everything else.</p>
+
+<div class="grid2">
+<figure><img src="img/premiere-blast.png" alt="Premiere full color finale">
+<figcaption>Premiere after "full color blast, deep saturated and beautiful" —
+per-letter vivid fills with palette sparkle, then the radial flood.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Premiere&pal=255">run on Brand Trip →</a></figcaption></figure>
+<figure><img src="img/flow.png" alt="Flow synced comets">
+<figcaption>Flow — born from the observation that Pulse's floor-up chase "can
+be its own effect." Every head synced at the same tube fraction; the trail is
+a gradient <i>through</i> the palette.
+<a href="../sign-preview/simulator/?fx=CHARGE%20Flow">run it live →</a></figcaption></figure>
+</div>
+
+<h2>10 · What actually worked</h2>
+
+<ul>
+<li><b>One source of truth, enforced by architecture</b> — not by discipline.
+The sim couldn't drift from the firmware because there was nothing to drift.</li>
+<li><b>Verify against source, not documentation</b> — including our own. The
+first real bug of the session was in our own plan.</li>
+<li><b>First light was falsifiable</b> — one effect chosen so any failure mode
+pointed at exactly one layer.</li>
+<li><b>QA as a ratchet</b> — every rule that mattered (name prefix, param
+effectiveness, no unmapped writes, determinism) became a check the moment it
+was articulated, so it could never silently regress.</li>
+<li><b>Render frames and look at them.</b> The contact-sheet harness caught
+more real issues than any other tool — including issues the metrics
+quantified (a 66.7% single-frame luminance cliff) and issues only eyes catch
+(muddy, sparse, boring).</li>
+<li><b>Preserve the approved default.</b> Every feature added — palettes,
+lightning, accumulate modes — kept "Default" pixel-identical to the look that
+was already loved. New drama is always opt-in.</li>
+<li><b>Frame-coherent randomness</b> — persistent choices hash stable inputs,
+<code>hw_random8()</code> is only for ephemeral flicker — which is what makes
+the sim deterministic, runs reproducible by seed, and effects
+frame-rate-independent on the device.</li>
+<li><b>The wall gets the last word.</b> Segment flags, recycled buffers,
+version-keyed caches: the three lessons no simulator could have taught, now
+encoded as guards, docs, and a dev server.</li>
+</ul>
+
+<h2>11 · Artifacts</h2>
+<table>
+<tr><th>Thing</th><th>Where</th></tr>
+<tr><td>The simulator (interactive)</td><td><a href="../sign-preview/simulator/">sign-preview/simulator/</a> — deep-linkable via <code>?fx=CHARGE%20Storm&amp;pal=250</code></td></tr>
+<tr><td>All effect logic (both targets)</td><td><code>wled/usermods/tedxfargo/charge_fx.h</code></td></tr>
+<tr><td>Shim + QA + soak + visual harness</td><td><code>sim/</code> — <code>qa.sh</code>, <code>test_native.sh</code>, <code>render_dump.mjs</code>, <code>render_sheets.py</code>, <code>serve.py</code></td></tr>
+<tr><td>Rebuild the firmware tree from nothing</td><td><code>sh tools/setup_wled.sh --build</code></td></tr>
+<tr><td>Operator handoff (workflows, hardware truths)</td><td><code>docs/HANDOFF-FIRMWARE.md</code></td></tr>
+<tr><td>Design spec &amp; executed plan</td><td><code>docs/superpowers/specs/2026-07-16-tedxfargo-effects-design.md</code>, <code>docs/superpowers/plans/2026-07-16-tedxfargo-effects-firstcut.md</code></td></tr>
+</table>
+
+<footer>
+<a href="../sign-preview/">← the sign build story</a>
+<a href="../sign-preview/simulator/">the simulator</a>
+<a href="../sign-preview/wiring.html">wiring &amp; WLED</a>
+<p style="margin-top:10px">TEDxFargo CHARGE 2026 · effects built July 16–17, 2026,
+by Blaine (at the browser, then at the wall) and Claude (in the loop) ·
+16 effects · 459 pixels · one header ⚡</p>
+</footer>
+</div></body></html>

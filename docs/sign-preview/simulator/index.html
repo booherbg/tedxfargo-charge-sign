@@ -288,6 +288,17 @@ document.write('<script src="charge_sim.js?v=' + Date.now() + '"><' + '/script>'
   }
   applyDefaults(0); buildParams(0);
 
+  // deep links from the docs: ?fx=CHARGE%20Storm&pal=250
+  const qp = new URLSearchParams(location.search);
+  const wantFx = qp.get("fx");
+  if (wantFx) {
+    const di = metas.findIndex(m => m.name.toLowerCase() === wantFx.toLowerCase());
+    if (di >= 0) { $("fx").value = String(di); M._sim_select(di); applyDefaults(di); buildParams(di); }
+  }
+  if (qp.get("pal") !== null) {
+    $("pal").value = qp.get("pal"); M._sim_set_palette(+qp.get("pal"));
+  }
+
   // --- canvas / sign space ---
   let xmin = 1e9, xmax = -1e9, ymin = 1e9, ymax = -1e9;
   for (const p of pixmap) { xmin = Math.min(xmin,p.x); xmax = Math.max(xmax,p.x);
