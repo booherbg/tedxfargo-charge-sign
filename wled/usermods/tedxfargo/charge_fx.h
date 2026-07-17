@@ -1768,10 +1768,13 @@ static void mode_charge_dreamwave() {
       uint8_t d = charge_dist8((int16_t)col - cx[k], (int16_t)row - cy[k]);
       uint8_t phase = (uint8_t)(((uint16_t)d * 256) / wl[k] - (tv >> 3) + ph0[k]);
       uint8_t wave = (uint8_t)(phase < 128 ? phase * 2 : (255 - phase) * 2);  // byte triangle
-      uint8_t w = (k == L) ? 2 : 1;                       // own letter dominates...
-      if (k == lead) w = (uint8_t)(w + ((leadw * 6) >> 8));  // ...unless someone's speaking
-      sum += (uint32_t)wave * w;
-      wsum += w;
+      // 8.8 fixed-point weights: the lead's swell must ramp CONTINUOUSLY —
+      // integer weight steps re-normalize the whole field at once (visible
+      // hiccup roughly 10x per lead window)
+      uint16_t wq = (k == L) ? 512 : 256;                 // own letter dominates...
+      if (k == lead) wq = (uint16_t)(wq + (uint16_t)leadw * 6);  // ...unless someone's speaking
+      sum += (uint32_t)wave * wq;
+      wsum += wq;
     }
     uint8_t v = (uint8_t)(sum / wsum);
     uint32_t c = SEGMENT.color_from_palette((uint8_t)(v + (now >> 6)), false, true, 255);  // slow palette drift
