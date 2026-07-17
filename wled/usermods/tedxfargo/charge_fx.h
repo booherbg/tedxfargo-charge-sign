@@ -1847,7 +1847,7 @@ static void mode_charge_flow() {
 // shockwave rolls outward, and the letters discharge back into the rain.
 // =====================================================================
 static const char _data_CHARGE_STORM[] PROGMEM =
-  "CHARGE Storm@Strike rate,Fury;;;2;sx=150,ix=170";
+  "CHARGE Storm@Strike rate,Fury;!,!,!;!;2;sx=150,ix=170,pal=0";
 
 // jagged walk biased to pass through (tx,ty); the criss-cross the user loves
 static void charge_bolt_walk(uint8_t out[CHARGE_GRID_W], uint32_t seed,
@@ -1878,10 +1878,8 @@ static void mode_charge_storm() {
     switch (SEGENV.aux0) {
       case 0: {
         if (lit == 0x3F) { SEGENV.aux0 = 7; SEGENV.step = now + BARRAGE_MS; break; }
-        uint8_t L = hw_random8() % CHARGE_NUM_LETTERS; uint8_t tries = 0;
-        while ((lit >> L) & 1) { L = hw_random8() % CHARGE_NUM_LETTERS; if (++tries > 15) break; }
-        while ((lit >> L) & 1) L = (uint8_t)((L + 1) % CHARGE_NUM_LETTERS);
-        SEGENV.aux1 = (uint16_t)(((uint16_t)hw_random8() << 8) | lit);   // new bolt seed
+        uint8_t L = 0;                                       // strikes land C -> E
+        while (L < CHARGE_NUM_LETTERS && ((lit >> L) & 1)) L++;
         SEGENV.aux0 = (uint16_t)(1 + L);
         SEGENV.step = now + STRIKE_MS;
         break; }
@@ -1904,7 +1902,15 @@ static void mode_charge_storm() {
   }
   uint8_t phase = (uint8_t)SEGENV.aux0;
   uint32_t rem = (int32_t)(SEGENV.step - now) > 0 ? SEGENV.step - now : 0;
-  uint32_t seed = charge_hash(((uint32_t)(SEGENV.aux1 >> 8) << 4) ^ 0xB0170000u);
+  uint32_t seed = charge_hash((((uint32_t)(SEGENV.aux1 >> 8) << 4) ^ ((uint32_t)lit * 0x3D)) ^ 0xB0170000u);
+  // charged-letter colors: Default palette = electric storm cyan; any other
+  // palette gives each letter its own color (adjacent kept distinct),
+  // re-rolled every storm cycle
+  uint32_t lcol[CHARGE_NUM_LETTERS];
+  if (SEGMENT.palette != 0)
+    charge_letter_colors(charge_hash(((uint32_t)(SEGENV.aux1 >> 8) << 9) | 0x57A6u), false, lcol);
+  else
+    for (uint8_t Lc = 0; Lc < CHARGE_NUM_LETTERS; Lc++) lcol[Lc] = RGBW32(140, 235, 255, 0);
 
   uint8_t cxa[CHARGE_NUM_LETTERS], cya[CHARGE_NUM_LETTERS];
   charge_letter_centroids(cxa, cya);
@@ -1957,7 +1963,6 @@ static void mode_charge_storm() {
   // ---- paint ----
   const uint32_t stormC = RGBW32(70, 90, 130, 0);
   const uint32_t rainC  = RGBW32(150, 190, 255, 0);
-  const uint32_t loadC  = RGBW32(140, 235, 255, 0);          // charged-letter electric
   for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
     uint8_t L  = pgm_read_byte(&CHARGE_LETTER[i]);
     uint8_t xn = pgm_read_byte(&CHARGE_XNORM[i]);
@@ -1971,12 +1976,12 @@ static void mode_charge_storm() {
       uint8_t g = (uint8_t)((rem * 255) / DIS_MS);
       uint8_t bri = qsub8(g, (uint8_t)(hw_random8() % (uint8_t)(2 + (255 - g) / 2)));
       if ((charge_hash(((now >> 5) * 0x9E3779B1u) ^ L) & 0xFF) < (uint8_t)(255 - g)) bri >>= 3;
-      c = color_fade(loadC, isLit ? bri : 0, true);
+      c = color_fade(lcol[L], isLit ? bri : 0, true);
       if (!isLit) c = color_fade(stormC, 34, true);
     } else if (phase == 8) {                                 // flare + shockwave
       uint32_t tph = FLARE_MS - rem;
       uint8_t f8 = (uint8_t)((tph * 255) / FLARE_MS);
-      c = color_fade(color_blend(WHITE, loadC, f8), (uint8_t)(255 - (f8 >> 2)), true);
+      c = color_fade(color_blend(WHITE, lcol[L], f8), (uint8_t)(255 - (f8 >> 2)), true);
       uint16_t R = (uint16_t)(((uint32_t)charge_smooth8(f8) * 95) / 255);
       uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - CHARGE_GRID_H / 2);
       int16_t band = (int16_t)d - (int16_t)R; if (band < 0) band = (int16_t)-band;
@@ -1984,12 +1989,12 @@ static void mode_charge_storm() {
     } else if (isLit) {                                      // loaded letters burn on
       uint8_t bri = 225;
       if (hw_random8() < 10) bri = (uint8_t)(160 + (hw_random8() % 60));   // storm jitter
-      c = color_fade(loadC, bri, true);
+      c = color_fade(lcol[L], bri, true);
     }
     if (target >= 0 && L == (uint8_t)target && phase >= 1 && phase <= 6) {
       uint32_t tph = STRIKE_MS - rem;
       if (tph >= 330 && tph < 470)      c = WHITE;           // the letter takes the hit
-      else if (tph >= 470)              c = color_blend(WHITE, loadC, (uint8_t)(((tph - 470) * 255) / 170));
+      else if (tph >= 470)              c = color_blend(WHITE, lcol[L], (uint8_t)(((tph - 470) * 255) / 170));
     }
 
     for (uint8_t di = 0; di < ndrop[L]; di++) {              // the rain, always
