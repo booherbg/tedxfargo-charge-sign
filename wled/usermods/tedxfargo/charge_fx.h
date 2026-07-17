@@ -350,7 +350,7 @@ static void mode_charge_surge() {
           while ((held >> L) & 1) L = (uint8_t)((L + 1) % CHARGE_NUM_LETTERS);
         }
         SEGENV.aux0 = (uint16_t)(1 + L);
-        SEGENV.step = now + 260 + hw_random8();              // surge ~260..515 ms
+        SEGENV.step = now + 420;                             // fixed length -> clean ramp
         break; }
       case 1: case 2: case 3: case 4: case 5: case 6:        // surge over
         if (acc) {
@@ -454,8 +454,11 @@ static void mode_charge_surge() {
       charge_setpx(i, WHITE);
     }
 
-  if (phase >= 1 && phase <= 6) {                            // arc-flash overlay
-    uint8_t bri = (hw_random8() < 140) ? (uint8_t)(255 - (hw_random8() % 120)) : 255;
+  if (phase >= 1 && phase <= 6) {                            // arc: SURGES into full bright
+    uint32_t rem2 = (int32_t)(SEGENV.step - now) > 0 ? SEGENV.step - now : 0;
+    uint8_t q = (uint8_t)(255 - (rem2 * 255) / 420);         // 0 -> 255 crescendo
+    uint8_t dip = (uint8_t)((((uint16_t)(hw_random8() & 63)) * (255 - q)) >> 8);
+    uint8_t bri = qsub8(q, dip);                             // flicker dies as it peaks
     uint8_t L = (uint8_t)(phase - 1);
     uint32_t arc = usePal ? color_blend(lcol[L], WHITE, 185) : RGBW32(200, 255, 255, 0);
     uint32_t c = color_fade(arc, bri, true);
@@ -712,17 +715,25 @@ static void mode_charge_pacman() {
         pc->posfp = 0; pc->dir = 1;
       } else if (SEGMENT.check2 && pc->mode == 0 && dist <= 6 &&
                  (int32_t)(now - pc->portalCd) >= 0) {       // cornered: take a portal
-        for (uint8_t j = 0; j < 4; j++) {
-          uint8_t a = d->portal[pc->letter][j][0], b = d->portal[pc->letter][j][1];
-          if (a == 255) break;
-          int16_t da = (int16_t)k - a; if (da < 0) da = (int16_t)-da;
-          int16_t db = (int16_t)k - b; if (db < 0) db = (int16_t)-db;
-          if (da <= 1 || db <= 1) {
-            pc->posfp = (uint16_t)(((da <= 1) ? b : a) << 8);
-            pc->portalCd = now + 1200;
-            if (flashN < 8) { flashL[flashN] = pc->letter; flashP[flashN] = (da <= 1) ? b : a; flashN++; }
-            break;
+        // the tube ENDS are portals too (classic side tunnels) — without
+        // this, a ghost can pin pac in a dead end forever
+        uint8_t dest = 255;
+        if (k <= 1)               dest = (uint8_t)(n - 2);
+        else if (k >= n - 2)      dest = 1;
+        if (dest == 255)
+          for (uint8_t j = 0; j < 4; j++) {
+            uint8_t a = d->portal[pc->letter][j][0], b = d->portal[pc->letter][j][1];
+            if (a == 255) break;
+            int16_t da = (int16_t)k - a; if (da < 0) da = (int16_t)-da;
+            int16_t db = (int16_t)k - b; if (db < 0) db = (int16_t)-db;
+            if (da <= 1) { dest = b; break; }
+            if (db <= 1) { dest = a; break; }
           }
+        if (dest != 255) {
+          pc->posfp = (uint16_t)(dest << 8);
+          pc->dir = (dest < n / 2) ? 1 : -1;                 // run back toward the middle
+          pc->portalCd = now + 1200;
+          if (flashN < 8) { flashL[flashN] = pc->letter; flashP[flashN] = dest; flashN++; }
         }
       }
     }
@@ -786,13 +797,16 @@ static void mode_charge_pacman() {
                                       RGBW32(0,255,255,0),  RGBW32(255,140,0,0) };
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
-    if (SEGMENT.check2)                                      // portal markers
+    if (SEGMENT.check2) {                                    // portal markers (+ tube ends)
       for (uint8_t j = 0; j < 4; j++) {
         uint8_t a = d->portal[L][j][0], b = d->portal[L][j][1];
         if (a == 255) break;
         charge_setpx(st + a, color_fade(RGBW32(150, 60, 255, 0), 60, true));
         charge_setpx(st + b, color_fade(RGBW32(150, 60, 255, 0), 60, true));
       }
+      charge_setpx(st, color_fade(RGBW32(150, 60, 255, 0), 60, true));
+      charge_setpx((uint16_t)(st + n - 1), color_fade(RGBW32(150, 60, 255, 0), 60, true));
+    }
     for (uint16_t k = sp; k < n; k += sp) {                  // uneaten pellets
       uint8_t idx = (uint8_t)(k / sp);
       if (d->eaten[L] & (1u << idx)) continue;
