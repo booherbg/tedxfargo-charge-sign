@@ -903,14 +903,21 @@ static void mode_charge_pacman() {
 // sink back (gravity dwell), heater glow below. Trippy = acid wax.
 // =====================================================================
 static const char _data_CHARGE_LAVA[] PROGMEM =
-  "CHARGE Lava@Speed,Blobs,Size;!,!,!;!;2;sx=64,ix=128,c1=128,pal=0";
+  "CHARGE Lava@Speed,Blobs,Size,Fill;!,!,!;!;2;sx=64,ix=128,c1=128,c2=0,pal=0";
 
 static void mode_charge_lava() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   uint32_t now = strip.now;
   uint8_t nb = (uint8_t)(2 + SEGMENT.intensity / 86);        // 2..4 blobs per letter
   uint32_t base = 18000 - (uint32_t)SEGMENT.speed * 50;      // rise period 5.25..18 s
-  uint32_t bg = color_fade(RGBW32(255, 40, 0, 0), 26, true); // deep red liquid
+  // Fill raises the liquid glow: 26 (moody, dark spots) .. ~217 (no dead
+  // spots — pure blobs-in-motion). Palette mode: the liquid itself drifts
+  // slowly through the palette.
+  uint8_t bgBri = (uint8_t)(26 + (((uint16_t)SEGMENT.custom2 * 3) >> 2));
+  uint32_t bgcol = (SEGMENT.palette != 0)
+      ? SEGMENT.color_from_palette((uint8_t)(now >> 7), false, true, 255)
+      : RGBW32(255, 40, 0, 0);
+  uint32_t bg = color_fade(bgcol, bgBri, true);              // the liquid
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
     uint8_t hb[4], sig[4]; uint32_t bc[4];                   // blob height/size/color
@@ -1186,7 +1193,7 @@ static void mode_charge_raider() {
 // height table as the vertical axis and xnorm as the ball's lane.
 // =====================================================================
 static const char _data_CHARGE_GRAVITY[] PROGMEM =
-  "CHARGE Gravity@Gravity,Balls,,,,Trails,Tube fall;!,!,!;!;2;sx=128,ix=172,o1=1,o2=0,pal=255";
+  "CHARGE Gravity@Gravity,Balls,,,,Trails,Tube fall;!,!,!;!;2;sx=128,ix=172,o1=1,o2=0,pal=0";
 
 typedef struct {                       // "Tube fall" marble-drain state
   uint8_t  inited, nballs, _p0, _p1;
