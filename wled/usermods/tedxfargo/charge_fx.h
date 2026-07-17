@@ -593,7 +593,7 @@ static void mode_charge_morph() {
 //   (violet markers) — a cornered pac jumps through to lose the ghost
 // =====================================================================
 static const char _data_CHARGE_PACMAN[] PROGMEM =
-  "CHARGE Pac-Man@Speed,Pellets,Pacmen,Magic,Boom,Power pellets,Portals;!,!,!;!;2;sx=128,ix=128,c1=64,c2=32,c3=12,o1=1,o2=1,pal=251";
+  "CHARGE Pac-Man@Speed,Pellets,Pacmen,Magic,Boom,Power pellets,Portals;!,!,!;!;2;sx=128,ix=128,c1=64,c2=32,c3=12,o1=1,o2=1,pal=0";
 
 typedef struct {
   uint8_t  letter;
@@ -953,7 +953,7 @@ static void mode_charge_lava() {
 // latest haul. Exhausted piles respawn elsewhere in new colors.
 // =====================================================================
 static const char _data_CHARGE_ANTS[] PROGMEM =
-  "CHARGE Ants@Speed,Ants,Piles,Colonies,,Pheromones;!,!,!;!;2;sx=96,ix=128,c1=64,c2=64,o1=1,pal=255";
+  "CHARGE Ants@Speed,Ants,Piles,Colonies,,Pheromones;!,!,!;!;2;sx=96,ix=128,c1=64,c2=64,o1=1,pal=0";
 
 typedef struct { uint16_t pos6; uint8_t mode, tgt; } ChargeAnt;  // pos6 = chain pos << 6
 typedef struct {                     // ant modes: 0 wait, 1 outbound, 2 hauling, 3 retreat
@@ -1369,7 +1369,7 @@ static void mode_charge_gravity() {
 // all the letters when several letters explode together.
 // =====================================================================
 static const char _data_CHARGE_FIREWORKS[] PROGMEM =
-  "CHARGE Fireworks@Gravity,Explosion,Firing side,Rate,Grand,Crackle,Full burst,Linked 2D;!,!,!;!;2;sx=140,ix=160,c1=0,c2=90,c3=0,o1=1,o2=0,o3=0,pal=6";
+  "CHARGE Fireworks@Gravity,Explosion,Firing side,Rate,Grand,Crackle,Full burst,Linked 2D;!,!,!;!;2;sx=140,ix=160,c1=0,c2=90,c3=0,o1=1,o2=0,o3=0,pal=0";
 
 static void mode_charge_fireworks() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1592,7 +1592,7 @@ static void mode_charge_fireworks() {
 // Defaults to slime; palette slider for other fluids.
 // =====================================================================
 static const char _data_CHARGE_DRIP[] PROGMEM =
-  "CHARGE Drip@Fall speed,Drips,,,,Glisten;!,!,!;!;2;sx=110,ix=150,o1=1,pal=252";
+  "CHARGE Drip@Fall speed,Drips,,,,Glisten;!,!,!;!;2;sx=110,ix=150,o1=1,pal=0";
 
 static void mode_charge_drip() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1673,7 +1673,7 @@ static void mode_charge_drip() {
 // beat or browser microphone in the sim). Palette fill, peak flashes.
 // =====================================================================
 static const char _data_CHARGE_PULSE[] PROGMEM =
-  "CHARGE Pulse@Gain,Floor,,,,From center;!,!,!;!;2;sx=140,ix=40,o1=0,pal=255";
+  "CHARGE Pulse@Gain,Floor,,,,From center;!,!,!;!;2;sx=140,ix=40,o1=0,pal=0";
 
 static void mode_charge_pulse() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1715,7 +1715,7 @@ static void mode_charge_pulse() {
 // Single pass per pixel; the whole timeline is a pure function of time.
 // =====================================================================
 static const char _data_CHARGE_PREMIERE[] PROGMEM =
-  "CHARGE Premiere@Length,Sparkle,,,,Letter colors;!,!,!;!;2;sx=128,ix=160,o1=0,pal=255";
+  "CHARGE Premiere@Length,Sparkle,,,,Letter colors;!,!,!;!;2;sx=128,ix=160,o1=0,pal=0";
 
 static void mode_charge_premiere() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1910,7 +1910,7 @@ static void mode_charge_premiere() {
 // other five. A slow conversation, C through E, forever.
 // =====================================================================
 static const char _data_CHARGE_DREAMWAVE[] PROGMEM =
-  "CHARGE Dreamwave@Speed,Glow,,Zoom,,Letter pulse;!,!,!;!;2;sx=100,ix=230,c2=128,o1=1,pal=255";
+  "CHARGE Dreamwave@Speed,Glow,,Zoom,,Letter pulse;!,!,!;!;2;sx=100,ix=230,c2=128,o1=1,pal=0";
 
 static void mode_charge_dreamwave() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1979,7 +1979,7 @@ static void mode_charge_dreamwave() {
 // filled. Born from Pulse's floor-up chase look.
 // =====================================================================
 static const char _data_CHARGE_FLOW[] PROGMEM =
-  "CHARGE Flow@Speed,Trail,Glow,,,Bounce;!,!,!;!;2;sx=150,ix=140,c1=60,o1=1,pal=255";
+  "CHARGE Flow@Speed,Trail,Glow,,,Bounce;!,!,!;!;2;sx=150,ix=140,c1=60,o1=1,pal=0";
 
 static void mode_charge_flow() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
