@@ -1341,7 +1341,7 @@ static void mode_charge_gravity() {
 // all the letters when several letters explode together.
 // =====================================================================
 static const char _data_CHARGE_FIREWORKS[] PROGMEM =
-  "CHARGE Fireworks@Gravity,Explosion,Firing side,Rate,Grand,Crackle,Full burst,Linked 2D;!,!,!;!;2;sx=140,ix=160,c1=0,c2=120,c3=0,o1=1,o2=0,o3=0,pal=6";
+  "CHARGE Fireworks@Gravity,Explosion,Firing side,Rate,Grand,Crackle,Full burst,Linked 2D;!,!,!;!;2;sx=140,ix=160,c1=0,c2=90,c3=0,o1=1,o2=0,o3=0,pal=6";
 
 static void mode_charge_fireworks() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1401,7 +1401,7 @@ static void mode_charge_fireworks() {
         // the FLOOD first: radial palette color swallowing the whole sign,
         // rising through the burst then fading it all out
         uint16_t rise = (a8 < 80) ? (uint16_t)(a8 * 3) : 240;
-        uint8_t fade = (uint8_t)(255 - charge_smooth8(a8));
+        uint8_t fade = (uint8_t)(255 - (((uint16_t)a8 * a8) >> 8));  // hangs, then dies
         uint16_t Rw = (uint16_t)(((uint32_t)a8 * (90 + (SEGMENT.intensity >> 1))) / 255);
         for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
           uint8_t dd = charge_dist8((int16_t)pgm_read_byte(&CHARGE_COL[i]) - bcol2,
@@ -1427,7 +1427,7 @@ static void mode_charge_fireworks() {
           uint32_t vs = (60 + ((hs >> 1) & 0xFF)) * (64 + SEGMENT.speed) / 128;
           int32_t sposi = (int32_t)B + sd * (int32_t)((vs * age_eff) / 1000);
           if (sposi < 0 || sposi >= N) continue;
-          uint8_t bri = qsub8((uint8_t)(255 - charge_smooth8(a8)), (uint8_t)(hw_random8() & 40));
+          uint8_t bri = qsub8((uint8_t)(255 - (((uint16_t)a8 * a8) >> 8)), (uint8_t)(hw_random8() & 40));
           uint32_t c = charge_cfp_vivid((uint8_t)(basec + ((hs >> 8) & 0x3F) - 32));
           charge_setpx((uint16_t)sposi, color_fade(c, bri, true));
           int32_t tail = sposi - sd;
@@ -1449,13 +1449,12 @@ static void mode_charge_fireworks() {
     uint32_t win = tphase / Wms;
     uint32_t ph = tphase % Wms;
     uint32_t hj = charge_hash(win * 131 + L * 7 + eraSalt + 0xF13E0000u);
-    if ((hj & 0xFF) > 242) continue;                         // ~95% of windows launch
     // launch origin from the Firing side slider; burst point out on the far side
     uint16_t L0 = (uint16_t)(((uint32_t)SEGMENT.custom1 * (n - 1)) / 255);
     int8_t dir = (L0 < n / 2) ? 1 : -1;
     uint16_t span = (dir > 0) ? (uint16_t)(n - 1 - L0) : L0;
     uint16_t B = (uint16_t)((int32_t)L0 + dir * (int32_t)(((uint32_t)span * (115 + ((hj >> 8) & 0x7F))) / 256));
-    uint32_t t_up = (Wms * 38) / 100, hangMs = (Wms * 8) / 100;
+    uint32_t t_up = (Wms * 30) / 100, hangMs = (Wms * 8) / 100;   // burst owns ~62%
 
     if (ph < t_up) {                                         // launch: fast, then slowing
       uint16_t q8 = (uint16_t)((ph * 256) / t_up);
@@ -1484,7 +1483,7 @@ static void mode_charge_fireworks() {
       if (SEGMENT.check2) {                                  // FULL burst: fills the letter
         uint16_t maxR = (B > n - 1 - B) ? B : (uint16_t)(n - 1 - B);
         uint16_t R = (uint16_t)(((uint32_t)maxR * charge_smooth8(a8)) / 255);
-        uint8_t fade = (uint8_t)(255 - a8);                  // long, beautiful fade-out
+        uint8_t fade = (uint8_t)(255 - (((uint16_t)a8 * a8) >> 8));  // hangs, then dies
         for (uint16_t k = 0; k < n; k++) {
           int16_t dd = (int16_t)k - (int16_t)B; if (dd < 0) dd = (int16_t)-dd;
           if ((uint16_t)dd > R) continue;
@@ -1505,14 +1504,17 @@ static void mode_charge_fireworks() {
         uint32_t vs = (20 + ((hs >> 1) & 0x3F)) * (64 + SEGMENT.speed) / 128;
         int32_t sposi = (int32_t)B + sd * (int32_t)((vs * age_eff) / 1000);
         if (sposi < 0 || sposi >= (int32_t)n) continue;
-        uint8_t bri = (uint8_t)(255 - charge_smooth8(a8));
+        uint8_t bri = (uint8_t)(255 - (((uint16_t)a8 * a8) >> 8));   // hang, then die
         bri = qsub8(bri, (uint8_t)(hw_random8() & 40));
         uint32_t c = SEGMENT.color_from_palette((uint8_t)(basec + ((hs >> 8) & 0x3F) - 32), false, true, 255);
         if (SEGMENT.check1 && hw_random8() < 18) c = WHITE;  // crackle
         charge_setpx(st + (uint16_t)sposi, color_fade(c, bri, true));
-        int32_t tail = sposi - sd;
+        int32_t tail = sposi - sd;                           // 3px lingering trail
         if (tail >= 0 && tail < (int32_t)n)
           charge_setpx(st + (uint16_t)tail, color_fade(c, (uint8_t)((bri * 3) >> 2), true));
+        int32_t tail2 = sposi - sd * 2;
+        if (tail2 >= 0 && tail2 < (int32_t)n)
+          charge_setpx(st + (uint16_t)tail2, color_fade(c, (uint8_t)(bri >> 1), true));
       }
     }
   }
