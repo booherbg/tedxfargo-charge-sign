@@ -140,17 +140,31 @@ static inline uint8_t charge_sat(uint32_t c) {
   uint8_t mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
   return (uint8_t)(mx - mn);
 }
-// palette color at pos, nudged off blend zones: WLED palettes resample to 16
-// entries and ALWAYS interpolate between adjacent entries, so hard-banded
-// palettes (TEDx) still have ~16/255-wide washed transitions — step aside to
-// the nearest fully saturated hue
+// hue purity: how far the worst channel sits from an extreme (0 or 255).
+// Pure band hues (teal/yellow/red/white) are ~0; washed blends like
+// (191,255,64) — spread 191 but reads as muted yellow-green — score high.
+static inline uint8_t charge_impurity(uint32_t c) {
+  uint8_t worst = 0;
+  for (uint8_t sh = 0; sh < 24; sh += 8) {
+    uint8_t ch = (uint8_t)(c >> sh);
+    uint8_t m = ch < (uint8_t)(255 - ch) ? ch : (uint8_t)(255 - ch);
+    if (m > worst) worst = m;
+  }
+  return worst;
+}
+// palette color at pos, nudged off blend zones. Key trick: WLED only
+// interpolates when a position's low 4 bits are nonzero — sampling at exact
+// 16-entry positions returns PURE entries. Walk entry centers near pos and
+// take the first pure-hue one (spread-based fallback keeps palettes that
+// genuinely live on tertiary hues, like Fire's orange, unchanged).
 static inline uint32_t charge_cfp_vivid(uint8_t pos) {
-  static const int8_t off[5] = { 0, 8, -8, 16, -16 };
+  static const int8_t off[6] = { 0, 16, -16, 32, -32, 48 };
+  uint8_t base = (uint8_t)(pos & 0xF0);
   uint32_t best = 0; uint8_t bs = 0;
-  for (uint8_t i = 0; i < 5; i++) {
-    uint32_t c = SEGMENT.color_from_palette((uint8_t)(pos + off[i]), false, true, 255);
+  for (uint8_t i = 0; i < 6; i++) {
+    uint32_t c = SEGMENT.color_from_palette((uint8_t)(base + off[i]), false, true, 255);
     uint8_t sat = charge_sat(c);
-    if (sat >= 140) return c;
+    if (sat >= 140 && charge_impurity(c) <= 48) return c;
     if (sat >= bs) { bs = sat; best = c; }
   }
   return best;
@@ -1843,10 +1857,10 @@ static void mode_charge_premiere() {
     if (spot) {                                            // spotlight pool
       int32_t dx = (int32_t)col - spx, dy = (int32_t)row - spy;
       int32_t d2 = dx * dx + dy * dy;
-      const int32_t R2 = 13 * 13;
+      const int32_t R2 = 14 * 14;
       if (d2 < R2) {
-        uint8_t w = (uint8_t)(((R2 - d2) * 200) / R2);
-        c = color_blend(c, RGBW32(255, 230, 180, 0), w);
+        uint8_t w = (uint8_t)(((R2 - d2) * 255) / R2);       // full-bright at center
+        c = color_blend(c, RGBW32(255, 235, 190, 0), w);
       }
     }
 
