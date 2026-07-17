@@ -337,8 +337,8 @@ static void mode_charge_surge() {
           if (held == 0x3F) { SEGENV.aux0 = 7; SEGENV.step = now + HOLDALL_MS; break; }
         }
         SEGENV.aux0 = 0;
-        SEGENV.step = now + 600 + (uint32_t)(255 - SEGMENT.custom1) * 20
-                          + (uint32_t)hw_random8() * 8;      // idle 0.6..7.7 s
+        SEGENV.step = now + 150 + (uint32_t)(255 - SEGMENT.custom1) * 20
+                          + (uint32_t)hw_random8() * 4;      // idle 0.15..6.3 s
         break;
       case 7:                                                // fully charged
         if (SEGMENT.check2 && usePal) { SEGENV.aux0 = 8; SEGENV.step = now + WAVE_MS; }
@@ -349,7 +349,7 @@ static void mode_charge_surge() {
       default:                                               // flicker-out done: new cycle
         SEGENV.aux0 = 0;
         SEGENV.aux1 = (uint16_t)((uint16_t)hw_random8() << 8);  // re-roll cycle color
-        SEGENV.step = now + 900 + (uint32_t)(255 - SEGMENT.custom1) * 10;
+        SEGENV.step = now + 400 + (uint32_t)(255 - SEGMENT.custom1) * 10;
         break;
     }
     held = (uint8_t)(SEGENV.aux1 & 0x3F);
@@ -395,6 +395,11 @@ static void mode_charge_surge() {
       }
       charge_setpx(i, c);
     }
+    if (SEGMENT.custom2)                                     // keep sparkling at full charge
+      for (uint8_t sk = 0; sk < (uint8_t)(1 + (SEGMENT.custom2 >> 5)); sk++) {
+        uint16_t i = (uint16_t)(((((uint32_t)hw_random8() << 8) | hw_random8())) % CHARGE_NUM_PIXELS);
+        charge_setpx(i, WHITE);
+      }
     return;
   }
 
@@ -443,15 +448,15 @@ static void mode_charge_surge() {
 // entire neon path; optional rainbow tails (palette-cycled).
 // =====================================================================
 static const char _data_CHARGE_COMET[] PROGMEM =
-  "CHARGE Comet@Speed,Tail,Comets,,,Rainbow;!,!,!;!;2;sx=140,ix=96,c1=32,o1=0,pal=0";
+  "CHARGE Comet@Speed,Tail,Comets;!,!,!;!;2;sx=140,ix=96,c1=32,pal=0";
 
 static void mode_charge_comet() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   SEGMENT.fill(BLACK);
   uint32_t now = strip.now;
-  uint32_t v = 100 + (uint32_t)SEGMENT.speed * 4;            // 100..1120 px/s
-  uint16_t tail = 8 + (SEGMENT.intensity >> 2);              // 8..71 px
-  uint8_t nc = 1 + (SEGMENT.custom1 >> 6);                   // 1..4 comets
+  uint32_t v = 15 + (uint32_t)SEGMENT.speed * 4;             // 15..1035 px/s (crawl..blast)
+  uint16_t tail = (uint16_t)(8 + (((uint16_t)SEGMENT.intensity * 3) >> 2));  // 8..199 px
+  uint8_t nc = (uint8_t)(1 + ((uint16_t)SEGMENT.custom1 * 11) / 255);        // 1..12 comets
   uint32_t total = (uint32_t)CHARGE_NUM_PIXELS + tail;
   for (uint8_t cix = 0; cix < nc; cix++) {
     uint32_t head = (uint32_t)(((uint64_t)now * v / 1000 + (uint32_t)cix * total / nc) % total);
@@ -465,10 +470,7 @@ static void mode_charge_comet() {
       if (k < 2) { charge_setpx((uint16_t)i, RGBW32(255, 255, 255, 0)); continue; }
       uint8_t bri = (uint8_t)(((uint32_t)(tail - k) * 255) / tail);
       bri = qsub8(bri, hw_random8() & 63);                   // sparking decay
-      uint32_t base = SEGMENT.check1                         // Rainbow: palette cycles along the tail
-        ? SEGMENT.color_from_palette((uint8_t)((k * 255) / tail + (now >> 4)), false, true, 255)
-        : cometc;
-      charge_setpx((uint16_t)i, color_fade(base, bri, true));
+      charge_setpx((uint16_t)i, color_fade(cometc, bri, true));
     }
   }
 }
@@ -478,17 +480,28 @@ static void mode_charge_comet() {
 // blends the bulbs from cool white to warm amber.
 // =====================================================================
 static const char _data_CHARGE_MARQUEE[] PROGMEM =
-  "CHARGE Marquee@Speed,Spacing,Warmth;;;2;sx=128,ix=64,c1=200";
+  "CHARGE Marquee@Speed,Spacing,Color mode;!,!,!;!;2;sx=128,ix=64,c1=0,pal=0";
 
 static void mode_charge_marquee() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  uint32_t now = strip.now;
   uint8_t sp = 2 + (SEGMENT.intensity >> 6);                 // bulb spacing 2..5
   uint32_t stepMs = 40 + (uint32_t)(255 - SEGMENT.speed);    // 40..295 ms per step
-  uint8_t phase = (uint8_t)((strip.now / stepMs) % sp);
-  uint32_t bulb  = color_blend(RGBW32(200, 220, 255, 0), RGBW32(255, 170, 50, 0), SEGMENT.custom1);
-  uint32_t ember = color_fade(bulb, 18, true);
-  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++)
-    charge_setpx(i, ((i + sp - phase) % sp) == 0 ? bulb : ember);
+  uint8_t phase = (uint8_t)((now / stepMs) % sp);
+  bool usePal = SEGMENT.palette != 0;
+  // Color mode (palette only): 0-84 per-letter colors, 85-170 pattern
+  // marching through the palette, 171-255 all bulbs rotating together
+  uint32_t lcolv[CHARGE_NUM_LETTERS];
+  if (usePal && SEGMENT.custom1 < 85)
+    charge_letter_colors(charge_hash((now / 8000) | 1u), false, lcolv);  // reshuffles every 8s
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+    uint32_t bulb;
+    if (!usePal)                        bulb = RGBW32(255, 170, 50, 0);  // classic warm amber
+    else if (SEGMENT.custom1 < 85)      bulb = lcolv[pgm_read_byte(&CHARGE_LETTER[i])];
+    else if (SEGMENT.custom1 < 171)     bulb = SEGMENT.color_from_palette((uint8_t)(i * 3 + (now >> 6)), false, true, 255);
+    else                                bulb = SEGMENT.color_from_palette((uint8_t)(now >> 5), false, true, 255);
+    charge_setpx(i, ((i + sp - phase) % sp) == 0 ? bulb : color_fade(bulb, 18, true));
+  }
 }
 
 // =====================================================================
@@ -663,9 +676,8 @@ static void mode_charge_pacman() {
       int16_t dist = (int16_t)(g->posfp >> 8) - (int16_t)k; if (dist < 0) dist = (int16_t)-dist;
       if (pc->mode == 1 && dist <= 2) {                      // ghost eaten!
         g->alive = 0; g->respawnAt = now + 3500;
-      } else if (pc->mode == 0 && dist <= 1) {               // pac caught: respawn far side
-        pc->posfp = (k > n / 2) ? 0 : maxfp;
-        pc->dir = (pc->posfp == 0) ? 1 : -1;
+      } else if (pc->mode == 0 && dist <= 1) {               // pac caught: back to the start
+        pc->posfp = 0; pc->dir = 1;
       } else if (SEGMENT.check2 && pc->mode == 0 && dist <= 6 &&
                  (int32_t)(now - pc->portalCd) >= 0) {       // cornered: take a portal
         for (uint8_t j = 0; j < 4; j++) {
@@ -815,7 +827,7 @@ static void mode_charge_pacman() {
 // sink back (gravity dwell), heater glow below. Trippy = acid wax.
 // =====================================================================
 static const char _data_CHARGE_LAVA[] PROGMEM =
-  "CHARGE Lava@Speed,Blobs,Size,,,Trippy;!,!,!;!;2;sx=64,ix=128,c1=128,o1=0,pal=251";
+  "CHARGE Lava@Speed,Blobs,Size;!,!,!;!;2;sx=64,ix=128,c1=128,pal=0";
 
 static void mode_charge_lava() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -834,9 +846,9 @@ static void mode_charge_lava() {
       hb[b]  = (uint8_t)(((uint32_t)e * e) / 255);           // gravity: dwell low
       uint16_t sg = (uint16_t)((30 + ((h >> 16) & 31)) * (128 + (uint16_t)SEGMENT.custom1) / 256);
       sig[b] = (uint8_t)(sg < 12 ? 12 : (sg > 90 ? 90 : sg)); // Size slider 0.5..1.5x
-      bc[b]  = SEGMENT.check1
-        ? SEGMENT.color_from_palette((uint8_t)((h >> 24) + (now >> 6)), false, true, 255)  // acid wax
-        : color_blend(RGBW32(255, 110, 8, 0), RGBW32(255, 0, 120, 0), (uint8_t)(h >> 24));
+      bc[b]  = (SEGMENT.palette != 0)                        // palette = the wax colors
+        ? SEGMENT.color_from_palette((uint8_t)((h >> 24) + (now >> 6)), false, true, 255)
+        : color_blend(RGBW32(255, 110, 8, 0), RGBW32(255, 0, 120, 0), (uint8_t)(h >> 24));  // classic
     }
     for (uint16_t k = 0; k < n; k++) {
       uint16_t i = st + k;
@@ -1469,9 +1481,9 @@ static void mode_charge_pulse() {
 // =====================================================================
 // CHARGE Premiere — a ~22s movie-title sequence, looping:
 //   dust motes -> a spotlight sweeps in and settles on each letter in
-//   turn; C/A/G crackle in electrically, H/R/E explode in with a 2D
-//   shockwave ring -> all-lit power swell -> lightning strikes + strobes
-//   -> radial palette burst finale -> fade to black -> loop.
+//   turn; each letter FILLS from its middle outward at full strength with
+//   a 2D shockwave ring -> all-lit power swell -> lightning strikes +
+//   strobes -> twin-ring radial palette finale -> fade to black -> loop.
 // Single pass per pixel; the whole timeline is a pure function of time.
 // =====================================================================
 static const char _data_CHARGE_PREMIERE[] PROGMEM =
@@ -1505,7 +1517,8 @@ static void mode_charge_premiere() {
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     if (lmode[L] != 1) continue;
     spot = true;
-    int16_t ax = (L == 0) ? -20 : cx[L - 1], ay = (L == 0) ? (CHARGE_GRID_H / 2) : cy[L - 1];
+    // L0's approach starts where the opening sweep already parked the light
+    int16_t ax = (L == 0) ? cx[0] : cx[L - 1], ay = (L == 0) ? cy[0] : cy[L - 1];
     if (lq[L] < 100) {                                     // gliding to letter L
       uint8_t e = charge_smooth8((uint8_t)(((uint16_t)lq[L] * 255) / 100));
       spx = (int16_t)(ax + ((int32_t)(cx[L] - ax) * e) / 255);
@@ -1553,7 +1566,7 @@ static void mode_charge_premiere() {
     uint8_t L   = pgm_read_byte(&CHARGE_LETTER[i]);
     uint32_t c = BLACK;
 
-    if (t < 2 * u) {                                       // dust motes
+    if (t < 14 * u) {                                      // dust motes (all through the reveals)
       if ((charge_hash((uint32_t)i * 131 + ((t >> 8) * 0x85EBu)) & 0xFF) < (spk >> 5))
         c = color_fade(RGBW32(200, 200, 220, 0), 70, true);
     }
@@ -1564,33 +1577,28 @@ static void mode_charge_premiere() {
       if (swellq) { bri = (uint8_t)(60 + ((uint16_t)195 * swellq) / 255);
                     basec = color_blend(CHARGE_CYAN, RGBW32(255,255,255,0), swellq / 2); }
       if (beat >= 17 && beat < 19) { bri = 255; basec = RGBW32(180, 255, 255, 0); }
-      if (finq) { bri = 200; basec = CHARGE_CYAN; }
+      if (finq) {                                          // ease out of the strike look
+        bri = (uint8_t)(255 - (finq >> 2));
+        basec = color_blend(RGBW32(180, 255, 255, 0), CHARGE_CYAN, finq);
+      }
       c = color_fade(basec, bri, true);
-    } else if (lmode[L] == 1 && lq[L] >= 100) {
+    } else if (lmode[L] == 1 && lq[L] >= 100) {            // the FILL: mid-out, full strength
       uint8_t q = lq[L];
       uint16_t st = charge_lstart(L), n = charge_lcount(L);
       uint16_t k = (uint16_t)(i - st);
-      if ((L & 1) == 0) {                                  // C/A/G: crackle in
-        uint8_t density = (uint8_t)(((uint16_t)(q - 100) * 255) / 155);
-        uint32_t slice = t / 70;
-        uint16_t seg = k / 3;
-        if ((charge_hash(slice * 0x51EDu ^ ((uint32_t)L << 8) ^ seg) & 0xFF) < density)
-          c = color_fade(CHARGE_CYAN, (uint8_t)(180 + (hw_random8() % 76)), true);
-      } else {                                             // H/R/E: explode in
-        uint16_t mid = n / 2;
-        uint16_t spread = (uint16_t)(((uint32_t)(q - 100) * (mid + 8)) / 155);
-        uint16_t dk = (k > mid) ? (uint16_t)(k - mid) : (uint16_t)(mid - k);
-        if (dk < spread) {
-          uint8_t bri = (dk + 6 >= spread) ? 255 : (uint8_t)(160 + ((uint16_t)dk * 95) / (spread ? spread : 1));
-          c = color_fade(CHARGE_CYAN, bri, true);
-        }
-        // 2D shockwave ring around the letter, palette-tinged
-        uint16_t rr = (uint16_t)(((uint32_t)(q - 100) * 55) / 155);
-        uint8_t d = charge_dist8((int16_t)col - cx[L], (int16_t)row - cy[L]);
-        int16_t band = (int16_t)d - (int16_t)rr; if (band < 0) band = (int16_t)-band;
-        if (band < 3 && rr > 2 && rr < 50)
-          c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 4), false, true, 255), (uint8_t)(220 - band * 60));
+      uint16_t mid = n / 2;
+      uint16_t spread = (uint16_t)(((uint32_t)(q - 100) * (mid + 8)) / 155);
+      uint16_t dk = (k > mid) ? (uint16_t)(k - mid) : (uint16_t)(mid - k);
+      if (dk < spread) {
+        c = CHARGE_CYAN;                                   // full strength, no dimming
+        if (dk + 4 >= spread) c = color_blend(c, RGBW32(255, 255, 255, 0), 140);  // hot edge
       }
+      // 2D shockwave ring around the letter, palette-tinged
+      uint16_t rr = (uint16_t)(((uint32_t)(q - 100) * 55) / 155);
+      uint8_t d = charge_dist8((int16_t)col - cx[L], (int16_t)row - cy[L]);
+      int16_t band = (int16_t)d - (int16_t)rr; if (band < 0) band = (int16_t)-band;
+      if (band < 3 && rr > 2 && rr < 50)
+        c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 4), false, true, 255), (uint8_t)(220 - band * 60));
     }
 
     if (spot) {                                            // spotlight pool
@@ -1609,13 +1617,19 @@ static void mode_charge_premiere() {
     }
     if (strobe) c = color_blend(c, RGBW32(255, 255, 255, 0), strobe);
 
-    if (finq) {                                            // finale: radial burst
+    if (finq) {                                            // finale: twin radial blast
       uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - CHARGE_GRID_H / 2);
       int16_t band = (int16_t)d - (int16_t)ringR; if (band < 0) band = (int16_t)-band;
-      if (band < 5)
-        c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 3 + (now >> 4)), false, true, 255), (uint8_t)(240 - band * 40));
-      if ((charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u)) & 0xFF) < (spk >> 3))
-        c = color_blend(c, RGBW32(255, 255, 255, 0), 180);  // celebration glitter
+      if (band < 8) {                                      // main wavefront, wide and hot
+        c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 3 + (now >> 4)), false, true, 255), (uint8_t)(255 - band * 18));
+        if (band < 2) c = color_blend(c, RGBW32(255, 255, 255, 0), 150);
+      }
+      int16_t echo = (int16_t)d - ((int16_t)ringR - 18);   // trailing echo ring
+      if (echo < 0) echo = (int16_t)-echo;
+      if (echo < 5 && ringR > 18)
+        c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 3 + 96 + (now >> 4)), false, true, 255), (uint8_t)(160 - echo * 28));
+      if ((charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u)) & 0xFF) < (spk >> 2))
+        c = color_blend(c, RGBW32(255, 255, 255, 0), 220);  // heavy celebration glitter
     }
 
     if (fadeq) c = color_fade(c, (uint8_t)(255 - fadeq), true);
@@ -1626,8 +1640,10 @@ static void mode_charge_premiere() {
 // =====================================================================
 // CHARGE Dreamwave — the whole sign becomes an interference field: every
 // letter's centroid is a wave source with its own wavelength and phase;
-// pixels sum all six wavefronts (own letter weighted double) and map the
-// result through a palette. Wild, spatial, letter-aware, deeply pleasing.
+// pixels sum all six wavefronts and map the result through a palette.
+// THE STORY: letters take turns speaking — every ~12s the lead passes to
+// the next letter, which brightens while its ripples surge across the
+// other five. A slow conversation, C through E, forever.
 // =====================================================================
 static const char _data_CHARGE_DREAMWAVE[] PROGMEM =
   "CHARGE Dreamwave@Speed,Glow,,Zoom,,Letter pulse;!,!,!;!;2;sx=100,ix=230,c2=128,o1=1,pal=255";
@@ -1638,6 +1654,13 @@ static void mode_charge_dreamwave() {
 
   uint8_t cx[CHARGE_NUM_LETTERS], cy[CHARGE_NUM_LETTERS];
   charge_letter_centroids(cx, cy);
+
+  // THE STORY: every ~12s one letter takes the lead — it brightens and its
+  // ripples surge outward, rolling visibly across the other five; then the
+  // next letter answers. A slow conversation, C through E, forever.
+  const uint32_t LEADMS = 12000;
+  uint8_t lead = (uint8_t)((now / LEADMS) % CHARGE_NUM_LETTERS);
+  uint8_t leadw = charge_smooth8(charge_tri8(now % LEADMS, LEADMS));  // swells in & out
 
   // per-source wavelength (cells), phase offset, and drift rate
   uint16_t wl[CHARGE_NUM_LETTERS]; uint8_t ph0[CHARGE_NUM_LETTERS];
@@ -1666,15 +1689,17 @@ static void mode_charge_dreamwave() {
       uint8_t d = charge_dist8((int16_t)col - cx[k], (int16_t)row - cy[k]);
       uint8_t phase = (uint8_t)(((uint16_t)d * 256) / wl[k] - (tv >> 3) + ph0[k]);
       uint8_t wave = (uint8_t)(phase < 128 ? phase * 2 : (255 - phase) * 2);  // byte triangle
-      uint8_t w = (k == L) ? 2 : 1;                       // own letter dominates
+      uint8_t w = (k == L) ? 2 : 1;                       // own letter dominates...
+      if (k == lead) w = (uint8_t)(w + ((leadw * 6) >> 8));  // ...unless someone's speaking
       sum += (uint32_t)wave * w;
       wsum += w;
     }
     uint8_t v = (uint8_t)(sum / wsum);
     uint32_t c = SEGMENT.color_from_palette((uint8_t)(v + (now >> 6)), false, true, 255);  // slow palette drift
     if (v > 235) c = color_blend(c, RGBW32(255, 255, 255, 0), (uint8_t)((v - 235) * 12));  // antinode shimmer
-    // high contrast: bright wavefronts roll over dark troughs (4:1)
-    uint8_t bri = (uint8_t)(((uint16_t)SEGMENT.intensity * (60 + ((uint16_t)charge_smooth8(v) * 195) / 255)) / 255);
+    // bright wavefronts over (not-too-)dark troughs; the speaking letter glows
+    uint8_t bri = (uint8_t)(((uint16_t)SEGMENT.intensity * (90 + ((uint16_t)charge_smooth8(v) * 165) / 255)) / 255);
+    if (L == lead) bri = qadd8(bri, (uint8_t)(leadw >> 2));   // the speaker lights up
     bri = (uint8_t)(((uint16_t)bri * lpulse[L]) / 255);
     charge_setpx(i, color_fade(c, bri, true));
   }
