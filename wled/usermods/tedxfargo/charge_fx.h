@@ -1858,10 +1858,12 @@ static void mode_charge_premiere() {
       uint16_t dk = (k > mid) ? (uint16_t)(k - mid) : (uint16_t)(mid - k);
       if (dk < spread) {
         c = fillcol[L];                                    // full strength, no dimming
-        // the fill sparkles in palette colors as it pours in
+        // the fill sparkles as it pours in — white on Default (full bright),
+        // vivid palette sparks otherwise
         uint32_t hs = charge_hash(((uint32_t)i << 7) ^ (t >> 7));
         if ((hs & 0xFF) < 95)
-          c = color_blend(c, charge_cfp_vivid((uint8_t)((cycseed >> 8) + ((hs >> 8) & 0x7F))),
+          c = color_blend(c, (SEGMENT.palette == 0) ? RGBW32(255, 255, 255, 0)
+                : charge_cfp_vivid((uint8_t)((cycseed >> 8) + ((hs >> 8) & 0x7F))),
                           (uint8_t)(120 + ((hs >> 16) & 0x7F)));
         if (dk + 4 >= spread) c = color_blend(c, RGBW32(255, 255, 255, 0), 140);  // hot edge
       }
@@ -1911,8 +1913,9 @@ static void mode_charge_premiere() {
       if (rw > 60)
         c = color_blend(c, charge_cfp_vivid((uint8_t)(d * 3 + 128 + (now >> 5))), (uint8_t)(rw - 60));
       uint32_t hg = charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u));
-      if ((hg & 0xFF) < (spk >> 2))                        // glitter in VIVID palette colors
-        c = color_blend(c, charge_cfp_vivid((uint8_t)(hg >> 8)), 235);
+      if ((hg & 0xFF) < (spk >> 2))                        // glitter: white on Default, vivid on palettes
+        c = color_blend(c, (SEGMENT.palette == 0) ? RGBW32(255, 255, 255, 0)
+                          : charge_cfp_vivid((uint8_t)(hg >> 8)), 235);
     }
 
     if (fadeq) c = color_fade(c, (uint8_t)(255 - fadeq), true);
