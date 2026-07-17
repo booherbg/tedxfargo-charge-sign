@@ -123,7 +123,10 @@ document.write('<script src="charge_sim.js?v=' + Date.now() + '"><' + '/script>'
   const $ = id => document.getElementById(id);
   const FRAMETIME = Math.floor(1000/42);           // WLED FX.h: FRAMETIME_FIXED = 1000/WLED_FPS
   let M;
-  try { M = await ChargeSim(); } catch (e) {
+  // locateFile cache-busts the .wasm too — the script tag's ?v= only busts
+  // the JS glue, which then fetches charge_sim.wasm at a cacheable URL
+  // (the effect metadata lives in the wasm, so a stale one hides new params)
+  try { M = await ChargeSim({ locateFile: p => p + "?v=" + Date.now() }); } catch (e) {
     $("checks").className = "note err";
     $("checks").textContent = "wasm failed to load: " + e + "\n(serve this page over http, not file://)";
     return;
