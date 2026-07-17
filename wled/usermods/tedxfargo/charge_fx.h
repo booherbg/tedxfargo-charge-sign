@@ -554,7 +554,7 @@ static void mode_charge_morph() {
 //   (violet markers) — a cornered pac jumps through to lose the ghost
 // =====================================================================
 static const char _data_CHARGE_PACMAN[] PROGMEM =
-  "CHARGE Pac-Man@Speed,Pellets,Pacmen,,,Power pellets,Portals;;;2;sx=128,ix=128,c1=64,o1=1,o2=1";
+  "CHARGE Pac-Man@Speed,Pellets,Pacmen,Magic,Boom,Power pellets,Portals;;;2;sx=128,ix=128,c1=64,c2=32,c3=12,o1=1,o2=1";
 
 typedef struct {
   uint8_t  letter;
@@ -577,19 +577,24 @@ typedef struct {
   ChargePac   pac[CHARGE_NUM_LETTERS];
   ChargeGhost ghost[CHARGE_NUM_LETTERS];
   uint8_t  portal[CHARGE_NUM_LETTERS][4][2];      // close-in-space, far-on-wire pairs
-  uint8_t  specialLetter, specialIdx, specialUsed, _s0;   // the psychedelic pellet
-  uint8_t  burstCol, burstRow, _s1, _s2;
-  uint32_t burstAt;
+  uint8_t  special[10][2];                        // [m] = {letter, pellet idx}
+  uint16_t specialUsed;                           // bitmask, once each per level
+  uint8_t  nspecial, burstHead;
+  uint8_t  burstCR[4][2];                         // recent shockwave origins
+  uint32_t burstAt[4];
   uint32_t lastMs;
 } ChargePacData;
 
-// pick the once-per-level psychedelic pellet (any letter, mid-board pellet)
+// place the once-per-level psychedelic pellets (spread across the letters)
 static void charge_pac_pick_special(ChargePacData *d, uint32_t salt) {
-  uint32_t h = charge_hash(0x951DEu + d->level * 131u + salt);
-  d->specialLetter = (uint8_t)(h % CHARGE_NUM_LETTERS);
-  uint16_t n = charge_lcount(d->specialLetter);
-  uint8_t maxIdx = (uint8_t)((n - 1) / d->sp);
-  d->specialIdx = (uint8_t)(maxIdx >= 2 ? 1 + ((h >> 8) % maxIdx) : 1);
+  for (uint8_t m = 0; m < d->nspecial; m++) {
+    uint32_t h = charge_hash(0x951DEu + d->level * 131u + m * 977u + salt);
+    uint8_t L = (uint8_t)((m + (h % CHARGE_NUM_LETTERS)) % CHARGE_NUM_LETTERS);
+    uint16_t n = charge_lcount(L);
+    uint8_t maxIdx = (uint8_t)((n - 1) / d->sp);
+    d->special[m][0] = L;
+    d->special[m][1] = (uint8_t)(maxIdx >= 2 ? 1 + ((h >> 8) % maxIdx) : 1);
+  }
   d->specialUsed = 0;
 }
 
@@ -600,11 +605,12 @@ static void mode_charge_pacman() {
   uint32_t now = strip.now;
   uint8_t sp = (uint8_t)(3 + ((uint8_t)(255 - SEGMENT.intensity) >> 6));  // pellet spacing 3..6
   uint8_t npac = (uint8_t)(1 + ((uint16_t)SEGMENT.custom1 * 5) / 255);    // 1..6 pacmen
+  uint8_t nmagic = (uint8_t)(1 + ((uint16_t)SEGMENT.custom2 * 9) / 255);  // 1..10 magic pellets
   uint32_t vp = 8 + (SEGMENT.speed >> 3);                                 // pac px/s 8..39
 
-  if (!d->inited || d->sp != sp || d->npac != npac) {        // (re)start the board
+  if (!d->inited || d->sp != sp || d->npac != npac || d->nspecial != nmagic) {  // (re)start
     memset(d, 0, sizeof(ChargePacData));
-    d->inited = 1; d->sp = sp; d->npac = npac; d->level = 1;
+    d->inited = 1; d->sp = sp; d->npac = npac; d->level = 1; d->nspecial = nmagic;
     charge_pac_pick_special(d, 0);
     for (uint8_t p = 0; p < npac; p++) {
       d->pac[p].letter = p; d->pac[p].dir = 1; d->pac[p].posfp = 0;
@@ -660,11 +666,15 @@ static void mode_charge_pacman() {
       uint8_t idx = (uint8_t)(kk / sp);
       if (d->eaten[pc->letter] & (1u << idx)) continue;
       d->eaten[pc->letter] |= (1u << idx);
-      if (!d->specialUsed && pc->letter == d->specialLetter && idx == d->specialIdx) {
-        d->specialUsed = 1; d->burstAt = now;                // PSYCHEDELIC pellet!
+      for (uint8_t m = 0; m < d->nspecial; m++) {            // PSYCHEDELIC pellet?
+        if ((d->specialUsed & (1u << m)) || d->special[m][0] != pc->letter ||
+            d->special[m][1] != idx) continue;
+        d->specialUsed |= (uint16_t)(1u << m);
+        uint8_t bslot = (uint8_t)(d->burstHead++ & 3);
+        d->burstAt[bslot] = now;
         uint16_t bi = (uint16_t)(charge_lstart(pc->letter) + kk);
-        d->burstCol = pgm_read_byte(&CHARGE_COL[bi]);
-        d->burstRow = pgm_read_byte(&CHARGE_ROW[bi]);
+        d->burstCR[bslot][0] = pgm_read_byte(&CHARGE_COL[bi]);
+        d->burstCR[bslot][1] = pgm_read_byte(&CHARGE_ROW[bi]);
       }
       if (SEGMENT.check1 && (idx % 5) == 0) {                // POWER pellet: hunt!
         pc->mode = 1; pc->modeUntil = now + 4000; pc->dir = (int8_t)-pc->dir;
@@ -764,8 +774,15 @@ static void mode_charge_pacman() {
     for (uint16_t k = sp; k < n; k += sp) {                  // uneaten pellets
       uint8_t idx = (uint8_t)(k / sp);
       if (d->eaten[L] & (1u << idx)) continue;
-      if (!d->specialUsed && L == d->specialLetter && idx == d->specialIdx)
-        charge_setpx(st + k, charge_palette(4, (uint8_t)(now >> 4)));     // psychedelic pellet
+      bool magic = false;
+      for (uint8_t m = 0; m < d->nspecial; m++)
+        if (!(d->specialUsed & (1u << m)) && d->special[m][0] == L && d->special[m][1] == idx)
+          { magic = true; break; }
+      if (magic) {                                           // psychedelic pellet (Boom sizes it)
+        charge_setpx(st + k, charge_palette(4, (uint8_t)(now >> 4)));
+        if (SEGMENT.custom3 > 15 && k + 1 < n)
+          charge_setpx(st + k + 1, color_fade(charge_palette(4, (uint8_t)((now >> 4) + 80)), 140, true));
+      }
       else if (SEGMENT.check1 && (idx % 5) == 0)             // power pellet: pulsing
         charge_setpx(st + k, color_fade(RGBW32(255, 240, 180, 0),
                      (uint8_t)(120 + (charge_tri8(now, 700) >> 1)), true));
@@ -804,20 +821,27 @@ static void mode_charge_pacman() {
       if (k >= 0 && k < (int16_t)n) charge_setpx((uint16_t)(st + k), WHITE);
     }
   }
-  if (d->specialUsed && d->burstAt && now - d->burstAt < 2200) {  // psychedelic shockwave
-    uint8_t a8 = (uint8_t)(((now - d->burstAt) * 255) / 2200);
+  bool anyBurst = false;                                     // psychedelic shockwaves
+  for (uint8_t b = 0; b < 4; b++) if (d->burstAt[b] && now - d->burstAt[b] < 2200) anyBurst = true;
+  if (anyBurst) {
+    uint16_t maxR = (uint16_t)(60 + (uint16_t)SEGMENT.custom3 * 4);   // Boom: 60..184 cells
     for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
-      uint8_t dd = charge_dist8((int16_t)pgm_read_byte(&CHARGE_COL[i]) - d->burstCol,
-                                (int16_t)pgm_read_byte(&CHARGE_ROW[i]) - d->burstRow);
-      uint16_t wsum = 0;
-      for (uint8_t m = 0; m < 3; m++) {                      // three chasing rings
-        uint16_t R = (uint16_t)(((uint32_t)a8 * (100 - m * 24)) / 255);
-        int16_t band = (int16_t)dd - (int16_t)R; if (band < 0) band = (int16_t)-band;
-        if (band < 6) wsum += (uint16_t)(((6 - band) * (255 - a8)) / 6);
+      uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
+      uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
+      uint16_t wsum = 0; uint8_t hue = 0;
+      for (uint8_t b = 0; b < 4; b++) {                      // linked, like fireworks 2D
+        if (!d->burstAt[b] || now - d->burstAt[b] >= 2200) continue;
+        uint8_t a8 = (uint8_t)(((now - d->burstAt[b]) * 255) / 2200);
+        uint8_t dd = charge_dist8((int16_t)col - d->burstCR[b][0], (int16_t)row - d->burstCR[b][1]);
+        for (uint8_t m = 0; m < 3; m++) {                    // three chasing rings each
+          uint16_t R = (uint16_t)(((uint32_t)a8 * (maxR - m * (maxR >> 2))) / 255);
+          int16_t band = (int16_t)dd - (int16_t)R; if (band < 0) band = (int16_t)-band;
+          if (band < 6) { wsum += (uint16_t)(((6 - band) * (255 - a8)) / 6); hue = (uint8_t)(dd * 5); }
+        }
       }
       if (!wsum) continue;
       uint8_t bri = wsum > 255 ? 255 : (uint8_t)wsum;
-      charge_setpx(i, color_fade(charge_palette(4, (uint8_t)(dd * 5 + (now >> 3))), bri, true));
+      charge_setpx(i, color_fade(charge_palette(4, (uint8_t)(hue + (now >> 3))), bri, true));
     }
   }
 }
@@ -869,23 +893,23 @@ static void mode_charge_lava() {
 }
 
 // =====================================================================
-// CHARGE Ants — a working colony economy on the whole tube path:
-// the nest lives at the chain mouth (bottom-left of C); a resource pile
-// (resource = a palette COLOR) spawns somewhere out in the letters. One
-// scout heads out; when it hauls the first load home, the colony is
-// "told" and more ants stream out (recruitment). The nest hoard grows as
-// colored segments of everything collected. Pile exhausted -> a new pile
-// spawns elsewhere in a new color and a lone scout starts over.
+// CHARGE Ants — colony economies on the whole tube path: up to 6
+// colonies, each nested in its own letter; up to 4 resource piles
+// (resource = a palette COLOR) scattered along the tubes. Scouts head
+// out, haul color home, and recruitment grows each colony's workforce;
+// AS A COLONY GETS RICH, ITS WHOLE LETTER GLOWS in the color of its
+// latest haul. Exhausted piles respawn elsewhere in new colors.
 // =====================================================================
 static const char _data_CHARGE_ANTS[] PROGMEM =
-  "CHARGE Ants@Speed,Ants,Pile size,,,Pheromones;!,!,!;!;2;sx=96,ix=128,c1=96,o1=1,pal=255";
+  "CHARGE Ants@Speed,Ants,Piles,Colonies,,Pheromones;!,!,!;!;2;sx=96,ix=128,c1=64,c2=64,o1=1,pal=255";
 
-typedef struct { uint16_t pos6; uint8_t mode, _p; } ChargeAnt;  // pos6 = chain pos << 6
-typedef struct {                     // modes: 0 wait, 1 outbound, 2 hauling, 3 retreat
-  uint8_t  inited, nants, active, stock;
-  uint16_t pilePos;
-  uint8_t  pileLeft, pileSize, pilePalPos, _q;
-  uint8_t  ring[6];                  // palette positions of the last hauls (the hoard)
+typedef struct { uint16_t pos6; uint8_t mode, tgt; } ChargeAnt;  // pos6 = chain pos << 6
+typedef struct {                     // ant modes: 0 wait, 1 outbound, 2 hauling, 3 retreat
+  uint8_t  inited, nants, ncol, npiles;
+  uint16_t pilePos[4];
+  uint8_t  pileLeft[4], pilePal[4];
+  uint8_t  stock[CHARGE_NUM_LETTERS];             // per-colony wealth
+  uint8_t  colPal[CHARGE_NUM_LETTERS];            // color of each colony's latest haul
   uint32_t lastMs;
   ChargeAnt ant[14];
 } ChargeAntData;
@@ -895,101 +919,132 @@ static void mode_charge_ants() {
   if (!SEGMENT.allocateData(sizeof(ChargeAntData))) { SEGMENT.fill(BLACK); return; }
   ChargeAntData *d = (ChargeAntData*)SEGENV.data;
   uint32_t now = strip.now;
-  uint8_t nants = (uint8_t)(2 + SEGMENT.intensity / 22);     // 2..13 ants in the colony
+  uint8_t nants = (uint8_t)(2 + SEGMENT.intensity / 22);     // 2..13 ants total
   if (nants > 14) nants = 14;
-  uint8_t pileSize = (uint8_t)(4 + (SEGMENT.custom1 >> 3));  // 4..35 loads per pile
+  uint8_t npiles = (uint8_t)(1 + ((uint16_t)SEGMENT.custom1 * 3) / 255);  // 1..4
+  uint8_t ncol = (uint8_t)(1 + ((uint16_t)SEGMENT.custom2 * 5) / 255);    // 1..6 colonies
 
-  if (!d->inited || d->nants != nants) {
+  if (!d->inited || d->nants != nants || d->ncol != ncol || d->npiles != npiles) {
     memset(d, 0, sizeof(ChargeAntData));
-    d->inited = 1; d->nants = nants;
-    d->pilePos = (uint16_t)(70 + (charge_hash(now | 1u) % (CHARGE_NUM_PIXELS - 80)));
-    d->pilePalPos = (uint8_t)(charge_hash(now | 1u) >> 16);
-    d->pileSize = pileSize; d->pileLeft = pileSize;
-    d->active = 1;                                           // one lone scout at first
+    d->inited = 1; d->nants = nants; d->ncol = ncol; d->npiles = npiles;
+    for (uint8_t j = 0; j < npiles; j++) {
+      d->pilePos[j] = (uint16_t)(30 + (charge_hash((now | 1u) + j * 977u) % (CHARGE_NUM_PIXELS - 40)));
+      d->pilePal[j] = (uint8_t)(charge_hash((now | 1u) + j * 977u) >> 16);
+      d->pileLeft[j] = 14;
+    }
     d->lastMs = now;
   }
   uint32_t dt = now - d->lastMs; if (dt > 80) dt = 80;
   d->lastMs = now;
 
-  uint32_t pilec = SEGMENT.color_from_palette(d->pilePalPos, false, true, 255);
+  // colony c nests at the start of its letter's tube
+  uint16_t nest[CHARGE_NUM_LETTERS];
+  for (uint8_t c = 0; c < ncol; c++)
+    nest[c] = charge_lstart((uint8_t)(((uint16_t)c * CHARGE_NUM_LETTERS) / ncol));
 
   // ---- ants ----
   for (uint8_t a = 0; a < d->nants; a++) {
     ChargeAnt *an = &d->ant[a];
+    uint8_t c = (uint8_t)(a % ncol);
+    uint8_t rank = (uint8_t)(a / ncol);
     uint32_t h = charge_hash(0x50F00000u | a);
-    uint32_t va = (10 + (SEGMENT.speed / 6)) * (179 + (h & 0x7F)) / 256;  // px/s, per-ant
+    uint32_t va = (10 + (SEGMENT.speed / 6)) * (179 + (h & 0x7F)) / 256;  // px/s
     uint16_t step = (uint16_t)((va * dt * 64) / 1000);
-    if (a >= d->active) {                                    // not recruited yet: head home
-      if (an->pos6 > step) { an->pos6 -= step; an->mode = 3; }
-      else { an->pos6 = 0; an->mode = 0; }                   // ...and mill around the nest
+    uint16_t home6 = (uint16_t)(nest[c] << 6);
+    bool recruited = rank < (uint8_t)(1 + d->stock[c] * 2);  // wealth recruits workers
+    if (!recruited) {
+      if (an->pos6 > home6 + step)      { an->pos6 -= step; an->mode = 3; }
+      else if (an->pos6 + step < home6) { an->pos6 += step; an->mode = 3; }
+      else { an->pos6 = home6; an->mode = 0; }
       continue;
     }
-    if (an->mode == 0) an->mode = 1;                         // recruited: head out!
-    if (an->mode == 1) {
-      an->pos6 = (uint16_t)(an->pos6 + step);
-      if ((an->pos6 >> 6) >= d->pilePos) {                   // reached the pile
-        an->pos6 = (uint16_t)(d->pilePos << 6);
-        if (d->pileLeft) { d->pileLeft--; an->mode = 2; }    // grab a load
-        else an->mode = 3;                                   // empty: head home idle
+    if (an->mode == 0 || an->mode == 3) {                    // dispatch: nearest stocked pile
+      int32_t best = -1; uint32_t bd = 0xFFFFFFFFu;
+      for (uint8_t j = 0; j < npiles; j++) {
+        if (!d->pileLeft[j]) continue;
+        uint32_t dd = (d->pilePos[j] > nest[c]) ? (uint32_t)(d->pilePos[j] - nest[c])
+                                                : (uint32_t)(nest[c] - d->pilePos[j]);
+        if (dd < bd) { bd = dd; best = j; }
       }
-    } else {                                                 // hauling / retreating
-      if (an->pos6 > step) an->pos6 -= step;
-      else {
-        an->pos6 = 0;
-        if (an->mode == 2) {                                 // deposit at the nest
-          d->ring[d->stock % 6] = (uint8_t)(d->pilePalPos + ((charge_hash(now ^ a) & 31) - 15));
-          if (d->stock < 250) d->stock++;
-          uint16_t want = (uint16_t)(1 + d->stock * 2);      // RECRUITMENT (word spreads fast)
-          d->active = want > d->nants ? d->nants : (uint8_t)want;
-        }
-        an->mode = (d->pileLeft || an->mode == 2) ? 1 : 0;   // back out (if worth it)
+      if (best < 0) { an->mode = 0; an->pos6 = home6; continue; }   // nothing to mine
+      an->tgt = (uint8_t)best; an->mode = 1;
+    }
+    uint16_t goal6 = (an->mode == 1) ? (uint16_t)(d->pilePos[an->tgt] << 6) : home6;
+    if (an->pos6 + step < goal6)      an->pos6 += step;
+    else if (an->pos6 > goal6 + step) an->pos6 -= step;
+    else {                                                   // arrived
+      an->pos6 = goal6;
+      if (an->mode == 1) {
+        if (d->pileLeft[an->tgt]) { d->pileLeft[an->tgt]--; an->mode = 2; }
+        else an->mode = 3;                                   // beaten to it: re-dispatch
+      } else if (an->mode == 2) {                            // deposit: colony gets rich
+        if (d->stock[c] < 40) d->stock[c]++;
+        d->colPal[c] = d->pilePal[an->tgt];
+        an->mode = 3;
       }
     }
   }
-  // pile exhausted and everyone home-ish -> new pile, new color, lone scout
-  if (d->pileLeft == 0) {
-    bool hauling = false;
-    for (uint8_t a = 0; a < d->nants; a++) if (d->ant[a].mode == 2) hauling = true;
-    if (!hauling) {
-      d->pilePos = (uint16_t)(70 + (charge_hash(now | 1u) % (CHARGE_NUM_PIXELS - 80)));
-      d->pilePalPos = (uint8_t)(charge_hash(now * 2654435761u) >> 16);
-      d->pileSize = pileSize; d->pileLeft = pileSize;
-      d->active = 1;                                         // a lone scout again
+  for (uint8_t j = 0; j < npiles; j++)                       // exhausted piles respawn
+    if (!d->pileLeft[j]) {
+      bool hauling = false;
+      for (uint8_t a = 0; a < d->nants; a++)
+        if (d->ant[a].mode == 2 && d->ant[a].tgt == j) hauling = true;
+      if (!hauling) {
+        d->pilePos[j] = (uint16_t)(30 + (charge_hash(now + j * 977u) % (CHARGE_NUM_PIXELS - 40)));
+        d->pilePal[j] = (uint8_t)(charge_hash(now * 2654435761u + j) >> 16);
+        d->pileLeft[j] = 14;
+      }
     }
-  }
 
   // ---- render ----
   uint32_t tunnel = color_fade(RGBW32(180, 120, 60, 0), 30, true);
   for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) charge_setpx(i, tunnel);
-  if (SEGMENT.check1 && d->active >= 2)                      // pheromone trail (the "telling")
-    for (uint16_t i = 0; i < d->pilePos; i += 5)
-      charge_setpx(i, color_fade(pilec, 26, true));
-  uint8_t nestb = (uint8_t)(60 + (charge_tri8(now, 2400) >> 1));   // breathing nest
-  charge_setpx(0, color_fade(RGBW32(255, 160, 40, 0), nestb, true));
-  charge_setpx(1, color_fade(RGBW32(255, 160, 40, 0), (uint8_t)(nestb >> 1), true));
-  uint8_t hoard = d->stock > 6 ? 6 : d->stock;               // the hoard: colored segments
-  for (uint8_t r = 0; r < hoard; r++)
-    charge_setpx((uint16_t)(2 + r), color_fade(
-      SEGMENT.color_from_palette(d->ring[r], false, true, 255), 150, true));
-  uint8_t psz = (uint8_t)(1 + d->pileLeft / 7);              // the pile shrinks as it's mined
-  for (int16_t o = -(int16_t)psz; o <= (int16_t)psz; o++) {
-    int32_t i = (int32_t)d->pilePos + o;
-    if (i >= 0 && i < CHARGE_NUM_PIXELS)
-      charge_setpx((uint16_t)i, color_fade(pilec,
-        (uint8_t)(140 + (charge_tri8(now + (uint16_t)(o * 60), 1100) >> 1)), true));
+  for (uint8_t c = 0; c < ncol; c++) {                       // rich colonies GLOW their letter
+    if (!d->stock[c]) continue;
+    uint8_t L = (uint8_t)(((uint16_t)c * CHARGE_NUM_LETTERS) / ncol);
+    uint8_t g = (uint8_t)(d->stock[c] * 5); if (g > 110) g = 110;
+    uint32_t gc = color_fade(SEGMENT.color_from_palette(d->colPal[c], false, true, 255), (uint8_t)(30 + g), true);
+    uint16_t st = charge_lstart(L), n = charge_lcount(L);
+    for (uint16_t k = 0; k < n; k++) charge_setpx(st + k, gc);
   }
-  for (uint8_t a = 0; a < d->nants; a++) {
+  if (SEGMENT.check1)                                        // pheromone trails to live piles
+    for (uint8_t j = 0; j < npiles; j++) {
+      if (!d->pileLeft[j]) continue;
+      uint32_t pc2 = SEGMENT.color_from_palette(d->pilePal[j], false, true, 255);
+      uint16_t lo = d->pilePos[j], hi = lo;
+      for (uint8_t c = 0; c < ncol; c++) { if (nest[c] < lo) lo = nest[c]; if (nest[c] > hi) hi = nest[c]; }
+      for (uint16_t i = lo; i < hi; i += 5) charge_setpx(i, color_fade(pc2, 26, true));
+    }
+  for (uint8_t c = 0; c < ncol; c++) {                       // breathing nests
+    uint8_t nb = (uint8_t)(60 + (charge_tri8(now + c * 400u, 2400) >> 1));
+    charge_setpx(nest[c], color_fade(RGBW32(255, 160, 40, 0), nb, true));
+    charge_setpx((uint16_t)(nest[c] + 1), color_fade(RGBW32(255, 160, 40, 0), (uint8_t)(nb >> 1), true));
+  }
+  for (uint8_t j = 0; j < npiles; j++) {                     // the piles, shrinking as mined
+    if (!d->pileLeft[j]) continue;
+    uint32_t pc2 = SEGMENT.color_from_palette(d->pilePal[j], false, true, 255);
+    uint8_t psz = (uint8_t)(1 + d->pileLeft[j] / 7);
+    for (int16_t o = -(int16_t)psz; o <= (int16_t)psz; o++) {
+      int32_t i = (int32_t)d->pilePos[j] + o;
+      if (i >= 0 && i < CHARGE_NUM_PIXELS)
+        charge_setpx((uint16_t)i, color_fade(pc2,
+          (uint8_t)(140 + (charge_tri8(now + (uint16_t)(o * 60), 1100) >> 1)), true));
+    }
+  }
+  for (uint8_t a = 0; a < d->nants; a++) {                   // the ants
     ChargeAnt *an = &d->ant[a];
-    if (an->mode == 0) {                                     // waiting: mill around the nest
-      uint16_t mk = (uint16_t)(1 + (charge_hash((a * 17u) ^ (now >> 8)) % 7));
-      charge_setpx(mk, color_fade(RGBW32(200, 120, 30, 0), 90, true));
+    uint8_t c = (uint8_t)(a % ncol);
+    if (an->mode == 0) {                                     // milling around the nest
+      uint16_t mk = (uint16_t)(nest[c] + 1 + (charge_hash((a * 17u) ^ (now >> 8)) % 6));
+      if (mk < CHARGE_NUM_PIXELS) charge_setpx(mk, color_fade(RGBW32(200, 120, 30, 0), 90, true));
       continue;
     }
     uint16_t k = (uint16_t)(an->pos6 >> 6);
     if (k >= CHARGE_NUM_PIXELS) k = CHARGE_NUM_PIXELS - 1;
-    if (an->mode == 2) {                                     // hauling: colored load leads
+    if (an->mode == 2) {                                     // hauling: the color leads
       charge_setpx(k, RGBW32(160, 90, 20, 0));
-      if (k > 0) charge_setpx((uint16_t)(k - 1), pilec);
+      if (k > 0) charge_setpx((uint16_t)(k - 1),
+        SEGMENT.color_from_palette(d->pilePal[an->tgt], false, true, 255));
     } else {
       charge_setpx(k, color_fade(RGBW32(200, 120, 30, 0), (uint8_t)(an->mode == 1 ? 150 : 90), true));
     }
@@ -1341,12 +1396,14 @@ static void mode_charge_fireworks() {
       uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
       uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
       uint16_t wsum = 0; uint8_t bestw = 0, bestpos = 0;
+      uint16_t maxR = (uint16_t)(60 + (SEGMENT.intensity >> 1));   // Explosion: 60..187 cells
+      uint8_t bw = (uint8_t)(6 + (SEGMENT.intensity >> 5));         // band width 6..13
       for (uint8_t j = 0; j < nb2; j++) {
         uint8_t dd = charge_dist8((int16_t)col - bcol[j], (int16_t)row - brow[j]);
-        uint16_t R = (uint16_t)(((uint32_t)bage[j] * 105) / 255);
+        uint16_t R = (uint16_t)(((uint32_t)bage[j] * maxR) / 255);
         int16_t band = (int16_t)dd - (int16_t)R; if (band < 0) band = (int16_t)-band;
-        if (band >= 8) continue;
-        uint8_t w = (uint8_t)((((uint16_t)(8 - band) * (255 - bage[j])) / 8));
+        if (band >= (int16_t)bw) continue;
+        uint8_t w = (uint8_t)((((uint16_t)(bw - band) * (255 - bage[j])) / bw));
         wsum += w;
         if (w > bestw) { bestw = w; bestpos = (uint8_t)(bbase[j] + dd * 2); }
       }
@@ -1722,28 +1779,38 @@ static void mode_charge_flow() {
   uint16_t trail8 = (uint16_t)(40 + (((uint16_t)SEGMENT.intensity * 3) >> 2));  // 40..231
   uint8_t glow = (uint8_t)(SEGMENT.custom1 >> 1);            // 0..127 residual fill
 
-  uint8_t fh8; int8_t dir;
-  if (SEGMENT.check1) {                                      // bounce
-    uint32_t ph = now % (2 * P);
-    dir = (ph < P) ? 1 : -1;
-    fh8 = charge_tri8(now, 2 * P);
-  } else {                                                   // loop
-    dir = 1;
-    fh8 = (uint8_t)(((now % P) * 255) / P);
-  }
+  // TIME-BASED trail: each pixel colors by how long ago the head passed it —
+  // continuous through the bounce (the old trail hangs in place and fades
+  // out where the head turned around, no side-flip jump)
+  uint32_t trailMs = (((uint32_t)trail8 * P) >> 8) + 1;
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
     for (uint16_t k = 0; k < n; k++) {
       uint8_t fk8 = (uint8_t)(((uint32_t)k * 255) / (n - 1));
-      int16_t behind = (dir > 0) ? (int16_t)fh8 - fk8 : (int16_t)fk8 - fh8;
-      if (!SEGMENT.check1 && behind < 0) behind += 256;      // loop wraps the trail
+      uint32_t tk = ((uint32_t)fk8 * P) >> 8;                // ascending crossing time
+      uint32_t age;
+      if (SEGMENT.check1) {                                  // bounce: two crossings per 2P
+        uint32_t P2 = 2 * P;
+        uint32_t ph = now % P2;
+        uint32_t td = P2 - tk;                               // descending crossing
+        bool aok = tk <= ph, dok = td <= ph;
+        if (aok || dok) {
+          uint32_t last = aok && dok ? (tk > td ? tk : td) : (aok ? tk : td);
+          age = ph - last;
+        } else {
+          age = ph + (P2 - (tk > td ? tk : td));             // last cycle's crossing
+        }
+      } else {                                               // loop: one crossing per P
+        uint32_t ph = now % P;
+        age = (ph >= tk) ? ph - tk : ph + (P - tk);
+      }
       uint32_t c;
-      if (behind >= 0 && behind <= (int16_t)trail8) {        // the gradient trail
-        uint8_t tp = (uint8_t)(((uint32_t)behind * 255) / trail8);
+      if (age <= trailMs) {                                  // the gradient trail
+        uint8_t tp = (uint8_t)((age * 255) / trailMs);
         c = SEGMENT.color_from_palette((uint8_t)(tp + drift), false, true, 255);
         uint8_t bri = (uint8_t)(255 - (((uint16_t)tp * 200) >> 8));
-        if (behind < 3) c = color_blend(c, WHITE, (uint8_t)(190 - behind * 55));  // hot head
+        if (age < 60) c = color_blend(c, WHITE, (uint8_t)(190 - age * 3));  // hot head
         c = color_fade(c, bri, true);
       } else {                                               // residual glow keeps it full
         c = color_fade(SEGMENT.color_from_palette((uint8_t)(fk8 + drift), false, true, 255),
@@ -1751,6 +1818,141 @@ static void mode_charge_flow() {
       }
       charge_setpx(st + k, c);
     }
+  }
+}
+
+// =====================================================================
+// CHARGE Storm — story #3: weather passes over the sign (~26s, Length):
+// dusk calm -> wind rises (brightness waves ripple through the letters)
+// -> rain builds (blue-white droplets falling through the letterforms)
+// -> the STORM: downpour, gusts, lightning bolts ripping across the sign
+// with strobes -> the rain eases -> a RAINBOW fades in, arcing over the
+// word while golden light warms it -> dusk again -> loop.
+// =====================================================================
+static const char _data_CHARGE_STORM[] PROGMEM =
+  "CHARGE Storm@Length,Fury;;;2;sx=128,ix=160";
+
+static void mode_charge_storm() {
+  if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  uint32_t now = strip.now;
+  uint32_t total = 36000 - (uint32_t)SEGMENT.speed * 80;     // 15.6..36 s
+  uint32_t t = now % total;
+  uint32_t lap = now / total;
+  uint32_t u = total / 32;
+  uint8_t fury = SEGMENT.intensity;
+
+  // ---- phase envelopes (0..255) ----
+  uint8_t windAmt = 0, rainAmt = 0, rainbowAmt = 0, goldAmt = 0;
+  if (t >= 4 * u) {
+    if (t < 8 * u)       windAmt = (uint8_t)(((t - 4 * u) * 200) / (4 * u));
+    else if (t < 20 * u) windAmt = (uint8_t)(200 + (t >= 14 * u ? 55 : 0));
+    else if (t < 24 * u) windAmt = (uint8_t)(200 - (uint8_t)(((t - 20 * u) * 200) / (4 * u)));
+  }
+  if (t >= 8 * u) {
+    if (t < 14 * u)      rainAmt = (uint8_t)(((t - 8 * u) * 150) / (6 * u));
+    else if (t < 20 * u) rainAmt = 255;
+    else if (t < 24 * u) rainAmt = (uint8_t)(255 - (uint8_t)(((t - 20 * u) * 255) / (4 * u)));
+  }
+  if (t >= 24 * u) {
+    if (t < 26 * u)      rainbowAmt = charge_smooth8((uint8_t)(((t - 24 * u) * 255) / (2 * u)));
+    else if (t < 29 * u) rainbowAmt = 255;
+    else                 rainbowAmt = (uint8_t)(255 - (uint8_t)(((t - 29 * u) * 255) / (3 * u)));
+    goldAmt = rainbowAmt;
+  }
+  uint8_t stormMix = rainAmt > windAmt ? rainAmt : windAmt;  // dusk -> storm-grey blend
+
+  // ---- rain drops (per letter, density rides the envelope + Fury) ----
+  uint8_t ndrop[CHARGE_NUM_LETTERS];
+  uint8_t dxd[CHARGE_NUM_LETTERS][8]; int16_t dhf[CHARGE_NUM_LETTERS][8];
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    uint8_t xlo, xhi; charge_letter_xrange(L, &xlo, &xhi);
+    uint8_t nd = (uint8_t)(((uint16_t)rainAmt * (2 + (fury >> 6))) / 96);   // 0..~13
+    if (nd > 8) nd = 8;
+    ndrop[L] = nd;
+    for (uint8_t di = 0; di < nd; di++) {
+      uint32_t h = charge_hash(0xDA170000u | ((uint32_t)L << 8) | di);
+      uint32_t cyc = 520 + (h % 320);
+      uint32_t tc = (now + (h >> 8)) % cyc;
+      uint32_t ci = (now + (h >> 8)) / cyc;
+      uint32_t hx = charge_hash(h ^ (ci * 0x85EBCA6Bu));
+      dxd[L][di] = (uint8_t)(xlo + (hx & 0xFF) * (uint8_t)(xhi - xlo) / 255);
+      dhf[L][di] = (int16_t)(235 - (int32_t)((tc * 280) / cyc));            // falls past base
+    }
+  }
+
+  // ---- lightning (storm window only) ----
+  bool strike = false; uint8_t strobe = 0;
+  uint8_t boltRow[CHARGE_GRID_W];
+  if (t >= 14 * u && t < 20 * u) {
+    uint8_t nstrikes = (uint8_t)(2 + (fury >> 7));           // 2..3 per storm
+    uint32_t slice = (6 * u) / nstrikes;
+    for (uint8_t sk = 0; sk < nstrikes; sk++) {
+      uint32_t hs = charge_hash(lap * 7919u + sk * 131u + 0x57B0u);
+      uint32_t at = 14 * u + sk * slice + (hs % (slice > 600 ? slice - 600 : 1));
+      if (t < at) continue;
+      uint32_t age = t - at;
+      if (age < 320) {                                       // the bolt
+        strike = true;
+        int16_t r = (int16_t)(4 + (hs % 12));
+        for (uint16_t cx2 = 0; cx2 < CHARGE_GRID_W; cx2++) {
+          boltRow[cx2] = (uint8_t)(r < 0 ? 0 : (r >= CHARGE_GRID_H ? CHARGE_GRID_H - 1 : r));
+          uint32_t hb = charge_hash(hs ^ (cx2 * 0x9E3779B1u));
+          r = (int16_t)(r + (int16_t)(hb % 5) - 2);
+        }
+      } else if (age < 460 && ((age / 60) & 1)) {
+        strobe = 130;                                        // afterflashes
+      }
+    }
+  }
+
+  // ---- paint ----
+  // (names chosen clear of FX.h color macros: RED/GREY/ORANGE/etc are taken)
+  const uint32_t duskC = RGBW32(255, 140, 40, 0);
+  const uint32_t greyC = RGBW32(70, 90, 130, 0);
+  const uint32_t rainC = RGBW32(150, 190, 255, 0);
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+    uint8_t L  = pgm_read_byte(&CHARGE_LETTER[i]);
+    uint8_t xn = pgm_read_byte(&CHARGE_XNORM[i]);
+    uint8_t hp = pgm_read_byte(&CHARGE_HEIGHT[i]);
+    uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
+    uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
+
+    // dusk base with a slow breath, cooling to storm-grey as weather builds
+    uint8_t baseB = (uint8_t)(38 + (charge_tri8(now, 5200) >> 4));
+    uint32_t c = color_fade(color_blend(duskC, greyC, stormMix), baseB, true);
+    if (windAmt) {                                           // gusts ripple through
+      uint8_t wph = (uint8_t)(xn * 2 - (uint8_t)(now >> 3));
+      uint8_t wave = (uint8_t)(wph < 128 ? wph * 2 : (255 - wph) * 2);
+      c = color_blend(c, color_fade(color_blend(duskC, greyC, stormMix), 140, true),
+                      (uint8_t)(((uint16_t)wave * windAmt) >> 9));
+    }
+    for (uint8_t di = 0; di < ndrop[L]; di++) {              // rain streaks
+      uint8_t ddx = (xn > dxd[L][di]) ? (uint8_t)(xn - dxd[L][di]) : (uint8_t)(dxd[L][di] - xn);
+      if (ddx >= 6) continue;
+      int16_t ddh = (int16_t)hp - dhf[L][di]; if (ddh < 0) ddh = (int16_t)-ddh;
+      if (ddh < 14)
+        c = color_blend(c, rainC, (uint8_t)(((14 - ddh) * 14) + 40));
+      else if (dhf[L][di] < 12 && hp < 14 && ddx < 8 && hw_random8() < 60)
+        c = color_blend(c, rainC, 120);                      // splash sparkle
+    }
+    if (strike && (int16_t)row >= (int16_t)boltRow[col] - 2 &&
+        (int16_t)row <= (int16_t)boltRow[col] + 2) {
+      int16_t dr = (int16_t)row - (int16_t)boltRow[col]; if (dr < 0) dr = (int16_t)-dr;
+      c = (dr <= 1) ? WHITE : color_blend(c, RGBW32(200, 220, 255, 0), 170);
+    }
+    if (strobe) c = color_blend(c, WHITE, strobe);
+    if (rainbowAmt) {                                        // the payoff
+      uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - (CHARGE_GRID_H + 27));
+      int16_t rd = (int16_t)d - 28;
+      if (rd >= 0 && rd < 28) {
+        uint32_t rc = charge_palette(2, (uint8_t)(rd * 9));  // true ROYGBIV arcs
+        c = color_blend(c, rc, (uint8_t)(((uint16_t)rainbowAmt * 220) >> 8));
+      }
+      if (goldAmt)                                           // low sun gilds the letters
+        c = color_blend(c, color_fade(RGBW32(255, 190, 90, 0), (uint8_t)(90 + (hp >> 1)), true),
+                        (uint8_t)(((uint16_t)goldAmt * 90) >> 8));
+    }
+    charge_setpx(i, c);
   }
 }
 
@@ -1777,6 +1979,7 @@ static const ChargeFxEntry CHARGE_FX_LIST[] = {
   { &mode_charge_flow,      _data_CHARGE_FLOW },
   { &mode_charge_premiere,  _data_CHARGE_PREMIERE },
   { &mode_charge_dreamwave, _data_CHARGE_DREAMWAVE },
+  { &mode_charge_storm,     _data_CHARGE_STORM },
 };
 static const uint8_t CHARGE_FX_COUNT =
     sizeof(CHARGE_FX_LIST) / sizeof(CHARGE_FX_LIST[0]);

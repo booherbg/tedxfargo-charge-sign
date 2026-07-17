@@ -114,7 +114,10 @@ usermod (same 0..255 level + peak interface on both sides); LED glow/optics.<br>
 limiter, WLED UI.</div>
 </div>
 
-<script src="charge_sim.js"></script>
+<script>
+// cache-bust the wasm glue: sim iterates fast, stale caches hide new controls
+document.write('<script src="charge_sim.js?v=' + Date.now() + '"><' + '/script>');
+</script>
 <script>
 (async () => {
   const $ = id => document.getElementById(id);
