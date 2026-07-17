@@ -1356,23 +1356,25 @@ static void mode_charge_fireworks() {
   // with radial palette color. c3=31 -> every window is a showpiece.
   uint32_t letterClock = now;                              // the little ones' timeline
   uint32_t eraSalt = 0;
+  uint32_t letterDeadline = 0xFFFFFFFFu;                   // when letters must be done
   if (SEGMENT.custom3) {
+    // Grand = frequency: each ERA is [letter fireworks]...[the showpiece].
+    // Letters never get interrupted: a window that couldn't finish before
+    // the grand simply doesn't launch (they wrap up, one beat, then BOOM).
     uint32_t gWms = Wms * 2;
-    uint32_t gwin = now / gWms;
-    // Grand = frequency: 1..31 -> a showpiece every 4th..every launch window
     uint8_t interval = (uint8_t)(1 + (31 - SEGMENT.custom3) / 8);      // 1..4
-    if ((gwin % interval) != 0) {
-      // between grands: restart the letter timeline at the last grand's end
-      // so the little ones RELAUNCH fresh (not resume mid-flight), with a
-      // new seed era so the patterns differ each time
-      uint32_t g0 = (gwin / interval) * interval;
-      letterClock = now - (g0 + 1) * gWms;
-      eraSalt = (gwin / interval) * 7919u;
-    }
-    if ((gwin % interval) == 0) {
+    uint32_t eraLen = (uint32_t)interval * gWms;
+    uint32_t eraIdx = now / eraLen;
+    uint32_t eraT = now % eraLen;
+    uint32_t grandAt = eraLen - gWms;                      // the era's finale slot
+    if (eraT < grandAt) {
+      letterClock = eraT;                                  // fresh relaunch each era
+      eraSalt = eraIdx * 7919u;
+      letterDeadline = grandAt;
+    } else {
       SEGMENT.fill(BLACK);
-      uint32_t gph = now % gWms;
-      uint32_t hg = charge_hash(gwin * 2654435761u ^ 0x6EA4Du);
+      uint32_t gph = eraT - grandAt;
+      uint32_t hg = charge_hash(eraIdx * 2654435761u ^ 0x6EA4Du);
       const int32_t N = CHARGE_NUM_PIXELS;
       uint16_t L0g = (SEGMENT.custom1 < 128) ? 0 : (uint16_t)(N - 1);
       int8_t dirg = (L0g == 0) ? 1 : -1;
@@ -1415,6 +1417,14 @@ static void mode_charge_fireworks() {
           if (echo < 0) echo = (int16_t)-echo;
           if (echo < 5 && Rw > 16)
             c = color_blend(c, charge_cfp_vivid((uint8_t)(basec + dd * 5 + 110)), (uint8_t)(((uint16_t)(5 - echo) * fade) >> 3));
+          // complementary ripples roll outward over the held pattern — on
+          // banded palettes (TEDx) this pulls the accent hue (yellow) and
+          // keeps the unveil moving while the flood holds
+          uint8_t rp = (uint8_t)((uint8_t)(dd * 10) - (uint8_t)(age >> 3));
+          uint8_t rw = (uint8_t)(rp < 128 ? rp * 2 : (255 - rp) * 2);
+          rw = (uint8_t)(((uint16_t)charge_smooth8(rw) * fb) >> 8);
+          if (rw > 44)
+            c = color_blend(c, charge_cfp_vivid((uint8_t)(basec + 128 + dd * 2)), (uint8_t)(rw - 44));
           if (SEGMENT.check1 && (charge_hash((uint32_t)i * 37 ^ (now >> 6)) & 0xFF) < 14)
             c = color_blend(c, WHITE, fade);                           // crackle glints
           charge_setpx(i, c);
@@ -1451,6 +1461,7 @@ static void mode_charge_fireworks() {
     if (letterClock < toff) continue;                        // its turn hasn't come yet
     uint32_t tphase = letterClock - toff;
     uint32_t win = tphase / Wms;
+    if (toff + (win + 1) * Wms > letterDeadline) continue;   // couldn't finish pre-grand
     uint32_t ph = tphase % Wms;
     uint32_t hj = charge_hash(win * 131 + L * 7 + eraSalt + 0xF13E0000u);
     // launch origin from the Firing side slider; burst point out on the far side
@@ -1762,9 +1773,12 @@ static void mode_charge_premiere() {
       strobe = 95;                                         // one gentler after-flash
     }
   }
-  uint8_t finq = (beat >= 19 && beat < 22) ? (uint8_t)(((t - 19 * u) * 255) / (3 * u)) : 0;
+  // the finale persists through the fade-out (dimmed by fadeq) — cutting it
+  // at the fade boundary ended the film abruptly
+  uint8_t finq = (beat >= 19) ? ((beat < 22) ? (uint8_t)(((t - 19 * u) * 255) / (3 * u)) : 255) : 0;
   uint8_t fadeq = (beat >= 22) ? (uint8_t)(((t - 22 * u) * 255) / (2 * u)) : 0;
-  uint16_t ringR = (uint16_t)(((uint32_t)finq * 90) / 255);
+  uint32_t fint = (beat >= 19) ? (t - 19 * u) : 0;         // time since the blast began
+  uint16_t ringR = (uint16_t)((fint * 90) / (3 * u));      // radiates OUT and keeps going
 
   for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
     uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
@@ -1843,6 +1857,12 @@ static void mode_charge_premiere() {
       if (echo < 0) echo = (int16_t)-echo;
       if (echo < 5 && ringR > 18)
         c = color_blend(c, charge_cfp_vivid((uint8_t)(d * 5 + 110 + (now >> 4))), (uint8_t)(190 - echo * 30));
+      // continuous outward ripple train keeps the unveil moving
+      uint8_t rp = (uint8_t)((uint8_t)(d * 9) - (uint8_t)(fint >> 4));
+      uint8_t rw = (uint8_t)(rp < 128 ? rp * 2 : (255 - rp) * 2);
+      rw = (uint8_t)(((uint16_t)charge_smooth8(rw) * finq) >> 8);
+      if (rw > 60)
+        c = color_blend(c, charge_cfp_vivid((uint8_t)(d * 3 + 128 + (now >> 5))), (uint8_t)(rw - 60));
       uint32_t hg = charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u));
       if ((hg & 0xFF) < (spk >> 2))                        // glitter in VIVID palette colors
         c = color_blend(c, charge_cfp_vivid((uint8_t)(hg >> 8)), 235);

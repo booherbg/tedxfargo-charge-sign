@@ -5,6 +5,9 @@
 behind by 12 mm bullet pixels. Read top-to-bottom for full context; numeric truth lives in
 `docs/locked-specs.md`; print/assembly steps in `docs/assembly-charge.md`.
 
+> **Firmware / effects / simulator have their own handoff:** `docs/HANDOFF-FIRMWARE.md`
+> (16 custom WLED effects, flashed and confirmed on hardware 2026-07-17).
+
 ## 0. State at a glance
 - **CHARGE word: RESTORED to the APPROVED design (2026-07-05) — do not restyle.**
   A bridging experiment (closing the letterforms' open strokes) was built and then

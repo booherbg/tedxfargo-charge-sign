@@ -19,12 +19,13 @@ canvas { width:100%; height:auto; display:block; border-radius:8px; cursor:cross
   background:var(--panel); border:1px solid var(--line); border-radius:10px;
   padding:12px 16px; margin:14px 0 0; }
 .controls .grp { display:flex; align-items:center; gap:8px; }
+#params, #colorpick { flex-wrap:wrap; row-gap:10px; }
 label { font-size:12px; color:var(--mut); letter-spacing:.06em; text-transform:uppercase; }
 select,button,input[type=number] { background:#232830; color:var(--ink); border:1px solid var(--line);
   border-radius:6px; padding:5px 10px; font-size:13px; }
 button { cursor:pointer; } button:hover { border-color:var(--yel); }
 button.primary { border-color:var(--yel); color:var(--yel); }
-input[type=range] { width:120px; accent-color:#ffc93c; }
+input[type=range] { width:104px; accent-color:#ffc93c; }
 input[type=checkbox] { accent-color:#ffc93c; }
 .val { font-size:12px; color:var(--yel); min-width:3ch; display:inline-block; text-align:right; }
 .stats { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
