@@ -468,8 +468,9 @@ static void mode_charge_comet() {
       int32_t i = (int32_t)head - (int32_t)k;
       if (i < 0 || i >= CHARGE_NUM_PIXELS) continue;
       if (k < 2) { charge_setpx((uint16_t)i, RGBW32(255, 255, 255, 0)); continue; }
-      uint8_t bri = (uint8_t)(((uint32_t)(tail - k) * 255) / tail);
-      bri = qsub8(bri, hw_random8() & 63);                   // sparking decay
+      uint8_t tp = (uint8_t)(((uint32_t)k * 255) / tail);
+      uint8_t bri = (uint8_t)(255 - (((uint16_t)tp * tp) >> 8));   // hold bright, drop at the end
+      bri = qsub8(bri, hw_random8() & 31);                   // gentle sparking decay
       charge_setpx((uint16_t)i, color_fade(cometc, bri, true));
     }
   }
@@ -1580,8 +1581,9 @@ static void mode_charge_premiere() {
       uint8_t e = charge_smooth8((uint8_t)(((uint16_t)lq[L] * 255) / 100));
       spx = (int16_t)(ax + ((int32_t)(cx[L] - ax) * e) / 255);
       spy = (int16_t)(ay + ((int32_t)(cy[L] - ay) * e) / 255);
-    } else {                                               // holding, tiny wobble
-      spx = (int16_t)(cx[L] + (int16_t)(charge_tri8(now, 900) / 64) - 2);
+    } else {                                               // holding: wobble eases in
+      uint8_t wamp = (uint8_t)(lq[L] - 100); if (wamp > 40) wamp = 40;
+      spx = (int16_t)(cx[L] + (((int16_t)(charge_tri8(now, 900) / 32) - 4) * wamp) / 40);
       spy = cy[L];
     }
     break;
@@ -1589,7 +1591,10 @@ static void mode_charge_premiere() {
   if (t < 2 * u) {                                         // opening sweep-in
     spot = true;
     spx = (int16_t)(-30 + (int32_t)(cx[0] + 30) * (int32_t)t / (int32_t)(2 * u));
-    spy = (int16_t)(CHARGE_GRID_H / 2 + (charge_tri8(t, 1300) / 32) - 4);
+    // wobble amplitude eases to zero so the sweep LANDS exactly on C
+    int32_t remW = (int32_t)(2 * u - t);
+    int16_t wob = (int16_t)((((int32_t)(charge_tri8(t, 1300) / 32) - 4) * remW) / (int32_t)(2 * u));
+    spy = (int16_t)(cy[0] + wob);
   }
 
   uint32_t beat = t / u;
@@ -1628,10 +1633,10 @@ static void mode_charge_premiere() {
         c = color_fade(RGBW32(200, 200, 220, 0), 70, true);
     }
 
-    if (lmode[L] == 2) {                                   // lit letter
-      uint8_t bri = 60;                                    // ember hold
+    if (lmode[L] == 2) {                                   // lit letter: stays BRIGHT
+      uint8_t bri = 225;
       uint32_t basec = CHARGE_CYAN;
-      if (swellq) { bri = (uint8_t)(60 + ((uint16_t)195 * swellq) / 255);
+      if (swellq) { bri = (uint8_t)(225 + ((uint16_t)30 * swellq) / 255);
                     basec = color_blend(CHARGE_CYAN, RGBW32(255,255,255,0), swellq / 2); }
       if (beat >= 17 && beat < 19) { bri = 255; basec = RGBW32(180, 255, 255, 0); }
       if (finq) {                                          // ease out of the strike look
@@ -1729,12 +1734,12 @@ static void mode_charge_dreamwave() {
     ph0[k] = (uint8_t)(h >> 8);
   }
   // per-letter pulse (own breathing tempo)
-  uint8_t lpulse[CHARGE_NUM_LETTERS];
+  uint8_t lpulse[CHARGE_NUM_LETTERS];                      // additive per-letter swell
   for (uint8_t k = 0; k < CHARGE_NUM_LETTERS; k++) {
     uint32_t h = charge_hash(0xB1EA0000u | k);
     lpulse[k] = SEGMENT.check1
-      ? (uint8_t)(190 + (charge_smooth8(charge_tri8(now + (h & 0xFFF), 2600 + (h % 2200))) >> 2))
-      : 255;
+      ? charge_smooth8(charge_tri8(now + (h & 0xFFF), 2600 + (h % 2200)))
+      : 0;
   }
 
   for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
@@ -1757,7 +1762,7 @@ static void mode_charge_dreamwave() {
     // bright wavefronts over (not-too-)dark troughs; the speaking letter glows
     uint8_t bri = (uint8_t)(((uint16_t)SEGMENT.intensity * (90 + ((uint16_t)charge_smooth8(v) * 165) / 255)) / 255);
     if (L == lead) bri = qadd8(bri, (uint8_t)(leadw >> 2));   // the speaker lights up
-    bri = (uint8_t)(((uint16_t)bri * lpulse[L]) / 255);
+    bri = qadd8(bri, (uint8_t)(((uint16_t)lpulse[L] * 90) >> 8));  // pulse BOOSTS, never dims
     charge_setpx(i, color_fade(c, bri, true));
   }
 }
