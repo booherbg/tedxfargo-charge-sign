@@ -1357,7 +1357,8 @@ static void mode_charge_fireworks() {
   if (SEGMENT.custom3) {
     uint32_t gWms = Wms * 2;
     uint32_t gwin = now / gWms;
-    uint8_t interval = (uint8_t)(1 + ((31 - SEGMENT.custom3) >> 2));   // 1..8 windows
+    // Grand = frequency: 1..31 -> a showpiece every 4th..every launch window
+    uint8_t interval = (uint8_t)(1 + (31 - SEGMENT.custom3) / 8);      // 1..4
     if ((gwin % interval) == 0) {
       SEGMENT.fill(BLACK);
       uint32_t gph = now % gWms;
@@ -1400,6 +1401,10 @@ static void mode_charge_fireworks() {
           int16_t band = (int16_t)dd - (int16_t)Rw; if (band < 0) band = (int16_t)-band;
           if (band < 8)                                                // shockwave rim
             c = color_blend(c, charge_cfp_vivid((uint8_t)(basec + dd * 5)), (uint8_t)(((uint16_t)(8 - band) * fade) >> 3));
+          int16_t echo = (int16_t)dd - ((int16_t)Rw - 16);             // trailing echo ring
+          if (echo < 0) echo = (int16_t)-echo;
+          if (echo < 5 && Rw > 16)
+            c = color_blend(c, charge_cfp_vivid((uint8_t)(basec + dd * 5 + 110)), (uint8_t)(((uint16_t)(5 - echo) * fade) >> 3));
           if (SEGMENT.check1 && (charge_hash((uint32_t)i * 37 ^ (now >> 6)) & 0xFF) < 14)
             c = color_blend(c, WHITE, fade);                           // crackle glints
           charge_setpx(i, c);
@@ -1434,7 +1439,7 @@ static void mode_charge_fireworks() {
     uint32_t win = tphase / Wms;
     uint32_t ph = tphase % Wms;
     uint32_t hj = charge_hash(win * 131 + L * 7 + 0xF13E0000u);
-    if ((hj & 0xFF) > 215) continue;                         // ~84% of windows launch
+    if ((hj & 0xFF) > 242) continue;                         // ~95% of windows launch
     // launch origin from the Firing side slider; burst point out on the far side
     uint16_t L0 = (uint16_t)(((uint32_t)SEGMENT.custom1 * (n - 1)) / 255);
     int8_t dir = (L0 < n / 2) ? 1 : -1;
