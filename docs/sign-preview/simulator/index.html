@@ -338,13 +338,16 @@ carry their own mini-palettes, identical in firmware), brightness limiter, WLED 
       if (rms > micAvg * 1.9 && tms - lastPeakAt > 180) { peak = 1; lastPeakAt = tms; }
       return [level, peak];
     }
-    // synthetic beat: kick envelope, accent every 4th
+    // synthetic beat: kick with a ~45ms attack ramp (mirrors the smoothing the
+    // device's volumeSmth applies), accent every 4th
     const beatMs = 60000 / (+$("bpm").value);
-    const ph = (tms % beatMs) / beatMs;
+    const phMs = tms % beatMs;
     const nbeat = Math.floor(tms / beatMs);
     const accent = (nbeat % 4 === 0) ? 1.0 : 0.72;
-    const level = Math.min(255, Math.round(255 * accent * Math.exp(-ph * 6)) + 18);
-    return [level, ph < 0.06 ? 1 : 0];
+    const atk = Math.min(1, phMs / 45);
+    const dec = Math.exp(-Math.max(0, phMs - 45) / 240);
+    const level = Math.min(255, Math.round(255 * accent * atk * dec) + 18);
+    return [level, (phMs >= 40 && phMs < 70) ? 1 : 0];
   }
 
   // --- time: WLED services the strip every FRAMETIME ms of device millis() ---

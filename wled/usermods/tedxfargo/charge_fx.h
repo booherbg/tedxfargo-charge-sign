@@ -138,6 +138,9 @@ static void mode_charge_bootup() {
 
   SEGMENT.fill(BLACK);                                    // clear the matrix each frame
   uint8_t flicker = SEGMENT.intensity;                    // 0..255 flicker strength
+  // ease down at the end of the hold so the loop doesn't hard-cut to black
+  uint32_t fadeMs = holdMs / 2 > 450 ? 450 : holdMs / 2;
+  uint8_t gfade = (t > cycle - fadeMs) ? (uint8_t)(((cycle - t) * 255) / fadeMs) : 255;
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint32_t litAt = (uint32_t)letterMs * L;
@@ -150,6 +153,7 @@ static void mode_charge_bootup() {
       uint8_t dip  = (hw_random8() < 128) ? (uint8_t)(hw_random8() % (uint16_t)(flicker + 1)) : 0;
       bri = qsub8(ramp, dip);
     }
+    bri = (uint8_t)(((uint16_t)bri * gfade) / 255);
     uint32_t col = color_fade(CHARGE_CYAN, bri, true);
 
     uint16_t start = charge_lstart(L), count = charge_lcount(L);
@@ -394,7 +398,7 @@ static void mode_charge_ants() {
   uint32_t now = strip.now;
   uint8_t na = (uint8_t)(2 + SEGMENT.intensity / 52);        // 2..6 ants per letter
   uint32_t vbase = 4 + (SEGMENT.speed >> 3);                 // 4..35 px/s
-  uint32_t tunnel = color_fade(RGBW32(180, 120, 60, 0), 12, true);
+  uint32_t tunnel = color_fade(RGBW32(180, 120, 60, 0), 30, true);
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
     for (uint16_t k = 0; k < n; k++) charge_setpx(st + k, tunnel);
@@ -434,6 +438,13 @@ static void mode_charge_raider() {
   uint16_t ship = (uint16_t)(travel % (uint32_t)N);
   uint32_t lap = travel / (uint32_t)N;
 
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {         // twinkling starfield
+    uint32_t hs = charge_hash((uint32_t)i * 2654435761u);
+    if ((hs & 0xFF) < 20)
+      charge_setpx(i, color_fade(RGBW32(150, 170, 220, 0),
+        (uint8_t)(24 + (charge_tri8(now + (hs >> 8), 1400 + (hs % 1100)) >> 2)), true));
+  }
+
   // boost: ~75% of windows get a 1.3s flare; window 3..10.1s (Boost freq)
   uint32_t bwin = 3000 + (uint32_t)(255 - SEGMENT.custom1) * 28;
   uint32_t bph = now % bwin;
@@ -460,14 +471,14 @@ static void mode_charge_raider() {
     uint32_t hj = charge_hash(lap * 31 + j + 0xE11E0000u);
     int32_t E = (int32_t)(((uint32_t)j * (uint32_t)N) / ne + (hj % 24)) % N;
     int32_t d = E - (int32_t)ship; if (d < 0) d += N;        // distance ahead
-    if (d > 40 && d < 160) {                                 // alive: pulsing alien
+    if (d > 40) {                                            // alive: pulsing alien
       uint8_t bri = (uint8_t)(140 + (charge_tri8(now + j * 997u, 700) >> 2));
       uint32_t ac = color_fade(ALIENC[hj % 3], bri, true);
       charge_setpx_mod(E, ac);
       charge_setpx_mod(E + 1, color_fade(ac, 120, true));
     } else if (d > 24 && d <= 40) {                          // hit: multicolor burst
       uint8_t age = (uint8_t)(((uint32_t)(d - 24) * 255) / 16); // 255 at impact -> 0
-      uint8_t r = (uint8_t)(1 + (40 - d) / 5);               // expanding 1..4 px
+      uint8_t r = (uint8_t)(1 + (40 - d) / 3);               // expanding 1..6 px
       for (int8_t o = -(int8_t)r; o <= (int8_t)r; o++) {
         uint32_t hc = charge_hash(hj ^ (uint32_t)(o + 16) ^ (now >> 6));
         uint32_t c = color_blend(RGBW32(255, 200, 0, 0), RGBW32(255, 0, 200, 0), (uint8_t)hc);
@@ -489,7 +500,7 @@ static void mode_charge_raider() {
 // height table as the vertical axis and xnorm as the ball's lane.
 // =====================================================================
 static const char _data_CHARGE_GRAVITY[] PROGMEM =
-  "CHARGE Gravity@Gravity,Balls,Palette,,,Trails;;;2;sx=128,ix=128,c1=0,o1=1";
+  "CHARGE Gravity@Gravity,Balls,Palette,,,Trails;;;2;sx=128,ix=172,c1=0,o1=1";
 
 static void mode_charge_gravity() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -509,6 +520,11 @@ static void mode_charge_gravity() {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
     uint8_t xlo, xhi; charge_letter_xrange(L, &xlo, &xhi);
     uint8_t xspan = (uint8_t)(xhi - xlo);
+    for (uint16_t k = 0; k < n; k++) {                       // floor glow grounds the scene
+      uint16_t i = st + k;
+      if (pgm_read_byte(&CHARGE_HEIGHT[i]) < 8)
+        charge_setpx(i, color_fade(charge_palette(pal, 40), 46, true));
+    }
     for (uint8_t b = 0; b < nballs; b++) {
       uint32_t h = charge_hash(((uint32_t)L << 8) | b | 0x0B0B0000u);
       uint32_t tc = (now + (h & 0x3FFF)) % Ctot;
@@ -537,13 +553,14 @@ static void mode_charge_gravity() {
         if (dx >= xw) continue;
         int16_t hp = pgm_read_byte(&CHARGE_HEIGHT[i]);
         int16_t dh = hp - bh; if (dh < 0) dh = -dh;
-        if (dh < 14) {                                       // the ball
-          uint8_t w = (uint8_t)(((14 - dh) * 255) / 14);
-          w = (uint8_t)(((uint16_t)w * (xw - dx)) / xw);
+        if (dh < 20) {                                       // the ball: solid core, soft rim
+          uint8_t w = (dh < 8) ? 255 : (uint8_t)(((20 - dh) * 255) / 12);
+          uint8_t lanew = (uint8_t)(90 + ((uint16_t)(xw - dx) * 165) / xw);
+          w = (uint8_t)(((uint16_t)w * lanew) / 255);
           charge_setpx(i, color_fade(ballc, w, true));
         } else if (SEGMENT.check1) {                         // motion trail
-          int16_t tr = hp - bh - (falling ? 20 : -20); if (tr < 0) tr = -tr;
-          if (tr < 10) charge_setpx(i, color_fade(ballc, 60, true));
+          int16_t tr = hp - bh - (falling ? 26 : -26); if (tr < 0) tr = -tr;
+          if (tr < 12) charge_setpx(i, color_fade(ballc, 80, true));
         }
         if (bh < 6 && hp < 8 && dx < xw)                     // floor impact flash
           charge_setpx(i, color_fade(RGBW32(255,255,255,0), (uint8_t)(200 - bh * 30), true));
@@ -566,7 +583,7 @@ static void mode_charge_fireworks() {
   uint32_t now = strip.now;
   uint8_t pal = SEGMENT.custom1 >> 5;
   uint32_t Wms = 3000 - (uint32_t)SEGMENT.custom2 * 10;      // launch window 0.45..3s
-  uint8_t ns = (uint8_t)(6 + (SEGMENT.intensity >> 4));      // 6..21 sparks
+  uint8_t ns = (uint8_t)(8 + (SEGMENT.intensity >> 3));      // 8..39 sparks
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
@@ -582,10 +599,24 @@ static void mode_charge_fireworks() {
       charge_setpx(st + pos, RGBW32(255, 255, 255, 0));
       if (pos > 0) charge_setpx(st + pos - 1,
         color_fade(RGBW32(255, 200, 120, 0), (uint8_t)(120 + (hw_random8() & 63)), true));
+      if (pos > 1) charge_setpx(st + pos - 2,
+        color_fade(RGBW32(255, 160, 80, 0), (uint8_t)(60 + (hw_random8() & 31)), true));
     } else {                                                 // burst
       uint32_t age = ph - t_up, dur = Wms - t_up;
       uint8_t a8 = (uint8_t)((age * 255) / dur);
       uint8_t basec = (uint8_t)(hj >> 16);
+      uint32_t boomDur = dur / 6;                            // the BOOM: bright core flash
+      if (age < boomDur) {
+        uint16_t rad = (uint16_t)(2 + (age * 9) / (boomDur ? boomDur : 1));
+        uint8_t bb = (uint8_t)(255 - (age * 200) / (boomDur ? boomDur : 1));
+        uint32_t bc = color_blend(charge_palette(pal, basec), RGBW32(255, 255, 255, 0), bb);
+        for (int32_t kk = (int32_t)B - rad; kk <= (int32_t)B + rad; kk++) {
+          if (kk < 0 || kk >= (int32_t)n) continue;
+          int32_t dd = kk - (int32_t)B; if (dd < 0) dd = -dd;
+          charge_setpx(st + (uint16_t)kk,
+            color_fade(bc, (uint8_t)(255 - ((uint32_t)dd * 160) / (rad ? rad : 1)), true));
+        }
+      }
       // ballistic: sparks decelerate to a stop by end of burst
       uint32_t age_eff = (age * (2 * dur - age)) / (2 * dur);
       for (uint8_t s = 0; s < ns; s++) {
@@ -594,11 +625,14 @@ static void mode_charge_fireworks() {
         uint32_t vs = (20 + ((hs >> 1) & 0x3F)) * (64 + SEGMENT.speed) / 128;  // px/s
         int32_t sposi = (int32_t)B + dir * (int32_t)((vs * age_eff) / 1000);
         if (sposi < 0 || sposi >= (int32_t)n) continue;
-        uint8_t bri = (uint8_t)(255 - a8);
+        uint8_t bri = (uint8_t)(255 - charge_smooth8(a8)); // hold bright, then die
         bri = qsub8(bri, (uint8_t)(hw_random8() & 40));
         uint32_t c = charge_palette(pal, (uint8_t)(basec + ((hs >> 8) & 0x3F) - 32));
         if (SEGMENT.check1 && hw_random8() < 18) c = RGBW32(255, 255, 255, 0);  // crackle
         charge_setpx(st + (uint16_t)sposi, color_fade(c, bri, true));
+        int32_t tail = sposi - dir;                          // 2px spark body
+        if (tail >= 0 && tail < (int32_t)n)
+          charge_setpx(st + (uint16_t)tail, color_fade(c, (uint8_t)((bri * 3) >> 2), true));
       }
     }
   }
@@ -891,7 +925,7 @@ static void mode_charge_premiere() {
 // result through a palette. Wild, spatial, letter-aware, deeply pleasing.
 // =====================================================================
 static const char _data_CHARGE_DREAMWAVE[] PROGMEM =
-  "CHARGE Dreamwave@Speed,Glow,Palette,Zoom,,Letter pulse;;;2;sx=100,ix=190,c1=0,c2=128,o1=1";
+  "CHARGE Dreamwave@Speed,Glow,Palette,Zoom,,Letter pulse;;;2;sx=100,ix=230,c1=0,c2=128,o1=1";
 
 static void mode_charge_dreamwave() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -934,7 +968,9 @@ static void mode_charge_dreamwave() {
     }
     uint8_t v = (uint8_t)(sum / wsum);
     uint32_t c = charge_palette(pal, (uint8_t)(v + (now >> 6)));  // slow palette drift
-    uint8_t bri = (uint8_t)(((uint16_t)SEGMENT.intensity * (100 + charge_smooth8(v) * 155 / 255)) / 255);
+    if (v > 235) c = color_blend(c, RGBW32(255, 255, 255, 0), (uint8_t)((v - 235) * 12));  // antinode shimmer
+    // high contrast: bright wavefronts roll over dark troughs (4:1)
+    uint8_t bri = (uint8_t)(((uint16_t)SEGMENT.intensity * (60 + ((uint16_t)charge_smooth8(v) * 195) / 255)) / 255);
     bri = (uint8_t)(((uint16_t)bri * lpulse[L]) / 255);
     charge_setpx(i, color_fade(c, bri, true));
   }
