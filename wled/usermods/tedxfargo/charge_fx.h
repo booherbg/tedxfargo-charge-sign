@@ -1987,7 +1987,7 @@ static void mode_charge_flow() {
   uint32_t P = 1200 + (uint32_t)(255 - SEGMENT.speed) * 18;  // traverse 1.2..5.8s
   uint8_t drift = (uint8_t)(now >> 6);                       // slow palette rotation
   uint16_t trail8 = (uint16_t)(40 + (((uint16_t)SEGMENT.intensity * 3) >> 2));  // 40..231
-  uint8_t glow = (uint8_t)(SEGMENT.custom1 >> 1);            // 0..127 residual fill
+  uint8_t glow = SEGMENT.custom1;                            // 0..255 — full fill at max
 
   // TIME-BASED trail: each pixel colors by how long ago the head passed it —
   // continuous through the bounce (the old trail hangs in place and fades
@@ -2019,7 +2019,8 @@ static void mode_charge_flow() {
       if (age <= trailMs) {                                  // the gradient trail
         uint8_t tp = (uint8_t)((age * 255) / trailMs);
         c = SEGMENT.color_from_palette((uint8_t)(tp + drift), false, true, 255);
-        uint8_t bri = (uint8_t)(255 - (((uint16_t)tp * 200) >> 8));
+        uint8_t bri = (uint8_t)(255 - (((uint16_t)tp * 185) >> 8));
+        if (bri < glow) bri = glow;                          // never dip below the fill
         if (age < 60) c = color_blend(c, WHITE, (uint8_t)(190 - age * 3));  // hot head
         c = color_fade(c, bri, true);
       } else {                                               // residual glow keeps it full
