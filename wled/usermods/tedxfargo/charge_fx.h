@@ -133,6 +133,28 @@ static inline void charge_letter_centroids(uint8_t cx[CHARGE_NUM_LETTERS],
     cy[L] = (uint8_t)(ay[L] / n);
   }
 }
+// saturation (max-min channel spread) of a color — 0 = grey/white/washed
+static inline uint8_t charge_sat(uint32_t c) {
+  uint8_t r = (uint8_t)(c >> 16), g = (uint8_t)(c >> 8), b = (uint8_t)c;
+  uint8_t mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+  uint8_t mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+  return (uint8_t)(mx - mn);
+}
+// palette color at pos, nudged off blend zones: WLED palettes resample to 16
+// entries and ALWAYS interpolate between adjacent entries, so hard-banded
+// palettes (TEDx) still have ~16/255-wide washed transitions — step aside to
+// the nearest fully saturated hue
+static inline uint32_t charge_cfp_vivid(uint8_t pos) {
+  static const int8_t off[5] = { 0, 8, -8, 16, -16 };
+  uint32_t best = 0; uint8_t bs = 0;
+  for (uint8_t i = 0; i < 5; i++) {
+    uint32_t c = SEGMENT.color_from_palette((uint8_t)(pos + off[i]), false, true, 255);
+    uint8_t sat = charge_sat(c);
+    if (sat >= 140) return c;
+    if (sat >= bs) { bs = sat; best = c; }
+  }
+  return best;
+}
 // Manhattan RGB distance — used to keep adjacent letters visibly different
 static inline uint16_t charge_coldist(uint32_t a, uint32_t b) {
   int16_t dr = (int16_t)((a >> 16) & 255) - (int16_t)((b >> 16) & 255);
@@ -151,7 +173,7 @@ static inline void charge_letter_colors(uint32_t seed, bool primaries,
     for (uint8_t c = 0; c < 6; c++) {
       uint32_t h = charge_hash(seed ^ ((uint32_t)L << 8) ^ ((uint32_t)c * 0x9E3779B1u));
       uint8_t pos = primaries ? (uint8_t)((h % 6) * 51) : (uint8_t)h;
-      uint32_t col = SEGMENT.color_from_palette(pos, false, true, 255);
+      uint32_t col = charge_cfp_vivid(pos);
       if (L == 0) { best = col; break; }
       uint16_t d = charge_coldist(col, out[L - 1]);
       if (d >= 90) { best = col; break; }                    // distinct enough — take it
@@ -208,7 +230,7 @@ static void mode_charge_bootup() {
   uint32_t seed = charge_hash(SEGENV.step | 1u);
   uint32_t seqColor = (SEGMENT.palette == 0)              // Default = classic neon cyan
       ? CHARGE_CYAN
-      : SEGMENT.color_from_palette((uint8_t)seed, false, true, 255);
+      : charge_cfp_vivid((uint8_t)seed);
   uint32_t lettercols[CHARGE_NUM_LETTERS];
   bool perLetter = SEGMENT.check1 && SEGMENT.palette != 0;
   if (perLetter) charge_letter_colors(seed, false, lettercols);  // neighbors kept distinct
@@ -358,8 +380,7 @@ static void mode_charge_surge() {
 
   // cycle + per-letter colors
   uint32_t seed = charge_hash(((uint32_t)(SEGENV.aux1 >> 8) << 3) ^ 0x5EED0000u);
-  uint32_t cyccol = usePal ? SEGMENT.color_from_palette((uint8_t)seed, false, true, 255)
-                           : CHARGE_CYAN;
+  uint32_t cyccol = usePal ? charge_cfp_vivid((uint8_t)seed) : CHARGE_CYAN;
   uint32_t lcol[CHARGE_NUM_LETTERS];
   if (usePal && SEGMENT.check3)
     charge_letter_colors(seed, true, lcol);                // palette primaries, neighbors distinct
@@ -1560,7 +1581,7 @@ static void mode_charge_pulse() {
 // Single pass per pixel; the whole timeline is a pure function of time.
 // =====================================================================
 static const char _data_CHARGE_PREMIERE[] PROGMEM =
-  "CHARGE Premiere@Length,Sparkle;!,!,!;!;2;sx=128,ix=160,pal=255";
+  "CHARGE Premiere@Length,Sparkle,,,,Letter colors;!,!,!;!;2;sx=128,ix=160,o1=0,pal=255";
 
 static void mode_charge_premiere() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -1575,6 +1596,17 @@ static void mode_charge_premiere() {
 
   uint8_t cx[CHARGE_NUM_LETTERS], cy[CHARGE_NUM_LETTERS];
   charge_letter_centroids(cx, cy);
+
+  // fill colors: Default palette = classic cyan; else one vivid palette color
+  // per loop (re-rolled each lap), or per-letter with 'Letter colors'
+  uint32_t cycseed = charge_hash(SEGENV.step ^ (lap * 0x9E3779B1u));
+  uint32_t fillcol[CHARGE_NUM_LETTERS];
+  if (SEGMENT.palette == 0)
+    for (uint8_t Lc = 0; Lc < CHARGE_NUM_LETTERS; Lc++) fillcol[Lc] = CHARGE_CYAN;
+  else if (SEGMENT.check1)
+    charge_letter_colors(cycseed, false, fillcol);
+  else
+    for (uint8_t Lc = 0; Lc < CHARGE_NUM_LETTERS; Lc++) fillcol[Lc] = charge_cfp_vivid((uint8_t)cycseed);
 
   // per-letter reveal state: 0 = hidden, 1 = revealing (q 0..255), 2 = lit
   uint8_t lmode[CHARGE_NUM_LETTERS], lq[CHARGE_NUM_LETTERS];
@@ -1652,13 +1684,13 @@ static void mode_charge_premiere() {
 
     if (lmode[L] == 2) {                                   // lit letter: stays BRIGHT
       uint8_t bri = 225;
-      uint32_t basec = CHARGE_CYAN;
+      uint32_t basec = fillcol[L];
       if (swellq) { bri = (uint8_t)(225 + ((uint16_t)30 * swellq) / 255);
-                    basec = color_blend(CHARGE_CYAN, RGBW32(255,255,255,0), swellq / 2); }
+                    basec = color_blend(fillcol[L], RGBW32(255,255,255,0), swellq / 2); }
       if (beat >= 17 && beat < 19) { bri = 255; basec = RGBW32(180, 255, 255, 0); }
       if (finq) {                                          // ease out of the strike look
         bri = (uint8_t)(255 - (finq >> 2));
-        basec = color_blend(RGBW32(180, 255, 255, 0), CHARGE_CYAN, finq);
+        basec = color_blend(RGBW32(180, 255, 255, 0), fillcol[L], finq);
       }
       c = color_fade(basec, bri, true);
     } else if (lmode[L] == 1 && lq[L] >= 100) {            // the FILL: mid-out, full strength
@@ -1669,7 +1701,12 @@ static void mode_charge_premiere() {
       uint16_t spread = (uint16_t)(((uint32_t)(q - 100) * (mid + 8)) / 155);
       uint16_t dk = (k > mid) ? (uint16_t)(k - mid) : (uint16_t)(mid - k);
       if (dk < spread) {
-        c = CHARGE_CYAN;                                   // full strength, no dimming
+        c = fillcol[L];                                    // full strength, no dimming
+        // the fill sparkles in palette colors as it pours in
+        uint32_t hs = charge_hash(((uint32_t)i << 7) ^ (t >> 7));
+        if ((hs & 0xFF) < 95)
+          c = color_blend(c, charge_cfp_vivid((uint8_t)((cycseed >> 8) + ((hs >> 8) & 0x7F))),
+                          (uint8_t)(120 + ((hs >> 16) & 0x7F)));
         if (dk + 4 >= spread) c = color_blend(c, RGBW32(255, 255, 255, 0), 140);  // hot edge
       }
       // 2D shockwave ring around the letter, palette-tinged
@@ -1696,19 +1733,24 @@ static void mode_charge_premiere() {
     }
     if (strobe) c = color_blend(c, RGBW32(255, 255, 255, 0), strobe);
 
-    if (finq) {                                            // finale: twin radial blast
+    if (finq) {                                            // finale: FULL COLOR BLAST
       uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - CHARGE_GRID_H / 2);
+      // the whole sign floods with deep saturated palette color, radially
+      uint8_t floodw = (uint8_t)(finq < 128 ? finq * 2 : 255);
+      c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 3 + (now >> 4)), false, true, 255),
+                      (uint8_t)(((uint16_t)floodw * 230) >> 8));
       int16_t band = (int16_t)d - (int16_t)ringR; if (band < 0) band = (int16_t)-band;
-      if (band < 8) {                                      // main wavefront, wide and hot
-        c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 3 + (now >> 4)), false, true, 255), (uint8_t)(255 - band * 18));
-        if (band < 2) c = color_blend(c, RGBW32(255, 255, 255, 0), 150);
+      if (band < 8) {                                      // main wavefront rides on top
+        c = color_blend(c, charge_cfp_vivid((uint8_t)(d * 5 + (now >> 4))), (uint8_t)(255 - band * 14));
+        if (band < 2) c = color_blend(c, RGBW32(255, 255, 255, 0), 130);
       }
       int16_t echo = (int16_t)d - ((int16_t)ringR - 18);   // trailing echo ring
       if (echo < 0) echo = (int16_t)-echo;
       if (echo < 5 && ringR > 18)
-        c = color_blend(c, SEGMENT.color_from_palette((uint8_t)(d * 3 + 96 + (now >> 4)), false, true, 255), (uint8_t)(160 - echo * 28));
-      if ((charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u)) & 0xFF) < (spk >> 2))
-        c = color_blend(c, RGBW32(255, 255, 255, 0), 220);  // heavy celebration glitter
+        c = color_blend(c, charge_cfp_vivid((uint8_t)(d * 5 + 110 + (now >> 4))), (uint8_t)(190 - echo * 30));
+      uint32_t hg = charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u));
+      if ((hg & 0xFF) < (spk >> 2))                        // glitter in VIVID palette colors
+        c = color_blend(c, charge_cfp_vivid((uint8_t)(hg >> 8)), 235);
     }
 
     if (fadeq) c = color_fade(c, (uint8_t)(255 - fadeq), true);
