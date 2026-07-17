@@ -95,9 +95,10 @@ static const uint8_t CHARGE_UM_PAL_DATA[CHARGE_UM_PAL_COUNT][28] PROGMEM = {
   { 0,255,0,0,      85,255,255,0,   170,0,255,80,   255,0,80,255,    0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 253 Rainbow
   { 0,40,255,40,    85,0,200,80,    170,180,255,0,  255,230,255,230, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 252 Slime
   { 0,255,0,180,    85,120,0,255,   170,0,255,255,  255,255,255,0,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 251 Psychedelic
-  // TEDx: modeled on the device's custom palette 0 (the sign's art colors) —
-  // teal and BOLD red as the mains, yellow as a narrow accent between them
-  { 0,0,243,251,    88,0,255,255,   112,255,247,0,  136,255,42,42,   255,255,0,0, 0,0,0,0, 0,0,0,0 }, // 250 TEDx
+  // TEDx: the sign's art colors as HARD full-brightness bands (teal main,
+  // yellow accent, bold red main) — duplicated stops make transitions
+  // hairline-thin so the palette never passes through dim/muddy blends
+  { 0,0,255,255,    104,0,255,255,  108,255,255,0,  144,255,255,0,   148,255,0,0, 255,255,0,0, 0,0,0,0 }, // 250 TEDx
   { 0,0,0,255,      85,0,255,255,   170,255,255,255,255,0,120,255,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 249 Electric Ice
   { 0,255,140,0,    85,255,0,90,    170,140,0,255,  255,0,255,200,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 248 Sunset Acid
 };
@@ -295,7 +296,7 @@ static void mode_charge_bootup() {
 // checkbox; Energy < 64 disables them).
 // =====================================================================
 static const char _data_CHARGE_SURGE[] PROGMEM =
-  "CHARGE Surge@Speed,Energy,Surge rate,,,Accumulate,Color wave,Letter colors;!,!,!;!;2;sx=128,ix=160,c1=128,o1=0,o2=0,o3=0,pal=0";
+  "CHARGE Surge@Speed,Energy,Surge rate,Sparks,,Accumulate,Color wave,Letter colors;!,!,!;!;2;sx=128,ix=160,c1=128,c2=96,o1=0,o2=0,o3=0,pal=0";
 
 static void mode_charge_surge() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -421,8 +422,8 @@ static void mode_charge_surge() {
     }
   }
 
-  if (SEGMENT.intensity >= 64)                               // stray sparks scale w/ Energy
-    for (uint8_t s = 0; s < (uint8_t)(1 + (SEGMENT.intensity >> 6)); s++) {
+  if (SEGMENT.custom2)                                       // stray sparks (Sparks slider)
+    for (uint8_t s = 0; s < (uint8_t)(1 + (SEGMENT.custom2 >> 5)); s++) {
       uint16_t i = (uint16_t)(((((uint32_t)hw_random8() << 8) | hw_random8())) % CHARGE_NUM_PIXELS);
       charge_setpx(i, WHITE);
     }
@@ -563,8 +564,21 @@ typedef struct {
   ChargePac   pac[CHARGE_NUM_LETTERS];
   ChargeGhost ghost[CHARGE_NUM_LETTERS];
   uint8_t  portal[CHARGE_NUM_LETTERS][4][2];      // close-in-space, far-on-wire pairs
+  uint8_t  specialLetter, specialIdx, specialUsed, _s0;   // the psychedelic pellet
+  uint8_t  burstCol, burstRow, _s1, _s2;
+  uint32_t burstAt;
   uint32_t lastMs;
 } ChargePacData;
+
+// pick the once-per-level psychedelic pellet (any letter, mid-board pellet)
+static void charge_pac_pick_special(ChargePacData *d, uint32_t salt) {
+  uint32_t h = charge_hash(0x951DEu + d->level * 131u + salt);
+  d->specialLetter = (uint8_t)(h % CHARGE_NUM_LETTERS);
+  uint16_t n = charge_lcount(d->specialLetter);
+  uint8_t maxIdx = (uint8_t)((n - 1) / d->sp);
+  d->specialIdx = (uint8_t)(maxIdx >= 2 ? 1 + ((h >> 8) % maxIdx) : 1);
+  d->specialUsed = 0;
+}
 
 static void mode_charge_pacman() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -578,6 +592,7 @@ static void mode_charge_pacman() {
   if (!d->inited || d->sp != sp || d->npac != npac) {        // (re)start the board
     memset(d, 0, sizeof(ChargePacData));
     d->inited = 1; d->sp = sp; d->npac = npac; d->level = 1;
+    charge_pac_pick_special(d, 0);
     for (uint8_t p = 0; p < npac; p++) {
       d->pac[p].letter = p; d->pac[p].dir = 1; d->pac[p].posfp = 0;
     }
@@ -632,6 +647,12 @@ static void mode_charge_pacman() {
       uint8_t idx = (uint8_t)(kk / sp);
       if (d->eaten[pc->letter] & (1u << idx)) continue;
       d->eaten[pc->letter] |= (1u << idx);
+      if (!d->specialUsed && pc->letter == d->specialLetter && idx == d->specialIdx) {
+        d->specialUsed = 1; d->burstAt = now;                // PSYCHEDELIC pellet!
+        uint16_t bi = (uint16_t)(charge_lstart(pc->letter) + kk);
+        d->burstCol = pgm_read_byte(&CHARGE_COL[bi]);
+        d->burstRow = pgm_read_byte(&CHARGE_ROW[bi]);
+      }
       if (SEGMENT.check1 && (idx % 5) == 0) {                // POWER pellet: hunt!
         pc->mode = 1; pc->modeUntil = now + 4000; pc->dir = (int8_t)-pc->dir;
       }
@@ -686,6 +707,7 @@ static void mode_charge_pacman() {
       } else {                                               // board clear: NEW LEVEL
         d->level++;
         for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) d->eaten[L] = 0;
+        charge_pac_pick_special(d, now);                     // fresh psychedelic pellet
       }
     }
   }
@@ -730,7 +752,9 @@ static void mode_charge_pacman() {
     for (uint16_t k = sp; k < n; k += sp) {                  // uneaten pellets
       uint8_t idx = (uint8_t)(k / sp);
       if (d->eaten[L] & (1u << idx)) continue;
-      if (SEGMENT.check1 && (idx % 5) == 0)                  // power pellet: pulsing
+      if (!d->specialUsed && L == d->specialLetter && idx == d->specialIdx)
+        charge_setpx(st + k, charge_palette(4, (uint8_t)(now >> 4)));     // psychedelic pellet
+      else if (SEGMENT.check1 && (idx % 5) == 0)             // power pellet: pulsing
         charge_setpx(st + k, color_fade(RGBW32(255, 240, 180, 0),
                      (uint8_t)(120 + (charge_tri8(now, 700) >> 1)), true));
       else
@@ -766,6 +790,22 @@ static void mode_charge_pacman() {
     for (int16_t o = -1; o <= 1; o++) {
       int16_t k = (int16_t)flashP[f] + o;
       if (k >= 0 && k < (int16_t)n) charge_setpx((uint16_t)(st + k), WHITE);
+    }
+  }
+  if (d->specialUsed && d->burstAt && now - d->burstAt < 2200) {  // psychedelic shockwave
+    uint8_t a8 = (uint8_t)(((now - d->burstAt) * 255) / 2200);
+    for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+      uint8_t dd = charge_dist8((int16_t)pgm_read_byte(&CHARGE_COL[i]) - d->burstCol,
+                                (int16_t)pgm_read_byte(&CHARGE_ROW[i]) - d->burstRow);
+      uint16_t wsum = 0;
+      for (uint8_t m = 0; m < 3; m++) {                      // three chasing rings
+        uint16_t R = (uint16_t)(((uint32_t)a8 * (100 - m * 24)) / 255);
+        int16_t band = (int16_t)dd - (int16_t)R; if (band < 0) band = (int16_t)-band;
+        if (band < 6) wsum += (uint16_t)(((6 - band) * (255 - a8)) / 6);
+      }
+      if (!wsum) continue;
+      uint8_t bri = wsum > 255 ? 255 : (uint8_t)wsum;
+      charge_setpx(i, color_fade(charge_palette(4, (uint8_t)(dd * 5 + (now >> 3))), bri, true));
     }
   }
 }
@@ -817,35 +857,129 @@ static void mode_charge_lava() {
 }
 
 // =====================================================================
-// CHARGE Ants — the tubes are ant tunnels: colonies forage out from a
-// breathing nest at the tube mouth and haul green food glints home.
+// CHARGE Ants — a working colony economy on the whole tube path:
+// the nest lives at the chain mouth (bottom-left of C); a resource pile
+// (resource = a palette COLOR) spawns somewhere out in the letters. One
+// scout heads out; when it hauls the first load home, the colony is
+// "told" and more ants stream out (recruitment). The nest hoard grows as
+// colored segments of everything collected. Pile exhausted -> a new pile
+// spawns elsewhere in a new color and a lone scout starts over.
 // =====================================================================
 static const char _data_CHARGE_ANTS[] PROGMEM =
-  "CHARGE Ants@Speed,Ants;;;2;sx=96,ix=128";
+  "CHARGE Ants@Speed,Ants,Pile size,,,Pheromones;!,!,!;!;2;sx=96,ix=128,c1=96,o1=1,pal=255";
+
+typedef struct { uint16_t pos6; uint8_t mode, _p; } ChargeAnt;  // pos6 = chain pos << 6
+typedef struct {                     // modes: 0 wait, 1 outbound, 2 hauling, 3 retreat
+  uint8_t  inited, nants, active, stock;
+  uint16_t pilePos;
+  uint8_t  pileLeft, pileSize, pilePalPos, _q;
+  uint8_t  ring[6];                  // palette positions of the last hauls (the hoard)
+  uint32_t lastMs;
+  ChargeAnt ant[14];
+} ChargeAntData;
 
 static void mode_charge_ants() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  if (!SEGMENT.allocateData(sizeof(ChargeAntData))) { SEGMENT.fill(BLACK); return; }
+  ChargeAntData *d = (ChargeAntData*)SEGENV.data;
   uint32_t now = strip.now;
-  uint8_t na = (uint8_t)(2 + SEGMENT.intensity / 52);        // 2..6 ants per letter
-  uint32_t vbase = 4 + (SEGMENT.speed >> 3);                 // 4..35 px/s
+  uint8_t nants = (uint8_t)(2 + SEGMENT.intensity / 22);     // 2..13 ants in the colony
+  if (nants > 14) nants = 14;
+  uint8_t pileSize = (uint8_t)(4 + (SEGMENT.custom1 >> 3));  // 4..35 loads per pile
+
+  if (!d->inited || d->nants != nants) {
+    memset(d, 0, sizeof(ChargeAntData));
+    d->inited = 1; d->nants = nants;
+    d->pilePos = (uint16_t)(70 + (charge_hash(now | 1u) % (CHARGE_NUM_PIXELS - 80)));
+    d->pilePalPos = (uint8_t)(charge_hash(now | 1u) >> 16);
+    d->pileSize = pileSize; d->pileLeft = pileSize;
+    d->active = 1;                                           // one lone scout at first
+    d->lastMs = now;
+  }
+  uint32_t dt = now - d->lastMs; if (dt > 80) dt = 80;
+  d->lastMs = now;
+
+  uint32_t pilec = SEGMENT.color_from_palette(d->pilePalPos, false, true, 255);
+
+  // ---- ants ----
+  for (uint8_t a = 0; a < d->nants; a++) {
+    ChargeAnt *an = &d->ant[a];
+    uint32_t h = charge_hash(0x50F00000u | a);
+    uint32_t va = (10 + (SEGMENT.speed / 6)) * (179 + (h & 0x7F)) / 256;  // px/s, per-ant
+    uint16_t step = (uint16_t)((va * dt * 64) / 1000);
+    if (a >= d->active) {                                    // not recruited yet: head home
+      if (an->pos6 > step) { an->pos6 -= step; an->mode = 3; }
+      else { an->pos6 = 0; an->mode = 0; }                   // ...and mill around the nest
+      continue;
+    }
+    if (an->mode == 0) an->mode = 1;                         // recruited: head out!
+    if (an->mode == 1) {
+      an->pos6 = (uint16_t)(an->pos6 + step);
+      if ((an->pos6 >> 6) >= d->pilePos) {                   // reached the pile
+        an->pos6 = (uint16_t)(d->pilePos << 6);
+        if (d->pileLeft) { d->pileLeft--; an->mode = 2; }    // grab a load
+        else an->mode = 3;                                   // empty: head home idle
+      }
+    } else {                                                 // hauling / retreating
+      if (an->pos6 > step) an->pos6 -= step;
+      else {
+        an->pos6 = 0;
+        if (an->mode == 2) {                                 // deposit at the nest
+          d->ring[d->stock % 6] = (uint8_t)(d->pilePalPos + ((charge_hash(now ^ a) & 31) - 15));
+          if (d->stock < 250) d->stock++;
+          uint16_t want = (uint16_t)(1 + d->stock * 2);      // RECRUITMENT (word spreads fast)
+          d->active = want > d->nants ? d->nants : (uint8_t)want;
+        }
+        an->mode = (d->pileLeft || an->mode == 2) ? 1 : 0;   // back out (if worth it)
+      }
+    }
+  }
+  // pile exhausted and everyone home-ish -> new pile, new color, lone scout
+  if (d->pileLeft == 0) {
+    bool hauling = false;
+    for (uint8_t a = 0; a < d->nants; a++) if (d->ant[a].mode == 2) hauling = true;
+    if (!hauling) {
+      d->pilePos = (uint16_t)(70 + (charge_hash(now | 1u) % (CHARGE_NUM_PIXELS - 80)));
+      d->pilePalPos = (uint8_t)(charge_hash(now * 2654435761u) >> 16);
+      d->pileSize = pileSize; d->pileLeft = pileSize;
+      d->active = 1;                                         // a lone scout again
+    }
+  }
+
+  // ---- render ----
   uint32_t tunnel = color_fade(RGBW32(180, 120, 60, 0), 30, true);
-  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
-    uint16_t st = charge_lstart(L), n = charge_lcount(L);
-    for (uint16_t k = 0; k < n; k++) charge_setpx(st + k, tunnel);
-    uint8_t nestb = (uint8_t)(60 + (charge_tri8(now, 2400) >> 1));   // breathing nest
-    charge_setpx(st, color_fade(RGBW32(255, 160, 40, 0), nestb, true));
-    if (n > 1) charge_setpx(st + 1, color_fade(RGBW32(255, 160, 40, 0), nestb >> 1, true));
-    for (uint8_t a = 0; a < na; a++) {
-      uint32_t h = charge_hash(((uint32_t)L << 16) | a | 0x50F00000u);
-      uint32_t va = vbase * (179 + (h & 0x7F)) / 256;        // 0.70..1.19x speed
-      if (va == 0) va = 1;
-      uint32_t rt = (uint32_t)(((uint64_t)now * va / 1000 + (h >> 8)) % (2u * n));
-      bool carrying = rt >= n;                               // out = forage, back = haul
-      uint16_t pos = carrying ? (uint16_t)(2u * n - 1 - rt) : (uint16_t)rt;
-      charge_setpx(st + pos, carrying ? RGBW32(160, 90, 20, 0)
-                                      : color_fade(RGBW32(200, 120, 30, 0), 140, true));
-      if (carrying && pos > 0)                               // the food glints homeward
-        charge_setpx(st + pos - 1, RGBW32(120, 255, 120, 0));
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) charge_setpx(i, tunnel);
+  if (SEGMENT.check1 && d->active >= 2)                      // pheromone trail (the "telling")
+    for (uint16_t i = 0; i < d->pilePos; i += 5)
+      charge_setpx(i, color_fade(pilec, 26, true));
+  uint8_t nestb = (uint8_t)(60 + (charge_tri8(now, 2400) >> 1));   // breathing nest
+  charge_setpx(0, color_fade(RGBW32(255, 160, 40, 0), nestb, true));
+  charge_setpx(1, color_fade(RGBW32(255, 160, 40, 0), (uint8_t)(nestb >> 1), true));
+  uint8_t hoard = d->stock > 6 ? 6 : d->stock;               // the hoard: colored segments
+  for (uint8_t r = 0; r < hoard; r++)
+    charge_setpx((uint16_t)(2 + r), color_fade(
+      SEGMENT.color_from_palette(d->ring[r], false, true, 255), 150, true));
+  uint8_t psz = (uint8_t)(1 + d->pileLeft / 7);              // the pile shrinks as it's mined
+  for (int16_t o = -(int16_t)psz; o <= (int16_t)psz; o++) {
+    int32_t i = (int32_t)d->pilePos + o;
+    if (i >= 0 && i < CHARGE_NUM_PIXELS)
+      charge_setpx((uint16_t)i, color_fade(pilec,
+        (uint8_t)(140 + (charge_tri8(now + (uint16_t)(o * 60), 1100) >> 1)), true));
+  }
+  for (uint8_t a = 0; a < d->nants; a++) {
+    ChargeAnt *an = &d->ant[a];
+    if (an->mode == 0) {                                     // waiting: mill around the nest
+      uint16_t mk = (uint16_t)(1 + (charge_hash((a * 17u) ^ (now >> 8)) % 7));
+      charge_setpx(mk, color_fade(RGBW32(200, 120, 30, 0), 90, true));
+      continue;
+    }
+    uint16_t k = (uint16_t)(an->pos6 >> 6);
+    if (k >= CHARGE_NUM_PIXELS) k = CHARGE_NUM_PIXELS - 1;
+    if (an->mode == 2) {                                     // hauling: colored load leads
+      charge_setpx(k, RGBW32(160, 90, 20, 0));
+      if (k > 0) charge_setpx((uint16_t)(k - 1), pilec);
+    } else {
+      charge_setpx(k, color_fade(RGBW32(200, 120, 30, 0), (uint8_t)(an->mode == 1 ? 150 : 90), true));
     }
   }
 }
@@ -932,11 +1066,106 @@ static void mode_charge_raider() {
 static const char _data_CHARGE_GRAVITY[] PROGMEM =
   "CHARGE Gravity@Gravity,Balls,,,,Trails;!,!,!;!;2;sx=128,ix=172,o1=1,pal=255";
 
+typedef struct {                       // "Tube fall" marble-drain state
+  uint8_t  inited, nballs, _p0, _p1;
+  uint16_t posfp[CHARGE_NUM_LETTERS][6];      // tube position, 8.8
+  int16_t  velfp[CHARGE_NUM_LETTERS][6];      // tube velocity
+  uint8_t  topIdx[CHARGE_NUM_LETTERS];        // highest point of each tube
+  uint8_t  _p2, _p3;
+  uint32_t lastMs, dropAt;
+} ChargeGravData;
+
 static void mode_charge_gravity() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   SEGMENT.fill(BLACK);
   uint32_t now = strip.now;
-  uint8_t nballs = (uint8_t)(1 + SEGMENT.intensity / 86);    // 1..3 per letter
+  uint8_t nballs = (uint8_t)(1 + SEGMENT.intensity / 43);    // 1..6 per letter
+
+  if (SEGMENT.check2) {                                      // ---- Tube fall mode ----
+    if (!SEGMENT.allocateData(sizeof(ChargeGravData))) return;
+    ChargeGravData *d = (ChargeGravData*)SEGENV.data;
+    if (!d->inited || d->nballs != nballs) {
+      memset(d, 0, sizeof(ChargeGravData));
+      d->inited = 1; d->nballs = nballs;
+      for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+        uint16_t st = charge_lstart(L), n = charge_lcount(L);
+        uint8_t hi = 0, top = 0;                             // the tube's high point
+        for (uint16_t k = 0; k < n; k++) {
+          uint8_t h = pgm_read_byte(&CHARGE_HEIGHT[st + k]);
+          if (h > hi) { hi = h; top = (uint8_t)k; }
+        }
+        d->topIdx[L] = top;
+      }
+      d->lastMs = now;
+      d->dropAt = now;                                       // first drop immediately
+    }
+    uint32_t dt = now - d->lastMs; if (dt > 80) dt = 80;
+    d->lastMs = now;
+    if ((int32_t)(now - d->dropAt) >= 0) {                   // (re-)drop from the top
+      for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+        int16_t n = (int16_t)charge_lcount(L);
+        for (uint8_t b = 0; b < d->nballs; b++) {
+          int16_t k = (int16_t)d->topIdx[L] + (int16_t)b * 3 - d->nballs;
+          if (k < 0) k = 0;
+          if (k >= n) k = (int16_t)(n - 1);
+          d->posfp[L][b] = (uint16_t)(k << 8);
+          d->velfp[L][b] = 0;
+        }
+      }
+      d->dropAt = now + 5000 + (charge_hash(now) % 4000);
+    }
+    uint16_t G = (uint16_t)(30 + SEGMENT.speed);             // pull strength (Gravity slider)
+    for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+      uint16_t st = charge_lstart(L), n = charge_lcount(L);
+      uint16_t maxfp = (uint16_t)((n - 1) << 8);
+      for (uint8_t b = 0; b < d->nballs; b++) {              // sucked downhill along the tube
+        uint8_t k = (uint8_t)(d->posfp[L][b] >> 8);
+        uint8_t klo = (k < 3) ? 0 : (uint8_t)(k - 3);
+        uint8_t khi = (uint16_t)(k + 3) >= n ? (uint8_t)(n - 1) : (uint8_t)(k + 3);
+        int16_t grad = (int16_t)pgm_read_byte(&CHARGE_HEIGHT[st + klo])
+                     - (int16_t)pgm_read_byte(&CHARGE_HEIGHT[st + khi]);
+        int32_t v = d->velfp[L][b] + ((int32_t)grad * G * (int32_t)dt) / 1000;
+        v = (v * 245) / 256;                                 // drag
+        if (v > 4200) v = 4200;
+        if (v < -4200) v = -4200;
+        int32_t fp = (int32_t)d->posfp[L][b] + (v * (int32_t)dt) / 256;
+        if (fp < 0)     { fp = 0;     v = 0; }
+        if (fp > maxfp) { fp = maxfp; v = 0; }
+        d->posfp[L][b] = (uint16_t)fp; d->velfp[L][b] = (int16_t)v;
+      }
+      for (uint8_t pass = 0; pass < 2; pass++)               // marbles push each other
+        for (uint8_t a = 0; a < d->nballs; a++)
+          for (uint8_t b = (uint8_t)(a + 1); b < d->nballs; b++) {
+            int32_t pa = d->posfp[L][a], pb = d->posfp[L][b];
+            int32_t diff = pa - pb; if (diff < 0) diff = -diff;
+            if (diff < 512) {                                // < 2px: shove apart + stick
+              int32_t push = (512 - diff) / 2;
+              if (pa <= pb) { pa -= push; pb += push; } else { pa += push; pb -= push; }
+              if (pa < 0) pa = 0; if (pa > maxfp) pa = maxfp;
+              if (pb < 0) pb = 0; if (pb > maxfp) pb = maxfp;
+              int16_t vv = (int16_t)((d->velfp[L][a] + d->velfp[L][b]) / 2);
+              d->posfp[L][a] = (uint16_t)pa; d->posfp[L][b] = (uint16_t)pb;
+              d->velfp[L][a] = vv; d->velfp[L][b] = vv;
+            }
+          }
+      for (uint16_t k = 0; k < n; k++) {                     // floor glow
+        uint16_t i = st + k;
+        if (pgm_read_byte(&CHARGE_HEIGHT[i]) < 8)
+          charge_setpx(i, color_fade(SEGMENT.color_from_palette(40, false, true, 255), 46, true));
+      }
+      for (uint8_t b = 0; b < d->nballs; b++) {              // the marbles
+        uint8_t k = (uint8_t)(d->posfp[L][b] >> 8);
+        uint32_t bc = SEGMENT.color_from_palette(
+          (uint8_t)(charge_hash(((uint32_t)L << 8) | b | 0x0B0B0000u) >> 24), false, true, 255);
+        charge_setpx(st + k, bc);
+        int16_t k2 = (int16_t)k + ((d->velfp[L][b] >= 0) ? -1 : 1);
+        if (k2 >= 0 && k2 < (int16_t)n)
+          charge_setpx((uint16_t)(st + k2), color_fade(bc, 110, true));
+      }
+    }
+    return;
+  }
+
   uint32_t T0 = 1400 - (uint32_t)SEGMENT.speed * 4;          // first-bounce period 380..1400ms
   // restitution 0.62 in 8.8 fixed: r^k and r^(2k) tables for 7 bounces
   static const uint16_t RK[7]  = { 256, 159, 98, 61, 38, 24, 15 };
@@ -999,19 +1228,27 @@ static void mode_charge_gravity() {
 }
 
 // =====================================================================
-// CHARGE Fireworks — 1D fireworks in every letter (PS-style, ported to
-// tube space): rockets climb the tube, burst into palette-colored sparks
-// that spread ballistically and decay; optional crackle glints.
+// CHARGE Fireworks — dramatic 1D fireworks in every letter (slider names
+// mirror WLED's PS Fireworks 1D where they map): rockets launch from the
+// "Firing side" end, DECELERATE as they climb (ease-out), hang for a
+// breathless beat at apex, then burst. "Full burst": the explosion
+// expands through the entire letter and fades out slowly. "Linked 2D":
+// bursts become radial waves in real sign space that interfere across
+// all the letters when several letters explode together.
 // =====================================================================
 static const char _data_CHARGE_FIREWORKS[] PROGMEM =
-  "CHARGE Fireworks@Spark speed,Sparks,,Rate,,Crackle;!,!,!;!;2;sx=140,ix=160,c2=120,o1=1,pal=6";
+  "CHARGE Fireworks@Gravity,Explosion,Firing side,Rate,,Crackle,Full burst,Linked 2D;!,!,!;!;2;sx=140,ix=160,c1=0,c2=120,o1=1,o2=0,o3=0,pal=6";
 
 static void mode_charge_fireworks() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   SEGMENT.fill(BLACK);
   uint32_t now = strip.now;
-  uint32_t Wms = 3000 - (uint32_t)SEGMENT.custom2 * 10;      // launch window 0.45..3s
+  uint32_t Wms = 3400 - (uint32_t)SEGMENT.custom2 * 10;      // launch window 0.85..3.4s
   uint8_t ns = (uint8_t)(8 + (SEGMENT.intensity >> 3));      // 8..39 sparks
+
+  // linked-2D burst collection (rendered in one interference pass at the end)
+  uint8_t nb2 = 0;
+  uint8_t bcol[CHARGE_NUM_LETTERS], brow[CHARGE_NUM_LETTERS], bage[CHARGE_NUM_LETTERS], bbase[CHARGE_NUM_LETTERS];
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
@@ -1020,48 +1257,91 @@ static void mode_charge_fireworks() {
     uint32_t ph = tphase % Wms;
     uint32_t hj = charge_hash(win * 131 + L * 7 + 0xF13E0000u);
     if ((hj & 0xFF) > 215) continue;                         // ~84% of windows launch
-    uint16_t B = (uint16_t)(((uint32_t)n * (102 + ((hj >> 8) & 0x7F))) / 256);  // burst at 40..90% of tube
-    uint32_t t_up = (Wms * 2) / 5;
-    if (ph < t_up) {                                         // rocket climb
-      uint16_t pos = (uint16_t)(((uint32_t)B * ph) / t_up);
-      charge_setpx(st + pos, RGBW32(255, 255, 255, 0));
-      if (pos > 0) charge_setpx(st + pos - 1,
-        color_fade(RGBW32(255, 200, 120, 0), (uint8_t)(120 + (hw_random8() & 63)), true));
-      if (pos > 1) charge_setpx(st + pos - 2,
-        color_fade(RGBW32(255, 160, 80, 0), (uint8_t)(60 + (hw_random8() & 31)), true));
-    } else {                                                 // burst
-      uint32_t age = ph - t_up, dur = Wms - t_up;
+    // launch origin from the Firing side slider; burst point out on the far side
+    uint16_t L0 = (uint16_t)(((uint32_t)SEGMENT.custom1 * (n - 1)) / 255);
+    int8_t dir = (L0 < n / 2) ? 1 : -1;
+    uint16_t span = (dir > 0) ? (uint16_t)(n - 1 - L0) : L0;
+    uint16_t B = (uint16_t)((int32_t)L0 + dir * (int32_t)(((uint32_t)span * (115 + ((hj >> 8) & 0x7F))) / 256));
+    uint32_t t_up = (Wms * 38) / 100, hangMs = (Wms * 8) / 100;
+
+    if (ph < t_up) {                                         // launch: fast, then slowing
+      uint16_t q8 = (uint16_t)((ph * 256) / t_up);
+      uint16_t ease = (uint16_t)(256 - (((256 - q8) * (256 - q8)) >> 8));  // ease-out
+      int32_t pos = (int32_t)L0 + ((int32_t)B - (int32_t)L0) * ease / 256;
+      uint8_t thr = (uint8_t)(255 - (ease > 240 ? 240 : ease));            // throttle dies
+      charge_setpx(st + (uint16_t)pos, color_blend(RGBW32(255, 220, 150, 0), WHITE, thr));
+      int32_t e1 = pos - dir, e2 = pos - dir * 2;             // exhaust, fading w/ throttle
+      if (e1 >= 0 && e1 < (int32_t)n) charge_setpx(st + (uint16_t)e1,
+        color_fade(RGBW32(255, 190, 100, 0), qsub8((uint8_t)(40 + (thr >> 1)), (uint8_t)(hw_random8() & 31)), true));
+      if (e2 >= 0 && e2 < (int32_t)n) charge_setpx(st + (uint16_t)e2,
+        color_fade(RGBW32(255, 140, 60, 0), qsub8((uint8_t)(20 + (thr >> 2)), (uint8_t)(hw_random8() & 31)), true));
+    } else if (ph < t_up + hangMs) {                         // apex: the breathless hang
+      uint8_t hb = (uint8_t)(90 + (charge_tri8(now, 160) >> 1));
+      charge_setpx(st + B, color_fade(WHITE, hb, true));
+    } else {                                                 // BURST
+      uint32_t age = ph - t_up - hangMs, dur = Wms - t_up - hangMs;
       uint8_t a8 = (uint8_t)((age * 255) / dur);
       uint8_t basec = (uint8_t)(hj >> 16);
-      uint32_t boomDur = dur / 6;                            // the BOOM: bright core flash
-      if (age < boomDur) {
-        uint16_t rad = (uint16_t)(2 + (age * 9) / (boomDur ? boomDur : 1));
-        uint8_t bb = (uint8_t)(255 - (age * 200) / (boomDur ? boomDur : 1));
-        uint32_t bc = color_blend(SEGMENT.color_from_palette(basec, false, true, 255), RGBW32(255, 255, 255, 0), bb);
-        for (int32_t kk = (int32_t)B - rad; kk <= (int32_t)B + rad; kk++) {
-          if (kk < 0 || kk >= (int32_t)n) continue;
-          int32_t dd = kk - (int32_t)B; if (dd < 0) dd = -dd;
-          charge_setpx(st + (uint16_t)kk,
-            color_fade(bc, (uint8_t)(255 - ((uint32_t)dd * 160) / (rad ? rad : 1)), true));
-        }
+      if (SEGMENT.check3) {                                  // linked 2D: collect, draw later
+        bcol[nb2] = pgm_read_byte(&CHARGE_COL[st + B]);
+        brow[nb2] = pgm_read_byte(&CHARGE_ROW[st + B]);
+        bage[nb2] = a8; bbase[nb2] = basec; nb2++;
+        continue;
       }
-      // ballistic: sparks decelerate to a stop by end of burst
+      if (SEGMENT.check2) {                                  // FULL burst: fills the letter
+        uint16_t maxR = (B > n - 1 - B) ? B : (uint16_t)(n - 1 - B);
+        uint16_t R = (uint16_t)(((uint32_t)maxR * charge_smooth8(a8)) / 255);
+        uint8_t fade = (uint8_t)(255 - a8);                  // long, beautiful fade-out
+        for (uint16_t k = 0; k < n; k++) {
+          int16_t dd = (int16_t)k - (int16_t)B; if (dd < 0) dd = (int16_t)-dd;
+          if ((uint16_t)dd > R) continue;
+          uint32_t c = SEGMENT.color_from_palette((uint8_t)(basec + dd * 2), false, true, 255);
+          uint8_t bri = fade;
+          int16_t rim = (int16_t)R - dd;
+          if (rim < 4) bri = qadd8(bri, (uint8_t)(90 - rim * 20));         // bright rim
+          bri = qsub8(bri, (uint8_t)(hw_random8() & 24));
+          charge_setpx(st + k, color_fade(c, bri, true));
+        }
+        continue;
+      }
+      // classic sparks: decelerate ballistically, hold bright, then die
       uint32_t age_eff = (age * (2 * dur - age)) / (2 * dur);
-      for (uint8_t s = 0; s < ns; s++) {
-        uint32_t hs = charge_hash(hj ^ ((uint32_t)s * 0x9E3779B1u));
-        int8_t dir = (hs & 1) ? 1 : -1;
-        uint32_t vs = (20 + ((hs >> 1) & 0x3F)) * (64 + SEGMENT.speed) / 128;  // px/s
-        int32_t sposi = (int32_t)B + dir * (int32_t)((vs * age_eff) / 1000);
+      for (uint8_t sk = 0; sk < ns; sk++) {
+        uint32_t hs = charge_hash(hj ^ ((uint32_t)sk * 0x9E3779B1u));
+        int8_t sd = (hs & 1) ? 1 : -1;
+        uint32_t vs = (20 + ((hs >> 1) & 0x3F)) * (64 + SEGMENT.speed) / 128;
+        int32_t sposi = (int32_t)B + sd * (int32_t)((vs * age_eff) / 1000);
         if (sposi < 0 || sposi >= (int32_t)n) continue;
-        uint8_t bri = (uint8_t)(255 - charge_smooth8(a8)); // hold bright, then die
+        uint8_t bri = (uint8_t)(255 - charge_smooth8(a8));
         bri = qsub8(bri, (uint8_t)(hw_random8() & 40));
         uint32_t c = SEGMENT.color_from_palette((uint8_t)(basec + ((hs >> 8) & 0x3F) - 32), false, true, 255);
-        if (SEGMENT.check1 && hw_random8() < 18) c = RGBW32(255, 255, 255, 0);  // crackle
+        if (SEGMENT.check1 && hw_random8() < 18) c = WHITE;  // crackle
         charge_setpx(st + (uint16_t)sposi, color_fade(c, bri, true));
-        int32_t tail = sposi - dir;                          // 2px spark body
+        int32_t tail = sposi - sd;
         if (tail >= 0 && tail < (int32_t)n)
           charge_setpx(st + (uint16_t)tail, color_fade(c, (uint8_t)((bri * 3) >> 2), true));
       }
+    }
+  }
+
+  if (nb2) {                                                 // linked 2D interference pass
+    for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+      uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
+      uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
+      uint16_t wsum = 0; uint8_t bestw = 0, bestpos = 0;
+      for (uint8_t j = 0; j < nb2; j++) {
+        uint8_t dd = charge_dist8((int16_t)col - bcol[j], (int16_t)row - brow[j]);
+        uint16_t R = (uint16_t)(((uint32_t)bage[j] * 105) / 255);
+        int16_t band = (int16_t)dd - (int16_t)R; if (band < 0) band = (int16_t)-band;
+        if (band >= 8) continue;
+        uint8_t w = (uint8_t)((((uint16_t)(8 - band) * (255 - bage[j])) / 8));
+        wsum += w;
+        if (w > bestw) { bestw = w; bestpos = (uint8_t)(bbase[j] + dd * 2); }
+      }
+      if (!wsum) continue;
+      uint8_t bri = wsum > 255 ? 255 : (uint8_t)wsum;        // crossings glow brighter
+      if (SEGMENT.check1 && hw_random8() < 10) bri = 255;
+      charge_setpx(i, color_fade(SEGMENT.color_from_palette(bestpos, false, true, 255), bri, true));
     }
   }
 }
@@ -1072,13 +1352,13 @@ static void mode_charge_fireworks() {
 // Defaults to slime; palette slider for other fluids.
 // =====================================================================
 static const char _data_CHARGE_DRIP[] PROGMEM =
-  "CHARGE Drip@Fall speed,Drips,,,,Glisten;!,!,!;!;2;sx=110,ix=96,o1=1,pal=252";
+  "CHARGE Drip@Fall speed,Drips,,,,Glisten;!,!,!;!;2;sx=110,ix=150,o1=1,pal=252";
 
 static void mode_charge_drip() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   SEGMENT.fill(BLACK);
   uint32_t now = strip.now;
-  uint8_t nd = (uint8_t)(1 + SEGMENT.intensity / 86);        // 1..3 drips per letter
+  uint8_t nd = (uint8_t)(1 + (SEGMENT.intensity >> 5));      // 1..8 drips per letter
   uint32_t Cd = 2600 - (uint32_t)SEGMENT.speed * 7;          // cycle 815..2600ms
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
@@ -1400,6 +1680,55 @@ static void mode_charge_dreamwave() {
   }
 }
 
+// =====================================================================
+// CHARGE Flow — one synced comet per letter: every head sits at the same
+// fraction of its tube (pleasing to the eye), pulling a gradient trail
+// THROUGH the palette, with a residual glow that keeps the letters
+// filled. Born from Pulse's floor-up chase look.
+// =====================================================================
+static const char _data_CHARGE_FLOW[] PROGMEM =
+  "CHARGE Flow@Speed,Trail,Glow,,,Bounce;!,!,!;!;2;sx=150,ix=140,c1=60,o1=1,pal=255";
+
+static void mode_charge_flow() {
+  if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  uint32_t now = strip.now;
+  uint32_t P = 1200 + (uint32_t)(255 - SEGMENT.speed) * 18;  // traverse 1.2..5.8s
+  uint8_t drift = (uint8_t)(now >> 6);                       // slow palette rotation
+  uint16_t trail8 = (uint16_t)(40 + (((uint16_t)SEGMENT.intensity * 3) >> 2));  // 40..231
+  uint8_t glow = (uint8_t)(SEGMENT.custom1 >> 1);            // 0..127 residual fill
+
+  uint8_t fh8; int8_t dir;
+  if (SEGMENT.check1) {                                      // bounce
+    uint32_t ph = now % (2 * P);
+    dir = (ph < P) ? 1 : -1;
+    fh8 = charge_tri8(now, 2 * P);
+  } else {                                                   // loop
+    dir = 1;
+    fh8 = (uint8_t)(((now % P) * 255) / P);
+  }
+
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    uint16_t st = charge_lstart(L), n = charge_lcount(L);
+    for (uint16_t k = 0; k < n; k++) {
+      uint8_t fk8 = (uint8_t)(((uint32_t)k * 255) / (n - 1));
+      int16_t behind = (dir > 0) ? (int16_t)fh8 - fk8 : (int16_t)fk8 - fh8;
+      if (!SEGMENT.check1 && behind < 0) behind += 256;      // loop wraps the trail
+      uint32_t c;
+      if (behind >= 0 && behind <= (int16_t)trail8) {        // the gradient trail
+        uint8_t tp = (uint8_t)(((uint32_t)behind * 255) / trail8);
+        c = SEGMENT.color_from_palette((uint8_t)(tp + drift), false, true, 255);
+        uint8_t bri = (uint8_t)(255 - (((uint16_t)tp * 200) >> 8));
+        if (behind < 3) c = color_blend(c, WHITE, (uint8_t)(190 - behind * 55));  // hot head
+        c = color_fade(c, bri, true);
+      } else {                                               // residual glow keeps it full
+        c = color_fade(SEGMENT.color_from_palette((uint8_t)(fk8 + drift), false, true, 255),
+                       glow, true);
+      }
+      charge_setpx(st + k, c);
+    }
+  }
+}
+
 // Registration table so firmware + simulator enumerate the same effect list.
 // Extend here when adding effects; tedxfargo.cpp and the sim both walk it.
 // NAMING RULE: every effect name starts with "CHARGE " so the whole suite
@@ -1420,6 +1749,7 @@ static const ChargeFxEntry CHARGE_FX_LIST[] = {
   { &mode_charge_fireworks, _data_CHARGE_FIREWORKS },
   { &mode_charge_drip,      _data_CHARGE_DRIP },
   { &mode_charge_pulse,     _data_CHARGE_PULSE },
+  { &mode_charge_flow,      _data_CHARGE_FLOW },
   { &mode_charge_premiere,  _data_CHARGE_PREMIERE },
   { &mode_charge_dreamwave, _data_CHARGE_DREAMWAVE },
 };
