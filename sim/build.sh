@@ -32,4 +32,4 @@ else
   cp src/parts/word_cuts.json "$OUT/word_cuts.json"
 fi
 
-echo "built $OUT (open index.html via a local server: python3 -m http.server -d docs)"
+echo "built $OUT (serve with: python3 sim/serve.py — no-cache, always fresh)"

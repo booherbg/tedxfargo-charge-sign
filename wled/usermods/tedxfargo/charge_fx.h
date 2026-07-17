@@ -1445,7 +1445,11 @@ static void mode_charge_fireworks() {
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
-    uint32_t tphase = letterClock + ((charge_hash(L ^ 0xF13E0000u) & 0x7FF));
+    // stagger by DELAYING each letter's start — adding the offset instead
+    // would drop letters mid-window right after a grand (seen on the wall)
+    uint32_t toff = charge_hash(L ^ 0xF13E0000u) & 0x7FF;
+    if (letterClock < toff) continue;                        // its turn hasn't come yet
+    uint32_t tphase = letterClock - toff;
     uint32_t win = tphase / Wms;
     uint32_t ph = tphase % Wms;
     uint32_t hj = charge_hash(win * 131 + L * 7 + eraSalt + 0xF13E0000u);
