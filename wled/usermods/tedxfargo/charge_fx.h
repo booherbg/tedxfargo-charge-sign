@@ -1134,7 +1134,7 @@ static void mode_charge_raider() {
 // height table as the vertical axis and xnorm as the ball's lane.
 // =====================================================================
 static const char _data_CHARGE_GRAVITY[] PROGMEM =
-  "CHARGE Gravity@Gravity,Balls,,,,Trails;!,!,!;!;2;sx=128,ix=172,o1=1,pal=255";
+  "CHARGE Gravity@Gravity,Balls,,,,Trails,Tube fall;!,!,!;!;2;sx=128,ix=172,o1=1,o2=0,pal=255";
 
 typedef struct {                       // "Tube fall" marble-drain state
   uint8_t  inited, nballs, _p0, _p1;
