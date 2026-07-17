@@ -45,7 +45,21 @@ EMSCRIPTEN_KEEPALIVE void sim_select(int i) {
 
 EMSCRIPTEN_KEEPALIVE void sim_set_speed(int v)     { sim_segment.speed = (uint8_t)v; }
 EMSCRIPTEN_KEEPALIVE void sim_set_intensity(int v) { sim_segment.intensity = (uint8_t)v; }
+EMSCRIPTEN_KEEPALIVE void sim_set_custom1(int v)   { sim_segment.custom1 = (uint8_t)v; }
+EMSCRIPTEN_KEEPALIVE void sim_set_custom2(int v)   { sim_segment.custom2 = (uint8_t)v; }
+EMSCRIPTEN_KEEPALIVE void sim_set_custom3(int v)   { sim_segment.custom3 = (uint8_t)(v > 31 ? 31 : v); }  // 5-bit in WLED
+EMSCRIPTEN_KEEPALIVE void sim_set_check1(int v)    { sim_segment.check1 = v != 0; }
+EMSCRIPTEN_KEEPALIVE void sim_set_check2(int v)    { sim_segment.check2 = v != 0; }
+EMSCRIPTEN_KEEPALIVE void sim_set_check3(int v)    { sim_segment.check3 = v != 0; }
 EMSCRIPTEN_KEEPALIVE void sim_seed(uint32_t s)     { sim_rng_state = s ? s : 1; }
+
+// audio glue for charge_fx.h — the page feeds a level each frame
+// (synthetic beat or real browser microphone)
+static uint8_t g_audio = 0, g_peak = 0;
+EMSCRIPTEN_KEEPALIVE void sim_set_audio(int level, int peak) {
+  g_audio = (uint8_t)(level < 0 ? 0 : (level > 255 ? 255 : level));
+  g_peak = peak ? 1 : 0;
+}
 
 // One WLED service pass: strip.now <- now_ms, run the mode fn, call++.
 EMSCRIPTEN_KEEPALIVE void sim_tick(uint32_t now_ms) {
@@ -62,3 +76,6 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
 }
 
 }  // extern "C"
+
+uint8_t charge_audio() { return g_audio; }
+uint8_t charge_audio_peak() { return g_peak; }

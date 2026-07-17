@@ -13,3 +13,5 @@ assets/TEDxFargo CHARGE Graphics and Assets/
 # OS / editor
 .DS_Store
 __pycache__/
+sim/charge_sim_node.js
+sim/charge_sim_node.wasm

@@ -12,19 +12,20 @@ body { margin:0; color:var(--ink); background:var(--bg);
 h1,h2,.cap,label,button,select,.stat b,.mono { font-family:ui-monospace,Menlo,Consolas,monospace; }
 h1 { font-size:24px; margin:0 0 2px; }
 .sub { color:var(--mut); margin:0 0 18px; max-width:78ch; }
-.sub code { background:#232830; border-radius:4px; padding:1px 6px; font-size:13px; }
+.sub code, .note code { background:#232830; border-radius:4px; padding:1px 6px; font-size:13px; }
 .stage { background:#0e1014; border:1px solid var(--line); border-radius:12px; padding:10px; }
 canvas { width:100%; height:auto; display:block; border-radius:8px; cursor:crosshair; }
 .controls { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
   background:var(--panel); border:1px solid var(--line); border-radius:10px;
-  padding:12px 16px; margin:14px 0; }
+  padding:12px 16px; margin:14px 0 0; }
 .controls .grp { display:flex; align-items:center; gap:8px; }
 label { font-size:12px; color:var(--mut); letter-spacing:.06em; text-transform:uppercase; }
 select,button,input[type=number] { background:#232830; color:var(--ink); border:1px solid var(--line);
   border-radius:6px; padding:5px 10px; font-size:13px; }
 button { cursor:pointer; } button:hover { border-color:var(--yel); }
 button.primary { border-color:var(--yel); color:var(--yel); }
-input[type=range] { width:130px; accent-color:#ffc93c; }
+input[type=range] { width:120px; accent-color:#ffc93c; }
+input[type=checkbox] { accent-color:#ffc93c; }
 .val { font-size:12px; color:var(--yel); min-width:3ch; display:inline-block; text-align:right; }
 .stats { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
 .stat { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 13px; }
@@ -48,11 +49,14 @@ here, the same bytes of C++ run on the wall.</p>
 
 <div class="controls">
   <div class="grp"><label>Effect</label><select id="fx"></select></div>
-  <div class="grp" id="sliders"></div>
+  <div class="grp" id="params"></div>
+</div>
+<div class="controls">
   <div class="grp">
     <button id="play" class="primary">Pause</button>
     <button id="step" title="advance one WLED service frame (~24ms)">Step</button>
     <button id="restart">Restart</button>
+    <button id="defaults" title="reset params to this effect's smart defaults">Defaults</button>
   </div>
   <div class="grp"><label>Time</label>
     <select id="scale">
@@ -60,9 +64,19 @@ here, the same bytes of C++ run on the wall.</p>
       <option value="0.5">0.5×</option><option value="1" selected>1×</option>
       <option value="2">2×</option><option value="4">4×</option>
     </select></div>
-  <div class="grp"><label>Seed</label><input id="seed" type="number" value="1" style="width:80px">
+  <div class="grp"><label>Seed</label><input id="seed" type="number" value="1" style="width:72px">
     <button id="reseed" title="re-seed the PRNG and restart">Apply</button></div>
   <div class="grp"><label>Grid view</label><input id="gridview" type="checkbox"></div>
+  <div class="grp"><label>Audio</label>
+    <select id="audiosrc">
+      <option value="beat" selected>Beat</option>
+      <option value="mic">Mic</option>
+      <option value="off">Off</option>
+    </select>
+    <label>BPM</label><input id="bpm" type="range" min="60" max="180" value="124">
+    <span class="val" id="bpmv">124</span>
+    <label>Level</label><span class="val" id="audlv" style="min-width:4ch">0</span>
+  </div>
 </div>
 
 <div class="stage"><canvas id="cv"></canvas><div class="hover" id="hover">&nbsp;</div></div>
@@ -79,16 +93,19 @@ here, the same bytes of C++ run on the wall.</p>
 
 <h2>What is and isn't simulated</h2>
 <div class="note">
-<b>Bit-exact:</b> the effect mode function, the geometry tables
-(<code>charge_geometry.h</code>), color math (<code>color_fade</code> ported line-for-line
-from WLED 16.0.1), 8-bit arithmetic, segment state (<code>step/call/aux</code>), the
-42&nbsp;fps service cadence, and the grid→LED routing (this page applies the committed
-<code>ledmap.json</code> exactly like WLED's <code>customMappingTable</code>).<br>
+<b>Bit-exact:</b> the effect mode functions, the geometry tables
+(<code>charge_geometry.h</code>), color math (<code>color_fade</code>/<code>color_blend</code>
+ported line-for-line from WLED 16.0.1), 8-bit arithmetic, segment state and all
+params (speed/intensity/custom1-3/checks — same fields, same ranges, custom3 is
+5-bit like WLED), the 42&nbsp;fps service cadence, and the grid→LED routing
+(the committed <code>ledmap.json</code> applied exactly like WLED's
+<code>customMappingTable</code>).<br>
 <b>Approximated:</b> <code>hw_random8()</code> is a seeded PRNG (uniform like the ESP32's RNG,
-but a different — reproducible — sequence), LED glow/optics, and gamma/color response
-of the physical WS281x pixels.<br>
-<b>Not simulated:</b> stock WLED effects, palettes/transitions (v1 effects don't use them),
-brightness limiter, and the WLED UI layer.</div>
+but a different — reproducible — sequence); audio here is a synthetic beat or your
+browser microphone, while the sign uses its onboard mic through the audioreactive
+usermod (same 0..255 level + peak interface on both sides); LED glow/optics.<br>
+<b>Not simulated:</b> stock WLED effects, WLED palettes/transitions (these effects
+carry their own mini-palettes, identical in firmware), brightness limiter, WLED UI.</div>
 </div>
 
 <script src="charge_sim.js"></script>
@@ -143,38 +160,70 @@ brightness limiter, and the WLED UI layer.</div>
   // --- WLED customMappingTable: grid index -> LED index (FX_fcn.cpp deserializeMap) ---
   const mapTable = new Int32Array(ledmap.map);
 
-  // --- effect list + sliders straight from the metadata strings (WLED UI parse) ---
+  // --- effect metadata: "Name@p1,p2,p3,p4,p5,o1,o2,o3;colors;palette;flags;defaults"
+  //     params 1-5 are sliders (sx,ix,c1,c2,c3), 6-8 are checkboxes (o1..o3).
+  //     "!" = WLED default label; empty = hidden. Defaults: "sx=128,ix=64,o1=1".
+  const SLIDER_KEYS = ["sx","ix","c1","c2","c3"], CHECK_KEYS = ["o1","o2","o3"];
+  const SLIDER_DEF_LABEL = ["Speed","Intensity","Custom 1","Custom 2","Custom 3"];
+  const SLIDER_MAX = [255,255,255,255,31];        // custom3 is 5-bit in WLED
+  const sliderSet = [v=>M._sim_set_speed(v), v=>M._sim_set_intensity(v),
+                     v=>M._sim_set_custom1(v), v=>M._sim_set_custom2(v), v=>M._sim_set_custom3(v)];
+  const checkSet  = [v=>M._sim_set_check1(v), v=>M._sim_set_check2(v), v=>M._sim_set_check3(v)];
   const fxCount = M._sim_fx_count();
   const metas = [];
   for (let i = 0; i < fxCount; i++) {
     const meta = M.UTF8ToString(M._sim_fx_meta(i));
-    const [name, rest] = [meta.split("@")[0], meta.split("@")[1] || ""];
-    const sliders = (rest.split(";")[0] || "").split(",");
-    metas.push({ name, sliders });
+    const secs = meta.split(";");
+    const at = secs[0].indexOf("@");
+    const name = at < 0 ? secs[0] : secs[0].slice(0, at);
+    const plist = (at < 0 ? "" : secs[0].slice(at + 1)).split(",");
+    const defaults = {};
+    (secs[4] || "").split(",").forEach(kv => {
+      const [k, v] = kv.split("=");
+      if (k && v !== undefined) defaults[k.trim()] = +v;
+    });
+    metas.push({ name,
+      sliders: plist.slice(0, 5).map((l, k) => l === "!" ? SLIDER_DEF_LABEL[k] : l),
+      checks:  plist.slice(5, 8),
+      defaults });
     $("fx").insertAdjacentHTML("beforeend", `<option value="${i}">${name}</option>`);
   }
-  const defaultLabels = ["Speed", "Intensity"];  // WLED's '!' placeholders
-  const setters = [v => M._sim_set_speed(v), v => M._sim_set_intensity(v)];
-  const sliderVals = [128, 128];
-  function buildSliders(fxi) {
-    const el = $("sliders"); el.innerHTML = "";
-    metas[fxi].sliders.slice(0, 2).forEach((lab, k) => {
-      const label = (lab === "!" ? defaultLabels[k] : lab) || null;
-      if (!label) return;
-      el.insertAdjacentHTML("beforeend",
-        `<label>${label}</label><input type="range" min="0" max="255" value="${sliderVals[k]}" id="sl${k}">
-         <span class="val" id="sv${k}">${sliderVals[k]}</span>`);
-      $(`sl${k}`).addEventListener("input", e => {
-        sliderVals[k] = +e.target.value; setters[k](sliderVals[k]);
-        $(`sv${k}`).textContent = sliderVals[k];
-      });
-      setters[k](sliderVals[k]);
-    });
+
+  const paramVals = { sliders: [128,128,0,0,0], checks: [0,0,0] };
+  function applyDefaults(fxi) {
+    const d = metas[fxi].defaults;
+    paramVals.sliders = SLIDER_KEYS.map((k, ix) => d[k] !== undefined ? d[k] : (ix < 2 ? 128 : 0));
+    paramVals.checks  = CHECK_KEYS.map(k => d[k] !== undefined ? d[k] : 0);
   }
-  buildSliders(0);
+  function pushParams() {
+    paramVals.sliders.forEach((v, k) => sliderSet[k](v));
+    paramVals.checks.forEach((v, k) => checkSet[k](v));
+  }
+  function buildParams(fxi) {
+    const el = $("params"); el.innerHTML = "";
+    metas[fxi].sliders.forEach((lab, k) => {
+      if (!lab) return;
+      el.insertAdjacentHTML("beforeend",
+        `<label>${lab}</label><input type="range" min="0" max="${SLIDER_MAX[k]}"
+          value="${paramVals.sliders[k]}" id="sl${k}"><span class="val" id="sv${k}">${paramVals.sliders[k]}</span>`);
+      $(`sl${k}`).addEventListener("input", e => {
+        paramVals.sliders[k] = +e.target.value; sliderSet[k](paramVals.sliders[k]);
+        $(`sv${k}`).textContent = paramVals.sliders[k];
+      });
+    });
+    metas[fxi].checks.forEach((lab, k) => {
+      if (!lab) return;
+      el.insertAdjacentHTML("beforeend",
+        `<label>${lab}</label><input type="checkbox" id="ck${k}" ${paramVals.checks[k] ? "checked" : ""}>`);
+      $(`ck${k}`).addEventListener("change", e => {
+        paramVals.checks[k] = e.target.checked ? 1 : 0; checkSet[k](paramVals.checks[k]);
+      });
+    });
+    pushParams();
+  }
+  applyDefaults(0); buildParams(0);
 
   // --- canvas / sign space ---
-  // sign bbox from the pixmap (mm), padded; tube paths drawn as dark glass
   let xmin = 1e9, xmax = -1e9, ymin = 1e9, ymax = -1e9;
   for (const p of pixmap) { xmin = Math.min(xmin,p.x); xmax = Math.max(xmax,p.x);
                             ymin = Math.min(ymin,p.y); ymax = Math.max(ymax,p.y); }
@@ -191,7 +240,6 @@ brightness limiter, and the WLED UI layer.</div>
   const sx = x => ( (x - xmin + PAD) / SW ) * cv.width;
   const sy = y => ( (ymax - y + PAD) / SH ) * cv.height;   // physical y up -> canvas y down
 
-  // glow sprite cache per color (additive blending approximates LED bloom)
   const sprites = new Map();
   function sprite(colorKey, r, g, b) {
     let s = sprites.get(colorKey);
@@ -209,7 +257,7 @@ brightness limiter, and the WLED UI layer.</div>
     return s;
   }
 
-  const ledColor = new Uint32Array(N);   // physical LED colors after ledmap routing
+  const ledColor = new Uint32Array(N);
   function routeGridToLeds() {
     const grid = M.HEAPU32.subarray(gridPtr, gridPtr + W*H);
     for (let g = 0; g < mapTable.length; g++) {
@@ -222,7 +270,6 @@ brightness limiter, and the WLED UI layer.</div>
   function draw(grid) {
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = "#0b0d10"; ctx.fillRect(0, 0, cv.width, cv.height);
-    // tube glass
     ctx.strokeStyle = "#20242b"; ctx.lineWidth = cv.width * 0.011;
     ctx.lineCap = ctx.lineJoin = "round";
     for (const path of cuts.paths) {
@@ -230,7 +277,7 @@ brightness limiter, and the WLED UI layer.</div>
       path.forEach((q, i) => i ? ctx.lineTo(sx(q[0]), sy(q[1])) : ctx.moveTo(sx(q[0]), sy(q[1])));
       ctx.stroke();
     }
-    if ($("gridview").checked) {          // raw framebuffer: what the effect computed
+    if ($("gridview").checked) {
       const cw = cv.width / W, ch0 = cv.height / H;
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const c = grid[y*W + x];
@@ -240,12 +287,12 @@ brightness limiter, and the WLED UI layer.</div>
       }
       ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.lineWidth = 1;
       for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x*cw,0); ctx.lineTo(x*cw,cv.height); ctx.stroke(); }
-    } else {                              // physical: what the sign shows
+    } else {
       ctx.globalCompositeOperation = "lighter";
       for (let i = 0; i < N; i++) {
         const c = ledColor[i];
         const r = (c>>16)&255, g = (c>>8)&255, b = c&255;
-        if (!(r|g|b)) { // unlit LED: faint dot so the sign shape stays visible
+        if (!(r|g|b)) {
           ctx.globalCompositeOperation = "source-over";
           ctx.fillStyle = "rgba(120,130,145,0.18)";
           ctx.beginPath(); ctx.arc(sx(pixmap[i].x), sy(pixmap[i].y), Math.max(1.2, cv.width*0.0012), 0, 7); ctx.fill();
@@ -259,12 +306,56 @@ brightness limiter, and the WLED UI layer.</div>
     }
   }
 
+  // --- audio: synthetic beat or browser microphone -> sim_set_audio(level, peak)
+  let micAnalyser = null, micBuf = null, micAvg = 30, lastPeakAt = -1e9;
+  $("bpm").addEventListener("input", e => $("bpmv").textContent = e.target.value);
+  $("audiosrc").addEventListener("change", async e => {
+    if (e.target.value === "mic" && !micAnalyser) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const ac = new AudioContext();
+        const src = ac.createMediaStreamSource(stream);
+        micAnalyser = ac.createAnalyser(); micAnalyser.fftSize = 512;
+        src.connect(micAnalyser);
+        micBuf = new Uint8Array(micAnalyser.fftSize);
+      } catch (err) {
+        alert("mic unavailable: " + err.message);
+        e.target.value = "beat";
+      }
+    }
+  });
+  function audioSample(tms) {
+    const src = $("audiosrc").value;
+    if (src === "off") return [0, 0];
+    if (src === "mic" && micAnalyser) {
+      micAnalyser.getByteTimeDomainData(micBuf);
+      let sum = 0;
+      for (const v of micBuf) { const d = v - 128; sum += d * d; }
+      const rms = Math.sqrt(sum / micBuf.length);            // 0..~90
+      micAvg = micAvg * 0.995 + rms * 0.005;                 // slow AGC reference
+      const level = Math.min(255, Math.round(rms * 160 / Math.max(6, micAvg * 2)));
+      let peak = 0;
+      if (rms > micAvg * 1.9 && tms - lastPeakAt > 180) { peak = 1; lastPeakAt = tms; }
+      return [level, peak];
+    }
+    // synthetic beat: kick envelope, accent every 4th
+    const beatMs = 60000 / (+$("bpm").value);
+    const ph = (tms % beatMs) / beatMs;
+    const nbeat = Math.floor(tms / beatMs);
+    const accent = (nbeat % 4 === 0) ? 1.0 : 0.72;
+    const level = Math.min(255, Math.round(255 * accent * Math.exp(-ph * 6)) + 18);
+    return [level, ph < 0.06 ? 1 : 0];
+  }
+
   // --- time: WLED services the strip every FRAMETIME ms of device millis() ---
   let playing = true, simNow = 0, lastTick = -FRAMETIME, frames = 0, lastWall = performance.now();
   let fpsN = 0, fpsT = 0;
   function serviceUpTo(target) {
     while (target - lastTick >= FRAMETIME) {
       lastTick += FRAMETIME;
+      const [lvl, pk] = audioSample(lastTick);
+      M._sim_set_audio(lvl, pk);
+      $("audlv").textContent = lvl;
       M._sim_tick(lastTick >>> 0);
       frames++;
     }
@@ -287,7 +378,10 @@ brightness limiter, and the WLED UI layer.</div>
     simNow = lastTick + FRAMETIME; serviceUpTo(simNow); };
   function restart() { simNow = 0; lastTick = -FRAMETIME; frames = 0; M._sim_reset(); ledColor.fill(0); }
   $("restart").onclick = restart;
-  $("fx").onchange = e => { M._sim_select(+e.target.value); buildSliders(+e.target.value); restart(); };
+  $("fx").onchange = e => { const i = +e.target.value;
+    M._sim_select(i); applyDefaults(i); buildParams(i); restart(); };
+  $("defaults").onclick = () => { const i = +$("fx").value;
+    applyDefaults(i); buildParams(i); };
   $("reseed").onclick = () => { M._sim_seed(+$("seed").value >>> 0); restart(); };
 
   // --- hover inspection (nearest LED) ---
