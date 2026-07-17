@@ -609,9 +609,9 @@ static void mode_charge_pacman() {
   uint8_t nmagic = (uint8_t)(1 + ((uint16_t)SEGMENT.custom2 * 9) / 255);  // 1..10 magic pellets
   uint32_t vp = 8 + (SEGMENT.speed >> 3);                                 // pac px/s 8..39
 
-  if (!d->inited || d->sp != sp || d->npac != npac || d->nspecial != nmagic) {  // (re)start
+  if (d->inited != 0x9C || d->sp != sp || d->npac != npac || d->nspecial != nmagic) {  // (re)start
     memset(d, 0, sizeof(ChargePacData));
-    d->inited = 1; d->sp = sp; d->npac = npac; d->level = 1; d->nspecial = nmagic;
+    d->inited = 0x9C; d->sp = sp; d->npac = npac; d->level = 1; d->nspecial = nmagic;
     charge_pac_pick_special(d, 0);
     for (uint8_t p = 0; p < npac; p++) {
       d->pac[p].letter = p; d->pac[p].dir = 1; d->pac[p].posfp = 0;
@@ -927,9 +927,9 @@ static void mode_charge_ants() {
   uint8_t npiles = (uint8_t)(1 + ((uint16_t)SEGMENT.custom1 * 3) / 255);  // 1..4
   uint8_t ncol = (uint8_t)(1 + ((uint16_t)SEGMENT.custom2 * 5) / 255);    // 1..6 colonies
 
-  if (!d->inited || d->nants != nants || d->ncol != ncol || d->npiles != npiles) {
+  if (d->inited != 0xA7 || d->nants != nants || d->ncol != ncol || d->npiles != npiles) {
     memset(d, 0, sizeof(ChargeAntData));
-    d->inited = 1; d->nants = nants; d->ncol = ncol; d->npiles = npiles;
+    d->inited = 0xA7; d->nants = nants; d->ncol = ncol; d->npiles = npiles;
     for (uint8_t j = 0; j < npiles; j++) {
       d->pilePos[j] = (uint16_t)(30 + (charge_hash((now | 1u) + j * 977u) % (CHARGE_NUM_PIXELS - 40)));
       d->pilePal[j] = (uint8_t)(charge_hash((now | 1u) + j * 977u) >> 16);
@@ -1054,6 +1054,7 @@ static void mode_charge_ants() {
   }
 }
 
+#ifdef CHARGE_ENABLE_RAIDER
 // =====================================================================
 // CHARGE Raider — side-scroller ship flies the whole neon path: rocket
 // jet with flame noise, periodic boosts, bolts intercepting aliens,
@@ -1128,6 +1129,8 @@ static void mode_charge_raider() {
   }
 }
 
+#endif  // CHARGE_ENABLE_RAIDER
+
 // =====================================================================
 // CHARGE Gravity — palette-colored balls bounce inside each letter with
 // real decay physics (parabolic arcs, restitution 0.62), using the baked
@@ -1156,9 +1159,9 @@ static void mode_charge_gravity() {
     nballs = (uint8_t)(2 + (SEGMENT.intensity >> 5));        // 2..9 marbles per letter
     if (!SEGMENT.allocateData(sizeof(ChargeGravData))) return;
     ChargeGravData *d = (ChargeGravData*)SEGENV.data;
-    if (!d->inited || d->nballs != nballs) {
+    if (d->inited != 0x6B || d->nballs != nballs) {
       memset(d, 0, sizeof(ChargeGravData));
-      d->inited = 1; d->nballs = nballs;
+      d->inited = 0x6B; d->nballs = nballs;
       for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
         uint16_t st = charge_lstart(L), n = charge_lcount(L);
         uint8_t hi = 0, top = 0;                             // the tube's high point
@@ -1563,8 +1566,10 @@ static void mode_charge_premiere() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   uint32_t now = strip.now;
   uint32_t total = 30000 - (uint32_t)SEGMENT.speed * 60;   // 14.7..30 s
-  uint32_t t = now % total;
-  uint32_t lap = now / total;
+  if (SEGENV.step == 0) SEGENV.step = now | 1u;            // the film starts when YOU press play
+  uint32_t elapsed = now - SEGENV.step;
+  uint32_t t = elapsed % total;
+  uint32_t lap = elapsed / total;
   uint32_t u = total / 24;                                 // one "beat"
   uint8_t spk = SEGMENT.intensity;
 
@@ -1600,9 +1605,10 @@ static void mode_charge_premiere() {
     }
     break;
   }
-  if (t < 2 * u) {                                         // opening sweep-in
+  if (t < 2 * u) {                                         // opening sweep-in, from the RIGHT
     spot = true;
-    spx = (int16_t)(-30 + (int32_t)(cx[0] + 30) * (int32_t)t / (int32_t)(2 * u));
+    spx = (int16_t)(CHARGE_GRID_W + 30
+        - (int32_t)(CHARGE_GRID_W + 30 - cx[0]) * (int32_t)t / (int32_t)(2 * u));
     // wobble amplitude eases to zero so the sweep LANDS exactly on C
     int32_t remW = (int32_t)(2 * u - t);
     int16_t wob = (int16_t)((((int32_t)(charge_tri8(t, 1300) / 32) - 4) * remW) / (int32_t)(2 * u));
@@ -1625,9 +1631,8 @@ static void mode_charge_premiere() {
         uint32_t hs = charge_hash(hseed ^ (c * 0x9E3779B1u));
         r = (int16_t)(r + (int16_t)(hs % 5) - 2);
       }
-    } else if (((sph * 100) / u >= 60 && (sph * 100) / u < 70) ||
-               ((sph * 100) / u >= 80 && (sph * 100) / u < 90)) {
-      strobe = 140;                                        // whole-sign strobes
+    } else if ((sph * 100) / u >= 62 && (sph * 100) / u < 72) {
+      strobe = 95;                                         // one gentler after-flash
     }
   }
   uint8_t finq = (beat >= 19 && beat < 22) ? (uint8_t)(((t - 19 * u) * 255) / (3 * u)) : 0;
@@ -2039,7 +2044,9 @@ static const ChargeFxEntry CHARGE_FX_LIST[] = {
   { &mode_charge_pacman,    _data_CHARGE_PACMAN },
   { &mode_charge_lava,      _data_CHARGE_LAVA },
   { &mode_charge_ants,      _data_CHARGE_ANTS },
+#ifdef CHARGE_ENABLE_RAIDER
   { &mode_charge_raider,    _data_CHARGE_RAIDER },
+#endif
   { &mode_charge_gravity,   _data_CHARGE_GRAVITY },
   { &mode_charge_fireworks, _data_CHARGE_FIREWORKS },
   { &mode_charge_drip,      _data_CHARGE_DRIP },
