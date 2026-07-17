@@ -91,6 +91,7 @@ for (let e = 0; e < fxCount; e++) {
   // META
   if (!p.name || names.has(p.name)) bad(p.name, `META name empty/duplicate: "${p.name}"`);
   names.add(p.name);
+  if (!p.name.startsWith("CHARGE ")) bad(p.name, `META name must start with "CHARGE " (got "${p.name}")`);
   if (!p.flags.includes("2")) bad(p.name, `META flags "${p.flags}" lack 2D marker`);
   if (p.defaults.sx === undefined && p.defaults.ix === undefined)
     bad(p.name, "META no smart defaults (sx/ix) declared");

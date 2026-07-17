@@ -80,6 +80,33 @@ static inline uint32_t charge_palette(uint8_t pal, uint8_t pos) {
   uint8_t frac = (uint8_t)((pos - seg * 85) * 3);
   return color_blend(P.c[seg], P.c[seg + 1], frac);
 }
+// smoothstep on a byte: 0..255 -> 0..255 with eased ends
+static inline uint8_t charge_smooth8(uint8_t v) {
+  return (uint8_t)(((uint32_t)v * v * (765 - 2 * (uint32_t)v)) >> 16);
+}
+// fast octagonal distance approximation in grid cells (max + min/2 ~ Euclidean)
+static inline uint8_t charge_dist8(int16_t dx, int16_t dy) {
+  if (dx < 0) dx = (int16_t)-dx;
+  if (dy < 0) dy = (int16_t)-dy;
+  int16_t mx = dx > dy ? dx : dy, mn = dx > dy ? dy : dx;
+  int16_t d = (int16_t)(mx + (mn >> 1));
+  return d > 255 ? 255 : (uint8_t)d;
+}
+// per-letter centroid in GRID (col,row) coordinates — one pass over the chain
+static inline void charge_letter_centroids(uint8_t cx[CHARGE_NUM_LETTERS],
+                                           uint8_t cy[CHARGE_NUM_LETTERS]) {
+  uint32_t ax[CHARGE_NUM_LETTERS] = {0}, ay[CHARGE_NUM_LETTERS] = {0};
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+    uint8_t L = pgm_read_byte(&CHARGE_LETTER[i]);
+    ax[L] += pgm_read_byte(&CHARGE_COL[i]);
+    ay[L] += pgm_read_byte(&CHARGE_ROW[i]);
+  }
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    uint16_t n = charge_lcount(L);
+    cx[L] = (uint8_t)(ax[L] / n);
+    cy[L] = (uint8_t)(ay[L] / n);
+  }
+}
 // per-letter x-extent in XNORM units (scanned on demand; letters are ~80 px)
 static inline void charge_letter_xrange(uint8_t L, uint8_t *xlo, uint8_t *xhi) {
   uint16_t st = charge_lstart(L), n = charge_lcount(L);
@@ -699,8 +726,224 @@ static void mode_charge_pulse() {
   }
 }
 
+// =====================================================================
+// CHARGE Premiere — a ~22s movie-title sequence, looping:
+//   dust motes -> a spotlight sweeps in and settles on each letter in
+//   turn; C/A/G crackle in electrically, H/R/E explode in with a 2D
+//   shockwave ring -> all-lit power swell -> lightning strikes + strobes
+//   -> radial palette burst finale -> fade to black -> loop.
+// Single pass per pixel; the whole timeline is a pure function of time.
+// =====================================================================
+static const char _data_CHARGE_PREMIERE[] PROGMEM =
+  "CHARGE Premiere@Length,Sparkle,Palette;;;2;sx=128,ix=160,c1=64";
+
+static void mode_charge_premiere() {
+  if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  uint32_t now = strip.now;
+  uint32_t total = 30000 - (uint32_t)SEGMENT.speed * 60;   // 14.7..30 s
+  uint32_t t = now % total;
+  uint32_t lap = now / total;
+  uint32_t u = total / 24;                                 // one "beat"
+  uint8_t pal = SEGMENT.custom1 >> 5;
+  uint8_t spk = SEGMENT.intensity;
+
+  uint8_t cx[CHARGE_NUM_LETTERS], cy[CHARGE_NUM_LETTERS];
+  charge_letter_centroids(cx, cy);
+
+  // per-letter reveal state: 0 = hidden, 1 = revealing (q 0..255), 2 = lit
+  uint8_t lmode[CHARGE_NUM_LETTERS], lq[CHARGE_NUM_LETTERS];
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    uint32_t w0 = (2 + 2 * (uint32_t)L) * u;               // reveal L: [(2+2L)u, (4+2L)u)
+    uint32_t w1 = w0 + 2 * u;
+    if (t < w0)      { lmode[L] = 0; lq[L] = 0; }
+    else if (t < w1) { lmode[L] = 1; lq[L] = (uint8_t)(((t - w0) * 255) / (2 * u)); }
+    else             { lmode[L] = 2; lq[L] = 255; }
+  }
+
+  // spotlight position (grid coords), active only through the reveals
+  int16_t spx = -30, spy = CHARGE_GRID_H / 2;
+  bool spot = false;
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    if (lmode[L] != 1) continue;
+    spot = true;
+    int16_t ax = (L == 0) ? -20 : cx[L - 1], ay = (L == 0) ? (CHARGE_GRID_H / 2) : cy[L - 1];
+    if (lq[L] < 100) {                                     // gliding to letter L
+      uint8_t e = charge_smooth8((uint8_t)(((uint16_t)lq[L] * 255) / 100));
+      spx = (int16_t)(ax + ((int32_t)(cx[L] - ax) * e) / 255);
+      spy = (int16_t)(ay + ((int32_t)(cy[L] - ay) * e) / 255);
+    } else {                                               // holding, tiny wobble
+      spx = (int16_t)(cx[L] + (int16_t)(charge_tri8(now, 900) / 64) - 2);
+      spy = cy[L];
+    }
+    break;
+  }
+  if (t < 2 * u) {                                         // opening sweep-in
+    spot = true;
+    spx = (int16_t)(-30 + (int32_t)(cx[0] + 30) * (int32_t)t / (int32_t)(2 * u));
+    spy = (int16_t)(CHARGE_GRID_H / 2 + (charge_tri8(t, 1300) / 32) - 4);
+  }
+
+  uint32_t beat = t / u;
+  // swell 14..17, lightning 17..19, finale 19..22, fade 22..24
+  uint8_t swellq = (beat >= 14 && beat < 17) ? (uint8_t)(((t - 14 * u) * 255) / (3 * u)) : (beat >= 17 ? 255 : 0);
+  bool strike = false; uint8_t strobe = 0;
+  uint8_t boltRow[CHARGE_GRID_W];
+  if (beat >= 17 && beat < 19) {
+    uint32_t su = t - 17 * u, sidx = su / u, sph = su % u;
+    uint32_t hseed = charge_hash(lap * 7919u + sidx + 0xB017u);
+    if (sph < (u * 55) / 100) {                            // the bolt itself
+      strike = true;
+      int16_t r = (int16_t)(4 + (hseed % 12));
+      for (uint16_t c = 0; c < CHARGE_GRID_W; c++) {       // seeded jagged walk
+        boltRow[c] = (uint8_t)(r < 0 ? 0 : (r >= CHARGE_GRID_H ? CHARGE_GRID_H - 1 : r));
+        uint32_t hs = charge_hash(hseed ^ (c * 0x9E3779B1u));
+        r = (int16_t)(r + (int16_t)(hs % 5) - 2);
+      }
+    } else if (((sph * 100) / u >= 60 && (sph * 100) / u < 70) ||
+               ((sph * 100) / u >= 80 && (sph * 100) / u < 90)) {
+      strobe = 140;                                        // whole-sign strobes
+    }
+  }
+  uint8_t finq = (beat >= 19 && beat < 22) ? (uint8_t)(((t - 19 * u) * 255) / (3 * u)) : 0;
+  uint8_t fadeq = (beat >= 22) ? (uint8_t)(((t - 22 * u) * 255) / (2 * u)) : 0;
+  uint16_t ringR = (uint16_t)(((uint32_t)finq * 90) / 255);
+
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+    uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
+    uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
+    uint8_t L   = pgm_read_byte(&CHARGE_LETTER[i]);
+    uint32_t c = BLACK;
+
+    if (t < 2 * u) {                                       // dust motes
+      if ((charge_hash((uint32_t)i * 131 + ((t >> 8) * 0x85EBu)) & 0xFF) < (spk >> 5))
+        c = color_fade(RGBW32(200, 200, 220, 0), 70, true);
+    }
+
+    if (lmode[L] == 2) {                                   // lit letter
+      uint8_t bri = 60;                                    // ember hold
+      uint32_t basec = CHARGE_CYAN;
+      if (swellq) { bri = (uint8_t)(60 + ((uint16_t)195 * swellq) / 255);
+                    basec = color_blend(CHARGE_CYAN, RGBW32(255,255,255,0), swellq / 2); }
+      if (beat >= 17 && beat < 19) { bri = 255; basec = RGBW32(180, 255, 255, 0); }
+      if (finq) { bri = 200; basec = CHARGE_CYAN; }
+      c = color_fade(basec, bri, true);
+    } else if (lmode[L] == 1 && lq[L] >= 100) {
+      uint8_t q = lq[L];
+      uint16_t st = charge_lstart(L), n = charge_lcount(L);
+      uint16_t k = (uint16_t)(i - st);
+      if ((L & 1) == 0) {                                  // C/A/G: crackle in
+        uint8_t density = (uint8_t)(((uint16_t)(q - 100) * 255) / 155);
+        uint32_t slice = t / 70;
+        uint16_t seg = k / 3;
+        if ((charge_hash(slice * 0x51EDu ^ ((uint32_t)L << 8) ^ seg) & 0xFF) < density)
+          c = color_fade(CHARGE_CYAN, (uint8_t)(180 + (hw_random8() % 76)), true);
+      } else {                                             // H/R/E: explode in
+        uint16_t mid = n / 2;
+        uint16_t spread = (uint16_t)(((uint32_t)(q - 100) * (mid + 8)) / 155);
+        uint16_t dk = (k > mid) ? (uint16_t)(k - mid) : (uint16_t)(mid - k);
+        if (dk < spread) {
+          uint8_t bri = (dk + 6 >= spread) ? 255 : (uint8_t)(160 + ((uint16_t)dk * 95) / (spread ? spread : 1));
+          c = color_fade(CHARGE_CYAN, bri, true);
+        }
+        // 2D shockwave ring around the letter, palette-tinged
+        uint16_t rr = (uint16_t)(((uint32_t)(q - 100) * 55) / 155);
+        uint8_t d = charge_dist8((int16_t)col - cx[L], (int16_t)row - cy[L]);
+        int16_t band = (int16_t)d - (int16_t)rr; if (band < 0) band = (int16_t)-band;
+        if (band < 3 && rr > 2 && rr < 50)
+          c = color_blend(c, charge_palette(pal, (uint8_t)(d * 4)), (uint8_t)(220 - band * 60));
+      }
+    }
+
+    if (spot) {                                            // spotlight pool
+      int32_t dx = (int32_t)col - spx, dy = (int32_t)row - spy;
+      int32_t d2 = dx * dx + dy * dy;
+      const int32_t R2 = 13 * 13;
+      if (d2 < R2) {
+        uint8_t w = (uint8_t)(((R2 - d2) * 200) / R2);
+        c = color_blend(c, RGBW32(255, 230, 180, 0), w);
+      }
+    }
+
+    if (strike && (int16_t)row >= (int16_t)boltRow[col] - 2 && (int16_t)row <= (int16_t)boltRow[col] + 2) {
+      int16_t dr = (int16_t)row - (int16_t)boltRow[col]; if (dr < 0) dr = (int16_t)-dr;
+      c = (dr <= 1) ? RGBW32(255, 255, 255, 0) : color_blend(c, CHARGE_CYAN, 160);
+    }
+    if (strobe) c = color_blend(c, RGBW32(255, 255, 255, 0), strobe);
+
+    if (finq) {                                            // finale: radial burst
+      uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - CHARGE_GRID_H / 2);
+      int16_t band = (int16_t)d - (int16_t)ringR; if (band < 0) band = (int16_t)-band;
+      if (band < 5)
+        c = color_blend(c, charge_palette(pal, (uint8_t)(d * 3 + (now >> 4))), (uint8_t)(240 - band * 40));
+      if ((charge_hash((uint32_t)i * 31 + ((t >> 6) * 0xC2B2u)) & 0xFF) < (spk >> 3))
+        c = color_blend(c, RGBW32(255, 255, 255, 0), 180);  // celebration glitter
+    }
+
+    if (fadeq) c = color_fade(c, (uint8_t)(255 - fadeq), true);
+    charge_setpx(i, c);
+  }
+}
+
+// =====================================================================
+// CHARGE Dreamwave — the whole sign becomes an interference field: every
+// letter's centroid is a wave source with its own wavelength and phase;
+// pixels sum all six wavefronts (own letter weighted double) and map the
+// result through a palette. Wild, spatial, letter-aware, deeply pleasing.
+// =====================================================================
+static const char _data_CHARGE_DREAMWAVE[] PROGMEM =
+  "CHARGE Dreamwave@Speed,Glow,Palette,Zoom,,Letter pulse;;;2;sx=100,ix=190,c1=0,c2=128,o1=1";
+
+static void mode_charge_dreamwave() {
+  if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  uint32_t now = strip.now;
+  uint8_t pal = SEGMENT.custom1 >> 5;
+
+  uint8_t cx[CHARGE_NUM_LETTERS], cy[CHARGE_NUM_LETTERS];
+  charge_letter_centroids(cx, cy);
+
+  // per-source wavelength (cells), phase offset, and drift rate
+  uint16_t wl[CHARGE_NUM_LETTERS]; uint8_t ph0[CHARGE_NUM_LETTERS];
+  uint32_t tv = (uint32_t)((uint64_t)now * (20 + SEGMENT.speed) / 256);  // wave time
+  for (uint8_t k = 0; k < CHARGE_NUM_LETTERS; k++) {
+    uint32_t h = charge_hash(0xD3EA0000u | k);
+    wl[k] = (uint16_t)((10 + (h & 7)) * (64 + (uint16_t)SEGMENT.custom2) / 128);  // Zoom
+    if (wl[k] < 4) wl[k] = 4;
+    ph0[k] = (uint8_t)(h >> 8);
+  }
+  // per-letter pulse (own breathing tempo)
+  uint8_t lpulse[CHARGE_NUM_LETTERS];
+  for (uint8_t k = 0; k < CHARGE_NUM_LETTERS; k++) {
+    uint32_t h = charge_hash(0xB1EA0000u | k);
+    lpulse[k] = SEGMENT.check1
+      ? (uint8_t)(190 + (charge_smooth8(charge_tri8(now + (h & 0xFFF), 2600 + (h % 2200))) >> 2))
+      : 255;
+  }
+
+  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+    uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
+    uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
+    uint8_t L   = pgm_read_byte(&CHARGE_LETTER[i]);
+    uint32_t sum = 0, wsum = 0;
+    for (uint8_t k = 0; k < CHARGE_NUM_LETTERS; k++) {
+      uint8_t d = charge_dist8((int16_t)col - cx[k], (int16_t)row - cy[k]);
+      uint8_t phase = (uint8_t)(((uint16_t)d * 256) / wl[k] - (tv >> 3) + ph0[k]);
+      uint8_t wave = (uint8_t)(phase < 128 ? phase * 2 : (255 - phase) * 2);  // byte triangle
+      uint8_t w = (k == L) ? 2 : 1;                       // own letter dominates
+      sum += (uint32_t)wave * w;
+      wsum += w;
+    }
+    uint8_t v = (uint8_t)(sum / wsum);
+    uint32_t c = charge_palette(pal, (uint8_t)(v + (now >> 6)));  // slow palette drift
+    uint8_t bri = (uint8_t)(((uint16_t)SEGMENT.intensity * (100 + charge_smooth8(v) * 155 / 255)) / 255);
+    bri = (uint8_t)(((uint16_t)bri * lpulse[L]) / 255);
+    charge_setpx(i, color_fade(c, bri, true));
+  }
+}
+
 // Registration table so firmware + simulator enumerate the same effect list.
 // Extend here when adding effects; tedxfargo.cpp and the sim both walk it.
+// NAMING RULE: every effect name starts with "CHARGE " so the whole suite
+// sorts/filters together in the WLED effect list (QA enforces this).
 typedef void (*charge_mode_fn)();
 struct ChargeFxEntry { charge_mode_fn fn; const char* meta; };
 static const ChargeFxEntry CHARGE_FX_LIST[] = {
@@ -717,6 +960,8 @@ static const ChargeFxEntry CHARGE_FX_LIST[] = {
   { &mode_charge_fireworks, _data_CHARGE_FIREWORKS },
   { &mode_charge_drip,      _data_CHARGE_DRIP },
   { &mode_charge_pulse,     _data_CHARGE_PULSE },
+  { &mode_charge_premiere,  _data_CHARGE_PREMIERE },
+  { &mode_charge_dreamwave, _data_CHARGE_DREAMWAVE },
 };
 static const uint8_t CHARGE_FX_COUNT =
     sizeof(CHARGE_FX_LIST) / sizeof(CHARGE_FX_LIST[0]);
