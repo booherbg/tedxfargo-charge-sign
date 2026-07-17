@@ -26,7 +26,7 @@ uint8_t charge_audio_peak() { return g_peak; }
 
 static void register_palettes() {  // goblin palettes, same IDs as firmware/sim
   for (uint8_t i = 0; i < CHARGE_UM_PAL_COUNT; i++)
-    shim_pal_gradient((uint8_t)(255 - i), CHARGE_UM_PAL_DATA[i], 28);
+    shim_pal_gradient((uint8_t)(255 - i), CHARGE_UM_PAL_DATA[i], 44);
   shim_pal_counts(0, CHARGE_UM_PAL_COUNT);
 }
 #define grid gbuf.cells

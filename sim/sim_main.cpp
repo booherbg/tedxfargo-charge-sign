@@ -96,7 +96,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
   sim_segment.buf = grid_buf;
   // the goblin palettes register at the same IDs the firmware uses (255 down)
   for (uint8_t i = 0; i < CHARGE_UM_PAL_COUNT; i++)
-    shim_pal_gradient((uint8_t)(255 - i), CHARGE_UM_PAL_DATA[i], 28);
+    shim_pal_gradient((uint8_t)(255 - i), CHARGE_UM_PAL_DATA[i], 44);
   shim_pal_counts(0, CHARGE_UM_PAL_COUNT);
   sim_reset();
 }

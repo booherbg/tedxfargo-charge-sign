@@ -86,25 +86,33 @@ static inline uint32_t charge_palette(uint8_t pal, uint8_t pos) {
 // bytes at identical IDs. User-facing palette selection in our effects goes
 // through SEGMENT.color_from_palette(); CHARGE_PALS/charge_palette above stay
 // for internal fixed uses only (rainbow jet/tail novelties).
-#define CHARGE_UM_PAL_COUNT 8
-// rows hold up to 7 gradient stops (28 bytes); shorter palettes terminate at
-// their pos-255 stop and pad with zeros (gradient loaders stop at 255)
-static const uint8_t CHARGE_UM_PAL_DATA[CHARGE_UM_PAL_COUNT][28] PROGMEM = {
-  { 0,0,255,255,    85,0,120,255,   170,180,0,255,  255,235,0,40,    0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 255 Brand Trip
-  { 0,255,30,0,     85,255,110,0,   170,255,220,40, 255,255,255,255, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 254 Fire
-  { 0,255,0,0,      85,255,255,0,   170,0,255,80,   255,0,80,255,    0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 253 Rainbow
-  { 0,40,255,40,    85,0,200,80,    170,180,255,0,  255,230,255,230, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 252 Slime
-  { 0,255,0,180,    85,120,0,255,   170,0,255,255,  255,255,255,0,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 251 Psychedelic
-  // TEDx: the sign's art colors as HARD full-brightness bands (teal main,
-  // yellow accent, bold red main) — duplicated stops make transitions
-  // hairline-thin so the palette never passes through dim/muddy blends
-  { 0,0,255,255,    104,0,255,255,  108,255,255,0,  144,255,255,0,   148,255,0,0, 255,255,0,0, 0,0,0,0 }, // 250 TEDx
-  { 0,0,0,255,      85,0,255,255,   170,255,255,255,255,0,120,255,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 249 Electric Ice
-  { 0,255,140,0,    85,255,0,90,    170,140,0,255,  255,0,255,200,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 248 Sunset Acid
+#define CHARGE_UM_PAL_COUNT 13
+// rows hold up to 11 gradient stops (44 bytes); shorter palettes terminate at
+// their pos-255 stop and pad with zeros (gradient loaders stop at 255).
+// House style: SATURATED hues in hard full-brightness bands — duplicated
+// stops keep transitions hairline-thin, never dim/muddy.
+static const uint8_t CHARGE_UM_PAL_DATA[CHARGE_UM_PAL_COUNT][44] PROGMEM = {
+  { 0,0,255,255,    85,0,120,255,   170,180,0,255,  255,235,0,40,    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 255 Brand Trip
+  { 0,255,30,0,     85,255,110,0,   170,255,220,40, 255,255,255,255, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 254 Fire
+  { 0,255,0,0,      85,255,255,0,   170,0,255,80,   255,0,80,255,    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 253 Rainbow
+  { 0,40,255,40,    85,0,200,80,    170,180,255,0,  255,230,255,230, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 252 Slime
+  { 0,255,0,180,    85,120,0,255,   170,0,255,255,  255,255,255,0,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 251 Psychedelic
+  { 0,0,255,255,    104,0,255,255,  108,255,255,0,  144,255,255,0,   148,255,0,0, 255,255,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 250 TEDx
+  { 0,0,0,255,      85,0,255,255,   170,255,255,255,255,0,120,255,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 249 Electric Ice
+  { 0,255,140,0,    85,255,0,90,    170,140,0,255,  255,0,255,200,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 248 Sunset Acid
+  // Elevate: the sub-conference kit (device custom palette 2, saturated):
+  // spring green / sky / azure bands, soft-yellow tip
+  { 0,0,255,110,    80,0,255,110,   84,0,200,255,   150,0,200,255,   154,0,120,255, 238,0,120,255, 242,255,240,0, 255,255,240,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 247 Elevate
+  // TEDx Elevate: both kits in one — teal / green / yellow / red / blue
+  { 0,0,255,255,    46,0,255,255,   50,0,255,110,   96,0,255,110,    100,255,255,0, 140,255,255,0, 144,255,0,0, 200,255,0,0, 204,0,120,255, 255,0,120,255, 0,0,0,0 }, // 246 TEDx Elevate
+  { 0,200,255,0,    80,200,255,0,   88,0,255,255,   164,0,255,255,   172,255,0,255, 255,255,0,255, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 245 Voltage
+  { 0,30,0,255,     76,30,0,255,    84,150,0,255,   160,150,0,255,   168,255,0,150, 244,255,0,150, 248,255,255,255, 255,255,255,255, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 244 Ultraviolet
+  { 0,255,0,30,     80,255,0,30,    88,255,90,0,    168,255,90,0,    176,255,200,0, 255,255,200,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 243 Ember
 };
 static const char* const CHARGE_UM_PAL_NAMES[CHARGE_UM_PAL_COUNT] = {
   "Brand Trip", "Fire", "Rainbow", "Slime",
   "Psychedelic", "TEDx", "Electric Ice", "Sunset Acid",
+  "Elevate", "TEDx Elevate", "Voltage", "Ultraviolet", "Ember",
 };
 // smoothstep on a byte: 0..255 -> 0..255 with eased ends
 static inline uint8_t charge_smooth8(uint8_t v) {
@@ -1811,7 +1819,11 @@ static void mode_charge_premiere() {
   // the finale persists through the fade-out (dimmed by fadeq) — cutting it
   // at the fade boundary ended the film abruptly
   uint8_t finq = (beat >= 19) ? ((beat < 22) ? (uint8_t)(((t - 19 * u) * 255) / (3 * u)) : 255) : 0;
-  uint8_t fadeq = (beat >= 22) ? (uint8_t)(((t - 22 * u) * 255) / (2 * u)) : 0;
+  uint8_t fadeq = 0;
+  if (beat >= 22) {                                        // clamp: total%24 leaves a tail
+    uint32_t fq = ((t - 22 * u) * 255) / (2 * u);          // whose raw value exceeds 255
+    fadeq = fq > 255 ? 255 : (uint8_t)fq;                  // and wrapped to a FLASH frame
+  }
   uint32_t fint = (beat >= 19) ? (t - 19 * u) : 0;         // time since the blast began
   uint16_t ringR = (uint16_t)((fint * 90) / (3 * u));      // radiates OUT and keeps going
 
