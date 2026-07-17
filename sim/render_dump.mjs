@@ -15,6 +15,33 @@ const gridPtr = M._sim_grid_ptr() >> 2;
 const FRAMETIME = Math.floor(1000 / 42);
 const ledmap = JSON.parse(readFileSync(new URL("../wled/word-controller/ledmap.json", import.meta.url)));
 
+// feed the palette registry (same as qa.mjs)
+const palData = JSON.parse(readFileSync(new URL("../docs/sign-preview/simulator/wled_palettes.json", import.meta.url)));
+const palBuf = M._sim_pal_buf();
+palData.fastled.forEach((p16, i) => {
+  new Uint32Array(M.HEAPU8.buffer, palBuf, 16).set(p16);
+  M._sim_pal_fixed16(6 + i);
+});
+palData.gradients.forEach((g, i) => {
+  M.HEAPU8.set(g.slice(0, 72), palBuf);
+  M._sim_pal_gradient(13 + i, Math.min(72, g.length));
+});
+let customCount = 0;
+for (let ci = 0; ci < 3; ci++) {
+  try {
+    const cp = JSON.parse(readFileSync(new URL(`../wled/backups/palette${ci}.json`, import.meta.url)));
+    const bytes = [];
+    for (let k = 0; k + 1 < cp.palette.length; k += 2) {
+      const v = parseInt(cp.palette[k + 1], 16);
+      bytes.push(cp.palette[k], (v >> 16) & 255, (v >> 8) & 255, v & 255);
+    }
+    M.HEAPU8.set(bytes.slice(0, 72), palBuf);
+    M._sim_pal_gradient(200 - ci, Math.min(72, bytes.length));
+    customCount++;
+  } catch {}
+}
+M._sim_pal_counts(customCount, 8);
+
 const SLIDER_KEYS = ["sx", "ix", "c1", "c2", "c3"], CHECK_KEYS = ["o1", "o2", "o3"];
 const sliderSet = [v => M._sim_set_speed(v), v => M._sim_set_intensity(v),
   v => M._sim_set_custom1(v), v => M._sim_set_custom2(v), v => M._sim_set_custom3(v)];
@@ -51,6 +78,9 @@ const fxCount = M._sim_fx_count();
 for (let e = 0; e < fxCount; e++) {
   const p = parseMeta(e);
   M._sim_select(e); M._sim_seed(42); M._sim_reset();
+  M._sim_set_palette(p.defaults.pal || 0);
+  M._sim_set_default_palette(p.defaults.pal || 6);
+  M._sim_set_color(0, 0x00ffa000);
   SLIDER_KEYS.forEach((k, ix) => sliderSet[ix](p.defaults[k] !== undefined ? p.defaults[k] : (ix < 2 ? 128 : 0)));
   CHECK_KEYS.forEach((k, ix) => checkSet[ix](p.defaults[k] !== undefined ? p.defaults[k] : 0));
 

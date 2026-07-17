@@ -61,9 +61,29 @@ EMSCRIPTEN_KEEPALIVE void sim_set_audio(int level, int peak) {
   g_peak = peak ? 1 : 0;
 }
 
-// One WLED service pass: strip.now <- now_ms, run the mode fn, call++.
+// --- palettes: selection + data upload (see wled_shim palette registry) ---
+EMSCRIPTEN_KEEPALIVE void sim_set_palette(int id)         { sim_segment.palette = (uint8_t)id; }
+EMSCRIPTEN_KEEPALIVE void sim_set_default_palette(int id) { sim_segment.default_palette = (uint8_t)(id > 0 ? id : 6); }
+EMSCRIPTEN_KEEPALIVE void sim_set_color(int slot, uint32_t c) {
+  if (slot >= 0 && slot < NUM_COLORS) sim_segment.colors[slot] = c;
+}
+static uint8_t pal_upload[128];
+EMSCRIPTEN_KEEPALIVE uint8_t* sim_pal_buf() { return pal_upload; }
+EMSCRIPTEN_KEEPALIVE void sim_pal_gradient(int id, int len) { shim_pal_gradient((uint8_t)id, pal_upload, len); }
+EMSCRIPTEN_KEEPALIVE void sim_pal_fixed16(int id) { shim_pal_fixed16((uint8_t)id, (const uint32_t*)pal_upload); }
+EMSCRIPTEN_KEEPALIVE void sim_pal_counts(int custom_count, int um_count) {
+  shim_pal_counts((uint8_t)custom_count, (uint8_t)um_count);
+}
+EMSCRIPTEN_KEEPALIVE int sim_um_pal_count() { return CHARGE_UM_PAL_COUNT; }
+EMSCRIPTEN_KEEPALIVE const char* sim_um_pal_name(int i) {
+  return (i >= 0 && i < CHARGE_UM_PAL_COUNT) ? CHARGE_UM_PAL_NAMES[i] : "";
+}
+
+// One WLED service pass: strip.now <- now_ms, load the segment palette (WLED
+// does this in beginDraw() each frame), run the mode fn, call++.
 EMSCRIPTEN_KEEPALIVE void sim_tick(uint32_t now_ms) {
   strip.now = now_ms;
+  sim_segment.loadPalette(sim_segment._currentPalette, sim_segment.palette);
   CHARGE_FX_LIST[cur_fx].fn();
   sim_segment.call++;
 }
@@ -72,6 +92,10 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
   sim_segment.W = CHARGE_GRID_W;
   sim_segment.H = CHARGE_GRID_H;
   sim_segment.buf = grid_buf;
+  // the goblin palettes register at the same IDs the firmware uses (255 down)
+  for (uint8_t i = 0; i < CHARGE_UM_PAL_COUNT; i++)
+    shim_pal_gradient((uint8_t)(255 - i), CHARGE_UM_PAL_DATA[i], 16);
+  shim_pal_counts(0, CHARGE_UM_PAL_COUNT);
   sim_reset();
 }
 

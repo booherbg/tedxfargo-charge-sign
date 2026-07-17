@@ -23,6 +23,12 @@ static struct {
 static uint8_t g_audio = 128, g_peak = 0;
 uint8_t charge_audio() { return g_audio; }
 uint8_t charge_audio_peak() { return g_peak; }
+
+static void register_palettes() {  // goblin palettes, same IDs as firmware/sim
+  for (uint8_t i = 0; i < CHARGE_UM_PAL_COUNT; i++)
+    shim_pal_gradient((uint8_t)(255 - i), CHARGE_UM_PAL_DATA[i], 16);
+  shim_pal_counts(0, CHARGE_UM_PAL_COUNT);
+}
 #define grid gbuf.cells
 static int fails = 0;
 
@@ -48,7 +54,12 @@ static void reset_seg() {
 }
 
 static void tick(uint32_t now) { strip.now = now; mode_charge_bootup(); sim_segment.call++; }
-static void tick_fx(charge_mode_fn fn, uint32_t now) { strip.now = now; fn(); sim_segment.call++; }
+static void tick_fx(charge_mode_fn fn, uint32_t now) {
+  strip.now = now;
+  sim_segment.loadPalette(sim_segment._currentPalette, sim_segment.palette);
+  fn();
+  sim_segment.call++;
+}
 
 // is any pixel of letter L lit?
 static bool letter_lit(int L) {
@@ -63,6 +74,7 @@ static bool letter_lit(int L) {
 int main() {
   const uint32_t FRAMETIME = 1000 / 42;
   arm_canaries();
+  register_palettes();
 
   // --- behavior at defaults (speed=128 -> letterMs=516; hold c1=70 -> 1700ms) ---
   sim_segment.speed = 128; sim_segment.intensity = 128; sim_segment.custom1 = 70;
@@ -126,6 +138,8 @@ int main() {
       sim_segment.custom1 = c[2]; sim_segment.custom2 = c[3];
       sim_segment.custom3 = (uint8_t)(c[2] & 31);
       sim_segment.check1 = (ci & 1); sim_segment.check2 = (ci & 2); sim_segment.check3 = (ci & 4);
+      static const uint8_t pals[] = { 0, 255, 3, 248 };   // default, goblin ends, colors-derived
+      sim_segment.palette = pals[ci & 3];
       reset_seg();
       for (uint32_t t = 0; t < 20u * 60 * 1000; t += FRAMETIME) {
         g_audio = charge_tri8(t, 700);                 // pumping audio sweep

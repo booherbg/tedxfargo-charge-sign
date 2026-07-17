@@ -49,6 +49,8 @@ here, the same bytes of C++ run on the wall.</p>
 
 <div class="controls">
   <div class="grp"><label>Effect</label><select id="fx"></select></div>
+  <div class="grp"><label>Palette</label><select id="pal"></select></div>
+  <div class="grp" id="colorpick"></div>
   <div class="grp" id="params"></div>
 </div>
 <div class="controls">
@@ -94,18 +96,22 @@ here, the same bytes of C++ run on the wall.</p>
 <h2>What is and isn't simulated</h2>
 <div class="note">
 <b>Bit-exact:</b> the effect mode functions, the geometry tables
-(<code>charge_geometry.h</code>), color math (<code>color_fade</code>/<code>color_blend</code>
-ported line-for-line from WLED 16.0.1), 8-bit arithmetic, segment state and all
-params (speed/intensity/custom1-3/checks — same fields, same ranges, custom3 is
-5-bit like WLED), the 42&nbsp;fps service cadence, and the grid→LED routing
-(the committed <code>ledmap.json</code> applied exactly like WLED's
-<code>customMappingTable</code>).<br>
+(<code>charge_geometry.h</code>), color math (<code>color_fade</code>/<code>color_blend</code>/
+<code>ColorFromPalette</code>/<code>color_from_palette</code> ported line-for-line from
+WLED 16.0.1), <b>the full palette system</b> — WLED's own <code>fastled_slim</code>
+palette classes compiled verbatim, palette data extracted from the firmware source
+(never transcribed), your device's custom palettes, the 8 CHARGE usermod palettes at
+the same IDs the firmware registers, and color-derived palettes from the segment
+colors — 8-bit arithmetic, segment state and all params (custom3 is 5-bit like WLED),
+the 42&nbsp;fps service cadence, and the grid→LED routing (the committed
+<code>ledmap.json</code> applied exactly like WLED's <code>customMappingTable</code>).<br>
 <b>Approximated:</b> <code>hw_random8()</code> is a seeded PRNG (uniform like the ESP32's RNG,
-but a different — reproducible — sequence); audio here is a synthetic beat or your
+but a different — reproducible — sequence); palette "* Random Cycle" regenerates from a
+hash instead of WLED's harmonic random walk; audio here is a synthetic beat or your
 browser microphone, while the sign uses its onboard mic through the audioreactive
 usermod (same 0..255 level + peak interface on both sides); LED glow/optics.<br>
-<b>Not simulated:</b> stock WLED effects, WLED palettes/transitions (these effects
-carry their own mini-palettes, identical in firmware), brightness limiter, WLED UI.</div>
+<b>Not simulated:</b> stock WLED effects, palette/effect transitions, brightness
+limiter, WLED UI.</div>
 </div>
 
 <script src="charge_sim.js"></script>
@@ -124,6 +130,11 @@ carry their own mini-palettes, identical in firmware), brightness limiter, WLED 
   const ledmap = JSON.parse(new TextDecoder().decode(raw));
   const pixmap = (await (await fetch("word_pixmap.json")).json()).pixels;
   const cuts = await (await fetch("word_cuts.json")).json();
+  const palData = await (await fetch("wled_palettes.json")).json();
+  const devicePals = [];
+  for (let ci = 0; ci < 3; ci++) {
+    try { devicePals.push(await (await fetch(`palette${ci}.json`)).json()); } catch { break; }
+  }
 
   // --- wasm handles ---
   M._sim_init();
@@ -132,6 +143,49 @@ carry their own mini-palettes, identical in firmware), brightness limiter, WLED 
   const tab = name => new Uint8Array(M.HEAPU8.buffer, M[`_sim_tab_${name}`](), N);
   const T = { letter: tab("letter"), col: tab("col"), row: tab("row"),
               height: tab("height"), xnorm: tab("xnorm") };
+
+  // --- palettes: feed the registry (extracted WLED data + device customs),
+  //     then build the picker: fixed 0..71, device customs, goblin usermod ---
+  const palBuf = M._sim_pal_buf();
+  palData.fastled.forEach((p16, i) => {
+    new Uint32Array(M.HEAPU8.buffer, palBuf, 16).set(p16);
+    M._sim_pal_fixed16(6 + i);
+  });
+  palData.gradients.forEach((g, i) => {
+    M.HEAPU8.set(g.slice(0, 72), palBuf);
+    M._sim_pal_gradient(13 + i, Math.min(72, g.length));
+  });
+  devicePals.forEach((cp, ci) => {
+    const bytes = [];
+    for (let k = 0; k + 1 < cp.palette.length; k += 2) {
+      const v = parseInt(cp.palette[k + 1], 16);
+      bytes.push(cp.palette[k], (v >> 16) & 255, (v >> 8) & 255, v & 255);
+    }
+    M.HEAPU8.set(bytes.slice(0, 72), palBuf);
+    M._sim_pal_gradient(200 - ci, Math.min(72, bytes.length));
+  });
+  M._sim_pal_counts(devicePals.length, M._sim_um_pal_count());
+  const palSel = $("pal");
+  for (let i = 0; i < M._sim_um_pal_count(); i++)   // goblin palettes up top
+    palSel.insertAdjacentHTML("beforeend",
+      `<option value="${255 - i}">CHARGE: ${M.UTF8ToString(M._sim_um_pal_name(i))}</option>`);
+  devicePals.forEach((_, ci) => palSel.insertAdjacentHTML("beforeend",
+    `<option value="${200 - ci}">* Custom ${ci} (device)</option>`));
+  palData.names.forEach((nm, i) => palSel.insertAdjacentHTML("beforeend",
+    `<option value="${i}">${nm}</option>`));
+  palSel.onchange = e => M._sim_set_palette(+e.target.value);
+  // segment color pickers (palettes Default / * Color 1 / 1&2 / Gradient / Only)
+  const colorVals = [0xffa000, 0x000000, 0x000000];
+  ["1","2","3"].forEach((nm, k) => {
+    $("colorpick").insertAdjacentHTML("beforeend",
+      `<label>C${nm}</label><input type="color" id="col${k}"
+        value="#${colorVals[k].toString(16).padStart(6,"0")}" style="width:34px;height:26px;padding:1px">`);
+    $(`col${k}`).addEventListener("input", e => {
+      colorVals[k] = parseInt(e.target.value.slice(1), 16);
+      M._sim_set_color(k, colorVals[k]);
+    });
+    M._sim_set_color(k, colorVals[k]);
+  });
 
   // --- sanity checks: page inputs must agree with what's baked into the wasm ---
   const problems = [];
@@ -194,6 +248,10 @@ carry their own mini-palettes, identical in firmware), brightness limiter, WLED 
     const d = metas[fxi].defaults;
     paramVals.sliders = SLIDER_KEYS.map((k, ix) => d[k] !== undefined ? d[k] : (ix < 2 ? 128 : 0));
     paramVals.checks  = CHECK_KEYS.map(k => d[k] !== undefined ? d[k] : 0);
+    const pal = d.pal || 0;                       // effect's palette default
+    $("pal").value = String(pal);
+    M._sim_set_palette(pal);
+    M._sim_set_default_palette(d.pal || 6);       // WLED: pal0 falls back to this
   }
   function pushParams() {
     paramVals.sliders.forEach((v, k) => sliderSet[k](v));

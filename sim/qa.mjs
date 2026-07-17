@@ -22,6 +22,34 @@ const ledmap = JSON.parse(readFileSync(new URL("../wled/word-controller/ledmap.j
 const mapped = new Set();
 ledmap.map.forEach((v, g) => { if (v >= 0) mapped.add(g); });
 
+// --- feed the palette registry (extracted data + device custom palettes) ---
+const palData = JSON.parse(readFileSync(new URL("../docs/sign-preview/simulator/wled_palettes.json", import.meta.url)));
+const palBuf = M._sim_pal_buf();
+palData.fastled.forEach((p16, i) => {          // ids 6..12
+  new Uint32Array(M.HEAPU8.buffer, palBuf, 16).set(p16);
+  M._sim_pal_fixed16(6 + i);
+});
+palData.gradients.forEach((g, i) => {          // ids 13..71
+  M.HEAPU8.set(g.slice(0, 72), palBuf);
+  M._sim_pal_gradient(13 + i, Math.min(72, g.length));
+});
+let customCount = 0;
+for (let ci = 0; ci < 3; ci++) {               // device palettes -> ids 200,199,198
+  try {
+    const cp = JSON.parse(readFileSync(new URL(`../wled/backups/palette${ci}.json`, import.meta.url)));
+    const bytes = [];
+    for (let k = 0; k + 1 < cp.palette.length; k += 2) {
+      const v = parseInt(cp.palette[k + 1], 16);
+      bytes.push(cp.palette[k], (v >> 16) & 255, (v >> 8) & 255, v & 255);
+    }
+    M.HEAPU8.set(bytes.slice(0, 72), palBuf);
+    M._sim_pal_gradient(200 - ci, Math.min(72, bytes.length));
+    customCount++;
+  } catch {}
+}
+M._sim_pal_counts(customCount, 8);             // 8 goblin palettes registered by sim_init
+if (palData.names.length !== 72) { console.log("FAIL palette names != 72"); process.exit(1); }
+
 const SLIDER_KEYS = ["sx", "ix", "c1", "c2", "c3"], CHECK_KEYS = ["o1", "o2", "o3"];
 const SLIDER_MAX = [255, 255, 255, 255, 31];
 const sliderSet = [v => M._sim_set_speed(v), v => M._sim_set_intensity(v),
@@ -54,6 +82,10 @@ function audioAt(t) { return [Math.round(127 + 127 * Math.sin(t / 111)), (t % 70
 function run(e, params, frames, t0 = 0, collect = {}) {
   M._sim_select(e); M._sim_seed(42); M._sim_reset();
   const d = params.defaults;
+  const palSel = params.over?.pal !== undefined ? params.over.pal : (d.pal || 0);
+  M._sim_set_palette(palSel);
+  M._sim_set_default_palette(d.pal || 6);
+  M._sim_set_color(0, params.color0 !== undefined ? params.color0 : 0x00ffa000);
   SLIDER_KEYS.forEach((k, ix) => sliderSet[ix](
     params.over?.[k] !== undefined ? params.over[k] : (d[k] !== undefined ? d[k] : (ix < 2 ? 128 : 0))));
   CHECK_KEYS.forEach((k, ix) => checkSet[ix](
@@ -121,13 +153,32 @@ for (let e = 0; e < fxCount; e++) {
   // WRAP
   try { run(e, { defaults: p.defaults }, 400, (0xFFFFFFFF - 2000) >>> 0); }
   catch (err) { bad(p.name, `WRAP crashed across millis wrap: ${err}`); }
+  // PALETTE: palette-aware effects must respond to the native palette system
+  const palAware = (M.UTF8ToString(M._sim_fx_meta(e)).split(";")[2] || "") === "!";
+  if (palAware) {
+    // some effects gate their palette path behind a checkbox (e.g. Lava's
+    // Trippy wax) — the palette must matter at defaults OR with checks on
+    const checksOn = {};
+    p.checks.forEach((lab, k) => { if (lab) checksOn[CHECK_KEYS[k]] = 1; });
+    const differs = (overA, overB) => {
+      if (run(e, { defaults: p.defaults, over: overA.over, color0: overA.color0 }, 260) !==
+          run(e, { defaults: p.defaults, over: overB.over, color0: overB.color0 }, 260)) return true;
+      return run(e, { defaults: p.defaults, over: { ...overA.over, ...checksOn }, color0: overA.color0 }, 260) !==
+             run(e, { defaults: p.defaults, over: { ...overB.over, ...checksOn }, color0: overB.color0 }, 260);
+    };
+    if (!differs({ over: { pal: 35 } }, { over: { pal: 41 } }))
+      bad(p.name, "PALETTE switching gradient palettes has no effect");
+    if (!differs({ over: { pal: 2 }, color0: 0xff0000 }, { over: { pal: 2 }, color0: 0x0000ff }))
+      bad(p.name, "PALETTE color-derived palette ignores segment color");
+  }
   // AUDIO (audio-driven effects must track level)
   if (p.name === "CHARGE Pulse") {
     const quiet = run(e, { defaults: p.defaults, audio: () => [0, 0] }, 200);
     const loud  = run(e, { defaults: p.defaults, audio: () => [255, 0] }, 200);
     if (quiet === loud) bad(p.name, "AUDIO output ignores the audio level");
   }
-  console.log(`  ok — peak lit ${info.maxLit} cells, ${declared.length} params verified`);
+  const pa = (M.UTF8ToString(M._sim_fx_meta(e)).split(";")[2] || "") === "!";
+  console.log(`  ok — peak lit ${info.maxLit} cells, ${declared.length} params verified${pa ? ", palette-aware" : ""}`);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : "\nQA ALL PASS");

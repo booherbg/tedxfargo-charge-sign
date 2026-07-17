@@ -1,9 +1,154 @@
 #include "wled_shim.h"
+#include <string.h>
 
 uint32_t sim_rng_state = 0x20260716u;  // any nonzero default; sim_seed() overrides
 
 SimSegment sim_segment;
 SimStrip strip;
+uint8_t shim_paletteBlend = 0;         // WLED default (cfg: strip.paletteBlend)
+
+// ---------------------------------------------------------------------------
+// palette registry — data extracted from the WLED source / device backups is
+// pushed in by the harness; ids follow wled00/const.h layout.
+// ---------------------------------------------------------------------------
+static uint32_t g_fixed16[13][16];              // ids 6..12 (16 x u32 each)
+static bool     g_fixed16_ok[13];
+static uint8_t  g_grad[256][72];                // gradient bytes by palette id
+static uint8_t  g_grad_ok[256];
+static uint8_t  g_custom_count = 0, g_um_count = 0;
+
+void shim_pal_fixed16(uint8_t id, const uint32_t *entries16) {
+  if (id < 6 || id > 12) return;
+  memcpy(g_fixed16[id], entries16, 16 * sizeof(uint32_t));
+  g_fixed16_ok[id] = true;
+}
+void shim_pal_gradient(uint8_t id, const uint8_t *bytes, int len) {
+  if (len > 72) len = 72;
+  len -= len % 4;                                   // whole (pos,r,g,b) entries only
+  if (len < 4) return;
+  memcpy(g_grad[id], bytes, (size_t)len);
+  g_grad[id][len - 4] = 255;   // guarantee a terminating stop at index 255
+                               // (loadDynamicGradientPalette scans until it sees one)
+  g_grad_ok[id] = 1;
+}
+void shim_pal_counts(uint8_t custom_count, uint8_t usermod_count) {
+  g_custom_count = custom_count; g_um_count = usermod_count;
+}
+
+// Verbatim port of ColorFromPalette from wled00/colors.cpp @ WLED 16.0.1.
+uint32_t ColorFromPalette(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType) {
+  if (blendType == LINEARBLEND_NOWRAP) {
+    index = (index * 0xF0) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
+  }
+  unsigned hi4 = byte(index) >> 4;
+  unsigned lo4 = (index & 0x0F);
+  const CRGB* entry = (CRGB*)&(pal[0]) + hi4;
+  unsigned red1   = entry->r;
+  unsigned green1 = entry->g;
+  unsigned blue1  = entry->b;
+  if (lo4 && blendType != NOBLEND) {
+    if (hi4 == 15) entry = &(pal[0]);
+    else ++entry;
+    unsigned f2 = (lo4 << 4);
+    unsigned f1 = 256 - f2;
+    red1   = (red1   * f1 + (unsigned)entry->r * f2) >> 8; // note: using color_blend() is slower
+    green1 = (green1 * f1 + (unsigned)entry->g * f2) >> 8;
+    blue1  = (blue1  * f1 + (unsigned)entry->b * f2) >> 8;
+  }
+  if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
+    // actually same as color_fade(), using color_fade() is slower
+    uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
+    red1   = (red1   * scale) >> 8;
+    green1 = (green1 * scale) >> 8;
+    blue1  = (blue1  * scale) >> 8;
+  }
+  return RGBW32(red1,green1,blue1,0);
+}
+
+// Port of Segment::loadPalette (wled00/FX_fcn.cpp @ 16.0.1). Adaptations:
+// - palette data comes from the registry above instead of PROGMEM/vectors
+// - palette 1 "Random Cycle" is APPROXIMATED: a 4-color palette re-hashed
+//   every ~6s (WLED evolves a harmonic random palette; sequences differ)
+void SimSegment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) const {
+  if (pal == 0) pal = default_palette;
+  if (pal >= 72) {                                   // FIXED_PALETTE_COUNT
+    if (pal > 200) {                                 // usermod range (IDs 201-255)
+      if ((255 - pal) >= g_um_count) pal = 0;
+    } else {                                         // custom range
+      if ((200 - pal) >= g_custom_count) pal = 0;
+    }
+  }
+  switch (pal) {
+    case 0: //default palette. Exceptions for specific effects above
+      if (g_fixed16_ok[6]) targetPalette = *(const TProgmemRGBPalette16*)g_fixed16[6];  // PartyColors_gc22
+      break;
+    case 1: { //randomly generated palette (approximation — see header note)
+      uint32_t h = strip.now / 6000;
+      CRGB c[4];
+      for (int k = 0; k < 4; k++) {
+        uint32_t x = h ^ (0xA5A5u + k * 0x9E3779B1u);
+        x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; x ^= x >> 16;
+        c[k] = CRGB((uint32_t)(x & 0xFFFFFF) | 0x404040u);
+      }
+      targetPalette = CRGBPalette16(c[0], c[1], c[2], c[3]);
+      break; }
+    case 2: {//primary color only
+      CRGB prim = CRGB(colors[0]);
+      targetPalette = CRGBPalette16(prim);
+      break;}
+    case 3: {//primary + secondary
+      CRGB prim = CRGB(colors[0]);
+      CRGB sec  = CRGB(colors[1]);
+      targetPalette = CRGBPalette16(prim,prim,sec,sec);
+      break;}
+    case 4: {//primary + secondary + tertiary
+      CRGB prim = CRGB(colors[0]);
+      CRGB sec  = CRGB(colors[1]);
+      CRGB ter  = CRGB(colors[2]);
+      targetPalette = CRGBPalette16(ter,sec,prim);
+      break;}
+    case 5: {//primary + secondary (+tertiary if not off), more distinct
+      CRGB prim = CRGB(colors[0]);
+      CRGB sec  = CRGB(colors[1]);
+      if (colors[2]) {
+        CRGB ter = CRGB(colors[2]);
+        targetPalette = CRGBPalette16(prim,prim,prim,prim,prim,sec,sec,sec,sec,sec,ter,ter,ter,ter,ter,prim);
+      } else {
+        targetPalette = CRGBPalette16(prim,prim,prim,prim,prim,prim,prim,prim,sec,sec,sec,sec,sec,sec,sec,sec);
+      }
+      break;}
+    default:
+      if (pal < 13) {                                // fastled palettes 6-12
+        if (g_fixed16_ok[pal]) targetPalette = *(const TProgmemRGBPalette16*)g_fixed16[pal];
+      } else {                                       // gradient/custom/usermod by id
+        if (g_grad_ok[pal]) targetPalette.loadDynamicGradientPalette(g_grad[pal]);
+      }
+      break;
+  }
+}
+
+// Verbatim port of Segment::color_from_palette (wled00/FX_fcn.cpp @ 16.0.1).
+// Adaptations: getCurrentColor() has no transitions here; _isRGB is always
+// true (WS281x); CRGBW w-channel install done with uint32 ops (same bytes).
+uint32_t SimSegment::color_from_palette(uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri) const {
+  uint32_t color = getCurrentColor(mcol);
+  // default palette or no RGB support on segment
+  if (palette == 0 && mcol < NUM_COLORS) {
+    return color_fade(color, pbri, true);
+  }
+
+  unsigned paletteIndex = i;
+  if (mapping) { unsigned m = (i * 255) / vLength(); paletteIndex = m < 255u ? m : 255u; }
+  // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined/no interpolation of palette entries)
+  TBlendType blend = NOBLEND;
+  switch (shim_paletteBlend) {
+    case 0: blend = moving ? LINEARBLEND : LINEARBLEND_NOWRAP; break;
+    case 1: blend = LINEARBLEND; break;
+    case 2: blend = LINEARBLEND_NOWRAP; break;
+  }
+  uint32_t palcol = ColorFromPalette(_currentPalette, paletteIndex, pbri, blend);
+  return (palcol & 0x00FFFFFFu) | ((uint32_t)W(color) << 24);
+}
 
 // Verbatim port of color_fade from wled00/colors.cpp @ WLED 16.0.1 (only the
 // IRAM_ATTR annotation dropped). Do not "improve" — fidelity beats style.
