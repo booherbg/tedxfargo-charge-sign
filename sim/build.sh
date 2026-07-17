@@ -1,0 +1,28 @@
+#!/bin/sh
+# Build the CHARGE effect simulator (wasm) into docs/sign-preview/simulator/.
+# Run from the repo root: sh sim/build.sh
+set -e
+OUT=docs/sign-preview/simulator
+mkdir -p "$OUT"
+
+emcc sim/sim_main.cpp sim/wled_shim.cpp \
+  -std=c++17 -O2 \
+  -s MODULARIZE=1 -s EXPORT_NAME=ChargeSim \
+  -s ENVIRONMENT=web \
+  -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=16MB \
+  -s EXPORTED_RUNTIME_METHODS='["HEAPU8","HEAPU32","UTF8ToString"]' \
+  -o "$OUT/charge_sim.js"
+
+# The sim page consumes the REAL artifacts, not copies of the algorithm:
+#   ledmap.json     — the exact file flashed to the controller
+#   word_pixmap.json — the wiring truth (physical mm positions per chain index)
+#   word cuts       — tube centerline paths, drawn as the dark "glass" backdrop
+cp wled/word-controller/ledmap.json "$OUT/ledmap.json"
+cp src/parts/word_pixmap.json "$OUT/word_pixmap.json"
+if [ -f src/parts/word_cuts_repairs.json ]; then
+  cp src/parts/word_cuts_repairs.json "$OUT/word_cuts.json"
+else
+  cp src/parts/word_cuts.json "$OUT/word_cuts.json"
+fi
+
+echo "built $OUT (open index.html via a local server: python3 -m http.server -d docs)"

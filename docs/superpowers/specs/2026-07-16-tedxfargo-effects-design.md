@@ -282,15 +282,17 @@ I2S SD=32 WS=15). We do **not** recreate any of that.
 **Only env change — enable our usermod.** Add one line to `[env:GL-C-616WL]`:
 
 ```ini
-custom_usermods = tedxfargo
+custom_usermods = audioreactive tedxfargo
 ```
 
 Notes:
-- The Gledopto env enables the mic via the **legacy** `-D UM_AUDIOREACTIVE_ENABLE`
-  define, *not* `custom_usermods = audioreactive`. So list **only** `tedxfargo` in
-  `custom_usermods` — do NOT also add `audioreactive` (would double-enable). Confirm
-  `pre:pio-scripts/load_usermods.py` picks up our folder alongside the legacy define
-  (stock v16.0.1 supports both paths).
+- **`audioreactive` MUST be relisted** (corrected 2026-07-16 during the build,
+  verified against the checkout): the parent `[env:esp32_eth]` sets
+  `custom_usermods = audioreactive`, and defining the option in the child env
+  REPLACES the inherited value — `custom_usermods = tedxfargo` alone silently
+  drops the audioreactive usermod (mic + all AR effects gone). The env's
+  `-D UM_AUDIOREACTIVE_ENABLE` does *not* compile the usermod in; in 16.0.1 it
+  only flips the usermod's boot-time `enabled` default (audio_reactive.cpp).
 - The real 459-LED count comes from the device config already on the controller —
   nothing to set in the env.
 - Flash: `pio run -e GL-C-616WL -t upload` (USB) or OTA. Back up config + presets
@@ -347,10 +349,10 @@ The six stock 2D keepers (Hiphotic, Palette, PS Vortex, Shimmer+transpose, Fire
 - **RAM.** Custom effects on the 459-real-LED set are light (iterate 459, one
   `setPixelColorXY` each — no big buffers). Safe on the 73 KB heap. Only avoid
   allocating a full W×H shadow buffer.
-- **Usermod-enable.** The Gledopto env enables the mic via legacy
-  `-D UM_AUDIOREACTIVE_ENABLE`; add ours as `custom_usermods = tedxfargo` **only**
-  (don't relist `audioreactive` → double-enable). Confirm `load_usermods.py` picks
-  up the folder.
+- **Usermod-enable.** `custom_usermods = audioreactive tedxfargo` — audioreactive
+  must be relisted because setting the option in `[env:GL-C-616WL]` replaces the
+  value inherited from `[env:esp32_eth]` (see §10 note; the original claim here
+  was wrong and was corrected during the build).
 - **Audio data access.** The `um_data` handshake signature — verify against the
   audioreactive usermod in the checkout before writing flame effects (not needed
   for cut 1).

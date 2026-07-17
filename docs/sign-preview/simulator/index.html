@@ -1,0 +1,312 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHARGE — effect simulator</title>
+<style>
+:root { --bg:#14161a; --panel:#1d222a; --line:#2c333d; --ink:#e9e5db;
+  --mut:#8b94a1; --yel:#ffc93c; --ok:#7ad48a; --red:#ff5340; --cyan:#9fd8ff; }
+html { background:var(--bg); }
+body { margin:0; color:var(--ink); background:var(--bg);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.wrap { max-width:1200px; margin:0 auto; padding:28px 22px 70px; }
+h1,h2,.cap,label,button,select,.stat b,.mono { font-family:ui-monospace,Menlo,Consolas,monospace; }
+h1 { font-size:24px; margin:0 0 2px; }
+.sub { color:var(--mut); margin:0 0 18px; max-width:78ch; }
+.sub code { background:#232830; border-radius:4px; padding:1px 6px; font-size:13px; }
+.stage { background:#0e1014; border:1px solid var(--line); border-radius:12px; padding:10px; }
+canvas { width:100%; height:auto; display:block; border-radius:8px; cursor:crosshair; }
+.controls { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
+  background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  padding:12px 16px; margin:14px 0; }
+.controls .grp { display:flex; align-items:center; gap:8px; }
+label { font-size:12px; color:var(--mut); letter-spacing:.06em; text-transform:uppercase; }
+select,button,input[type=number] { background:#232830; color:var(--ink); border:1px solid var(--line);
+  border-radius:6px; padding:5px 10px; font-size:13px; }
+button { cursor:pointer; } button:hover { border-color:var(--yel); }
+button.primary { border-color:var(--yel); color:var(--yel); }
+input[type=range] { width:130px; accent-color:#ffc93c; }
+.val { font-size:12px; color:var(--yel); min-width:3ch; display:inline-block; text-align:right; }
+.stats { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+.stat { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 13px; }
+.stat b { display:block; font-size:16px; font-variant-numeric:tabular-nums; }
+.stat span { color:var(--mut); font-size:11px; letter-spacing:.05em; text-transform:uppercase; }
+.hover { min-height:22px; color:var(--mut); font-size:13px; margin-top:8px; }
+.hover b { color:var(--cyan); }
+.note { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--yel);
+  border-radius:8px; padding:12px 16px; color:var(--mut); font-size:14px; margin:16px 0; }
+.err { border-left-color:var(--red); color:var(--red); white-space:pre-wrap; }
+h2 { font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:var(--yel); margin:34px 0 10px; }
+</style>
+<div class="wrap">
+<h1>CHARGE — EFFECT SIMULATOR</h1>
+<p class="sub">The <b>exact effect code</b> that ships in the firmware
+(<code>charge_fx.h</code>, compiled to WebAssembly), rendered through the
+<b>exact flashed artifacts</b>: <code>ledmap.json</code> routes the 2D grid to
+physical LEDs precisely the way WLED's mapping table does, and every LED is drawn
+at its true wired position from <code>word_pixmap.json</code>. If it looks right
+here, the same bytes of C++ run on the wall.</p>
+
+<div class="controls">
+  <div class="grp"><label>Effect</label><select id="fx"></select></div>
+  <div class="grp" id="sliders"></div>
+  <div class="grp">
+    <button id="play" class="primary">Pause</button>
+    <button id="step" title="advance one WLED service frame (~24ms)">Step</button>
+    <button id="restart">Restart</button>
+  </div>
+  <div class="grp"><label>Time</label>
+    <select id="scale">
+      <option value="0.1">0.1×</option><option value="0.25">0.25×</option>
+      <option value="0.5">0.5×</option><option value="1" selected>1×</option>
+      <option value="2">2×</option><option value="4">4×</option>
+    </select></div>
+  <div class="grp"><label>Seed</label><input id="seed" type="number" value="1" style="width:80px">
+    <button id="reseed" title="re-seed the PRNG and restart">Apply</button></div>
+  <div class="grp"><label>Grid view</label><input id="gridview" type="checkbox"></div>
+</div>
+
+<div class="stage"><canvas id="cv"></canvas><div class="hover" id="hover">&nbsp;</div></div>
+
+<div class="stats">
+  <div class="stat"><b id="s_clock">0.0s</b><span>sim clock</span></div>
+  <div class="stat"><b id="s_frames">0</b><span>service frames</span></div>
+  <div class="stat"><b id="s_fps">—</b><span>render fps</span></div>
+  <div class="stat"><b id="s_grid">—</b><span>grid</span></div>
+  <div class="stat"><b id="s_px">—</b><span>pixels</span></div>
+</div>
+
+<div class="note" id="checks">loading…</div>
+
+<h2>What is and isn't simulated</h2>
+<div class="note">
+<b>Bit-exact:</b> the effect mode function, the geometry tables
+(<code>charge_geometry.h</code>), color math (<code>color_fade</code> ported line-for-line
+from WLED 16.0.1), 8-bit arithmetic, segment state (<code>step/call/aux</code>), the
+42&nbsp;fps service cadence, and the grid→LED routing (this page applies the committed
+<code>ledmap.json</code> exactly like WLED's <code>customMappingTable</code>).<br>
+<b>Approximated:</b> <code>hw_random8()</code> is a seeded PRNG (uniform like the ESP32's RNG,
+but a different — reproducible — sequence), LED glow/optics, and gamma/color response
+of the physical WS281x pixels.<br>
+<b>Not simulated:</b> stock WLED effects, palettes/transitions (v1 effects don't use them),
+brightness limiter, and the WLED UI layer.</div>
+</div>
+
+<script src="charge_sim.js"></script>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const FRAMETIME = Math.floor(1000/42);           // WLED FX.h: FRAMETIME_FIXED = 1000/WLED_FPS
+  let M;
+  try { M = await ChargeSim(); } catch (e) {
+    $("checks").className = "note err";
+    $("checks").textContent = "wasm failed to load: " + e + "\n(serve this page over http, not file://)";
+    return;
+  }
+  const raw = await (await fetch("ledmap.json")).arrayBuffer();
+  const rawBytes = new Uint8Array(raw);
+  const ledmap = JSON.parse(new TextDecoder().decode(raw));
+  const pixmap = (await (await fetch("word_pixmap.json")).json()).pixels;
+  const cuts = await (await fetch("word_cuts.json")).json();
+
+  // --- wasm handles ---
+  M._sim_init();
+  const W = M._sim_grid_w(), H = M._sim_grid_h(), N = M._sim_num_pixels();
+  const gridPtr = M._sim_grid_ptr() >> 2;
+  const tab = name => new Uint8Array(M.HEAPU8.buffer, M[`_sim_tab_${name}`](), N);
+  const T = { letter: tab("letter"), col: tab("col"), row: tab("row"),
+              height: tab("height"), xnorm: tab("xnorm") };
+
+  // --- sanity checks: page inputs must agree with what's baked into the wasm ---
+  const problems = [];
+  const mapExact = (() => {  // same byte-exact invariant WLED's parser needs
+    const needle = '"map":['.split("").map(c => c.charCodeAt(0));
+    outer: for (let i = 0; i <= rawBytes.length - needle.length; i++) {
+      for (let j = 0; j < needle.length; j++) if (rawBytes[i+j] !== needle[j]) continue outer;
+      return true;
+    } return false;
+  })();
+  if (!mapExact) problems.push('ledmap.json is NOT byte-compact (\'"map":[\' search fails on device!)');
+  if (ledmap.width !== W || ledmap.height !== H)
+    problems.push(`grid mismatch: ledmap ${ledmap.width}x${ledmap.height} vs baked ${W}x${H} — regenerate together`);
+  if (pixmap.length !== N) problems.push(`pixmap has ${pixmap.length} px, wasm baked ${N}`);
+  let routed = 0;
+  for (let g = 0; g < ledmap.map.length; g++) if (ledmap.map[g] >= 0) routed++;
+  if (routed !== N) problems.push(`ledmap routes ${routed} cells, expected ${N}`);
+  for (let i = 0; i < N; i++)
+    if (ledmap.map[T.row[i]*W + T.col[i]] !== i) { problems.push("geometry header disagrees with ledmap (col/row round-trip failed at chain " + i + ")"); break; }
+  $("checks").innerHTML = problems.length
+    ? "FAILED PRECHECKS:\n • " + problems.join("\n • ")
+    : `<b style="color:var(--ok)">ALL PRECHECKS PASS</b> — byte-compact ledmap · ` +
+      `${W}×${H} grid agrees with baked header · ${N} px routed · geometry round-trips through the ledmap`;
+  if (problems.length) $("checks").className = "note err";
+
+  // --- WLED customMappingTable: grid index -> LED index (FX_fcn.cpp deserializeMap) ---
+  const mapTable = new Int32Array(ledmap.map);
+
+  // --- effect list + sliders straight from the metadata strings (WLED UI parse) ---
+  const fxCount = M._sim_fx_count();
+  const metas = [];
+  for (let i = 0; i < fxCount; i++) {
+    const meta = M.UTF8ToString(M._sim_fx_meta(i));
+    const [name, rest] = [meta.split("@")[0], meta.split("@")[1] || ""];
+    const sliders = (rest.split(";")[0] || "").split(",");
+    metas.push({ name, sliders });
+    $("fx").insertAdjacentHTML("beforeend", `<option value="${i}">${name}</option>`);
+  }
+  const defaultLabels = ["Speed", "Intensity"];  // WLED's '!' placeholders
+  const setters = [v => M._sim_set_speed(v), v => M._sim_set_intensity(v)];
+  const sliderVals = [128, 128];
+  function buildSliders(fxi) {
+    const el = $("sliders"); el.innerHTML = "";
+    metas[fxi].sliders.slice(0, 2).forEach((lab, k) => {
+      const label = (lab === "!" ? defaultLabels[k] : lab) || null;
+      if (!label) return;
+      el.insertAdjacentHTML("beforeend",
+        `<label>${label}</label><input type="range" min="0" max="255" value="${sliderVals[k]}" id="sl${k}">
+         <span class="val" id="sv${k}">${sliderVals[k]}</span>`);
+      $(`sl${k}`).addEventListener("input", e => {
+        sliderVals[k] = +e.target.value; setters[k](sliderVals[k]);
+        $(`sv${k}`).textContent = sliderVals[k];
+      });
+      setters[k](sliderVals[k]);
+    });
+  }
+  buildSliders(0);
+
+  // --- canvas / sign space ---
+  // sign bbox from the pixmap (mm), padded; tube paths drawn as dark glass
+  let xmin = 1e9, xmax = -1e9, ymin = 1e9, ymax = -1e9;
+  for (const p of pixmap) { xmin = Math.min(xmin,p.x); xmax = Math.max(xmax,p.x);
+                            ymin = Math.min(ymin,p.y); ymax = Math.max(ymax,p.y); }
+  const PAD = 30, SW = (xmax-xmin) + 2*PAD, SH = (ymax-ymin) + 2*PAD;
+  const cv = $("cv"), ctx = cv.getContext("2d");
+  const DPR = Math.min(2, window.devicePixelRatio || 1);
+  function fit() {
+    const cssW = cv.parentElement.clientWidth - 0;
+    const cssH = Math.round(cssW * SH / SW);
+    cv.style.height = cssH + "px";
+    cv.width = Math.round(cssW * DPR); cv.height = Math.round(cssH * DPR);
+  }
+  fit(); addEventListener("resize", () => { fit(); sprites.clear(); });
+  const sx = x => ( (x - xmin + PAD) / SW ) * cv.width;
+  const sy = y => ( (ymax - y + PAD) / SH ) * cv.height;   // physical y up -> canvas y down
+
+  // glow sprite cache per color (additive blending approximates LED bloom)
+  const sprites = new Map();
+  function sprite(colorKey, r, g, b) {
+    let s = sprites.get(colorKey);
+    if (s) return s;
+    const R = Math.max(6, cv.width * 0.012);
+    s = document.createElement("canvas"); s.width = s.height = R*2;
+    const c = s.getContext("2d");
+    const grad = c.createRadialGradient(R, R, 0, R, R, R);
+    grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.25, `rgba(${r},${g},${b},0.55)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    c.fillStyle = grad; c.fillRect(0, 0, R*2, R*2);
+    if (sprites.size > 4096) sprites.clear();
+    sprites.set(colorKey, s);
+    return s;
+  }
+
+  const ledColor = new Uint32Array(N);   // physical LED colors after ledmap routing
+  function routeGridToLeds() {
+    const grid = M.HEAPU32.subarray(gridPtr, gridPtr + W*H);
+    for (let g = 0; g < mapTable.length; g++) {
+      const li = mapTable[g];
+      if (li >= 0) ledColor[li] = grid[g];
+    }
+    return grid;
+  }
+
+  function draw(grid) {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#0b0d10"; ctx.fillRect(0, 0, cv.width, cv.height);
+    // tube glass
+    ctx.strokeStyle = "#20242b"; ctx.lineWidth = cv.width * 0.011;
+    ctx.lineCap = ctx.lineJoin = "round";
+    for (const path of cuts.paths) {
+      ctx.beginPath();
+      path.forEach((q, i) => i ? ctx.lineTo(sx(q[0]), sy(q[1])) : ctx.moveTo(sx(q[0]), sy(q[1])));
+      ctx.stroke();
+    }
+    if ($("gridview").checked) {          // raw framebuffer: what the effect computed
+      const cw = cv.width / W, ch0 = cv.height / H;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const c = grid[y*W + x];
+        if (!c) continue;
+        ctx.fillStyle = `rgb(${(c>>16)&255},${(c>>8)&255},${c&255})`;
+        ctx.fillRect(x*cw, y*ch0, cw-0.5, ch0-0.5);
+      }
+      ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.lineWidth = 1;
+      for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x*cw,0); ctx.lineTo(x*cw,cv.height); ctx.stroke(); }
+    } else {                              // physical: what the sign shows
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < N; i++) {
+        const c = ledColor[i];
+        const r = (c>>16)&255, g = (c>>8)&255, b = c&255;
+        if (!(r|g|b)) { // unlit LED: faint dot so the sign shape stays visible
+          ctx.globalCompositeOperation = "source-over";
+          ctx.fillStyle = "rgba(120,130,145,0.18)";
+          ctx.beginPath(); ctx.arc(sx(pixmap[i].x), sy(pixmap[i].y), Math.max(1.2, cv.width*0.0012), 0, 7); ctx.fill();
+          ctx.globalCompositeOperation = "lighter";
+          continue;
+        }
+        const s = sprite(c & 0xFFFFFF, r, g, b);
+        ctx.drawImage(s, sx(pixmap[i].x) - s.width/2, sy(pixmap[i].y) - s.height/2);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+
+  // --- time: WLED services the strip every FRAMETIME ms of device millis() ---
+  let playing = true, simNow = 0, lastTick = -FRAMETIME, frames = 0, lastWall = performance.now();
+  let fpsN = 0, fpsT = 0;
+  function serviceUpTo(target) {
+    while (target - lastTick >= FRAMETIME) {
+      lastTick += FRAMETIME;
+      M._sim_tick(lastTick >>> 0);
+      frames++;
+    }
+  }
+  function loop(wall) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(100, wall - lastWall); lastWall = wall;
+    fpsN++; fpsT += dt; if (fpsT > 500) { $("s_fps").textContent = Math.round(1000*fpsN/fpsT); fpsN = fpsT = 0; }
+    if (playing) { simNow += dt * parseFloat($("scale").value); serviceUpTo(simNow); }
+    draw(routeGridToLeds());
+    $("s_clock").textContent = (simNow/1000).toFixed(1) + "s";
+    $("s_frames").textContent = frames;
+  }
+  $("s_grid").textContent = `${W}×${H}`; $("s_px").textContent = N;
+  requestAnimationFrame(loop);
+
+  // --- controls ---
+  $("play").onclick = () => { playing = !playing; $("play").textContent = playing ? "Pause" : "Play"; };
+  $("step").onclick = () => { playing = false; $("play").textContent = "Play";
+    simNow = lastTick + FRAMETIME; serviceUpTo(simNow); };
+  function restart() { simNow = 0; lastTick = -FRAMETIME; frames = 0; M._sim_reset(); ledColor.fill(0); }
+  $("restart").onclick = restart;
+  $("fx").onchange = e => { M._sim_select(+e.target.value); buildSliders(+e.target.value); restart(); };
+  $("reseed").onclick = () => { M._sim_seed(+$("seed").value >>> 0); restart(); };
+
+  // --- hover inspection (nearest LED) ---
+  const LETTERS = "CHARGE";
+  cv.addEventListener("mousemove", ev => {
+    const r = cv.getBoundingClientRect();
+    const mx = (ev.clientX - r.left) * cv.width / r.width;
+    const my = (ev.clientY - r.top) * cv.height / r.height;
+    let best = -1, bd = 1e9;
+    for (let i = 0; i < N; i++) {
+      const d = (sx(pixmap[i].x)-mx)**2 + (sy(pixmap[i].y)-my)**2;
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best < 0 || bd > (cv.width*0.02)**2) { $("hover").innerHTML = "&nbsp;"; return; }
+    const c = ledColor[best], i = best;
+    $("hover").innerHTML =
+      `chain <b>${i}</b> · letter <b>${LETTERS[T.letter[i]]}</b> · grid (<b>${T.col[i]}</b>,<b>${T.row[i]}</b>)` +
+      ` · height <b>${T.height[i]}</b>/255 · x <b>${T.xnorm[i]}</b>/255` +
+      ` · color <b>#${(c & 0xFFFFFF).toString(16).padStart(6,"0")}</b>`;
+  });
+})();
+</script>
