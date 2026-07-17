@@ -87,15 +87,19 @@ static inline uint32_t charge_palette(uint8_t pal, uint8_t pos) {
 // through SEGMENT.color_from_palette(); CHARGE_PALS/charge_palette above stay
 // for internal fixed uses only (rainbow jet/tail novelties).
 #define CHARGE_UM_PAL_COUNT 8
-static const uint8_t CHARGE_UM_PAL_DATA[CHARGE_UM_PAL_COUNT][16] PROGMEM = {
-  { 0,0,255,255,    85,0,120,255,   170,180,0,255,  255,235,0,40 },    // 255 Brand Trip
-  { 0,255,30,0,     85,255,110,0,   170,255,220,40, 255,255,255,255 }, // 254 Fire
-  { 0,255,0,0,      85,255,255,0,   170,0,255,80,   255,0,80,255 },    // 253 Rainbow
-  { 0,40,255,40,    85,0,200,80,    170,180,255,0,  255,230,255,230 }, // 252 Slime
-  { 0,255,0,180,    85,120,0,255,   170,0,255,255,  255,255,255,0 },   // 251 Psychedelic
-  { 0,235,0,40,     85,255,255,255, 170,235,0,40,   255,40,0,8 },      // 250 TEDx
-  { 0,0,0,255,      85,0,255,255,   170,255,255,255,255,0,120,255 },   // 249 Electric Ice
-  { 0,255,140,0,    85,255,0,90,    170,140,0,255,  255,0,255,200 },   // 248 Sunset Acid
+// rows hold up to 7 gradient stops (28 bytes); shorter palettes terminate at
+// their pos-255 stop and pad with zeros (gradient loaders stop at 255)
+static const uint8_t CHARGE_UM_PAL_DATA[CHARGE_UM_PAL_COUNT][28] PROGMEM = {
+  { 0,0,255,255,    85,0,120,255,   170,180,0,255,  255,235,0,40,    0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 255 Brand Trip
+  { 0,255,30,0,     85,255,110,0,   170,255,220,40, 255,255,255,255, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 254 Fire
+  { 0,255,0,0,      85,255,255,0,   170,0,255,80,   255,0,80,255,    0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 253 Rainbow
+  { 0,40,255,40,    85,0,200,80,    170,180,255,0,  255,230,255,230, 0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 252 Slime
+  { 0,255,0,180,    85,120,0,255,   170,0,255,255,  255,255,255,0,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 251 Psychedelic
+  // TEDx: modeled on the device's custom palette 0 (the sign's art colors) —
+  // teal and BOLD red as the mains, yellow as a narrow accent between them
+  { 0,0,243,251,    88,0,255,255,   112,255,247,0,  136,255,42,42,   255,255,0,0, 0,0,0,0, 0,0,0,0 }, // 250 TEDx
+  { 0,0,0,255,      85,0,255,255,   170,255,255,255,255,0,120,255,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 249 Electric Ice
+  { 0,255,140,0,    85,255,0,90,    170,140,0,255,  255,0,255,200,   0,0,0,0, 0,0,0,0, 0,0,0,0 }, // 248 Sunset Acid
 };
 static const char* const CHARGE_UM_PAL_NAMES[CHARGE_UM_PAL_COUNT] = {
   "Brand Trip", "Fire", "Rainbow", "Slime",
@@ -128,6 +132,34 @@ static inline void charge_letter_centroids(uint8_t cx[CHARGE_NUM_LETTERS],
     cy[L] = (uint8_t)(ay[L] / n);
   }
 }
+// Manhattan RGB distance — used to keep adjacent letters visibly different
+static inline uint16_t charge_coldist(uint32_t a, uint32_t b) {
+  int16_t dr = (int16_t)((a >> 16) & 255) - (int16_t)((b >> 16) & 255);
+  int16_t dg = (int16_t)((a >> 8) & 255)  - (int16_t)((b >> 8) & 255);
+  int16_t db = (int16_t)(a & 255)         - (int16_t)(b & 255);
+  return (uint16_t)((dr < 0 ? -dr : dr) + (dg < 0 ? -dg : dg) + (db < 0 ? -db : db));
+}
+// Pick 6 per-letter colors from the CURRENT segment palette, re-rolling so
+// each letter differs visibly from its left neighbor when the palette allows
+// it (greedy; right neighbor is handled on its own turn). `primaries` draws
+// from the 6 evenly spaced palette positions; else positions are seed-random.
+static inline void charge_letter_colors(uint32_t seed, bool primaries,
+                                        uint32_t out[CHARGE_NUM_LETTERS]) {
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    uint32_t best = 0; uint16_t bestd = 0;
+    for (uint8_t c = 0; c < 6; c++) {
+      uint32_t h = charge_hash(seed ^ ((uint32_t)L << 8) ^ ((uint32_t)c * 0x9E3779B1u));
+      uint8_t pos = primaries ? (uint8_t)((h % 6) * 51) : (uint8_t)h;
+      uint32_t col = SEGMENT.color_from_palette(pos, false, true, 255);
+      if (L == 0) { best = col; break; }
+      uint16_t d = charge_coldist(col, out[L - 1]);
+      if (d >= 90) { best = col; break; }                    // distinct enough — take it
+      if (d >= bestd) { bestd = d; best = col; }             // else keep the most distinct
+    }
+    out[L] = best;
+  }
+}
+
 // per-letter x-extent in XNORM units (scanned on demand; letters are ~80 px)
 static inline void charge_letter_xrange(uint8_t L, uint8_t *xlo, uint8_t *xhi) {
   uint16_t st = charge_lstart(L), n = charge_lcount(L);
@@ -154,7 +186,11 @@ static const char _data_CHARGE_BOOTUP[] PROGMEM =
 static void mode_charge_bootup() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }  // needs the matrix
 
-  uint16_t letterMs = 900 - (SEGMENT.speed * 3);          // ~900..~135 ms per letter
+  // Ignite time: slow half stretches way out (2.2s/letter at 0), default and
+  // fast end unchanged (~536ms at 128, ~155ms at 255)
+  uint16_t letterMs = (SEGMENT.speed < 128)
+      ? (uint16_t)(2200 - SEGMENT.speed * 13)
+      : (uint16_t)(536 - (SEGMENT.speed - 128) * 3);
   uint32_t holdMs = 300 + (uint32_t)SEGMENT.custom1 * 20; // 300..5400 ms
   uint32_t cycle = (uint32_t)letterMs * CHARGE_NUM_LETTERS + holdMs;
 
@@ -172,6 +208,9 @@ static void mode_charge_bootup() {
   uint32_t seqColor = (SEGMENT.palette == 0)              // Default = classic neon cyan
       ? CHARGE_CYAN
       : SEGMENT.color_from_palette((uint8_t)seed, false, true, 255);
+  uint32_t lettercols[CHARGE_NUM_LETTERS];
+  bool perLetter = SEGMENT.check1 && SEGMENT.palette != 0;
+  if (perLetter) charge_letter_colors(seed, false, lettercols);  // neighbors kept distinct
 
   uint32_t litcol[CHARGE_NUM_LETTERS];                    // per-letter drawn color (for electrify)
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
@@ -187,9 +226,7 @@ static void mode_charge_bootup() {
       bri = qsub8(ramp, dip);
     }
     bri = (uint8_t)(((uint16_t)bri * gfade) / 255);
-    uint32_t basec = seqColor;
-    if (SEGMENT.check1 && SEGMENT.palette != 0)            // Letter colors: random per letter
-      basec = SEGMENT.color_from_palette((uint8_t)charge_hash(seed ^ (0x1E77u + L)), false, true, 255);
+    uint32_t basec = perLetter ? lettercols[L] : seqColor;
     uint32_t col = color_fade(basec, bri, true);
     litcol[L] = col;
 
@@ -246,31 +283,127 @@ static void mode_charge_bootup() {
 
 // =====================================================================
 // CHARGE Surge — electricity: current packets race the tube C->E over a
-// dim charged glow; optional sparks; a letter takes an arc-flash surge
-// on a rate you control.
+// dim charged glow; letters take arc-flash surges on a rate you control.
+// "Accumulate": surged letters STAY lit until all six are on, hold, then
+// flicker out together electrically and the cycle restarts. Palettes:
+// 'Default' = the classic cyan; otherwise "Letter colors" gives each
+// letter a palette primary (samples at L*51), else one new palette color
+// per cycle — packets take the color of the letter they're passing
+// through. "Color wave" (needs Accumulate + a palette): once all six are
+// on, a pulse of the full palette washes left to right, leaves the sign
+// white-hot, then the flicker-out. Sparks now scale with Energy (no
+// checkbox; Energy < 64 disables them).
 // =====================================================================
 static const char _data_CHARGE_SURGE[] PROGMEM =
-  "CHARGE Surge@Speed,Energy,Surge rate,,,Sparks;;;2;sx=128,ix=160,c1=128,o1=1";
+  "CHARGE Surge@Speed,Energy,Surge rate,,,Accumulate,Color wave,Letter colors;!,!,!;!;2;sx=128,ix=160,c1=128,o1=0,o2=0,o3=0,pal=0";
 
 static void mode_charge_surge() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   uint32_t now = strip.now;
+  bool acc = SEGMENT.check1;
+  bool usePal = SEGMENT.palette != 0;
 
-  // idle <-> surge state machine (Surge rate slider sets the idle gap)
-  if (SEGENV.call == 0) { SEGENV.aux0 = 0; SEGENV.step = now + 1500; }
-  if ((int32_t)(now - SEGENV.step) >= 0) {
-    if (SEGENV.aux0 == 0) {
-      SEGENV.aux0 = 1 + (hw_random8() % CHARGE_NUM_LETTERS);
-      SEGENV.step = now + 260 + hw_random8();                // surge ~260..515 ms
-    } else {
-      SEGENV.aux0 = 0;
-      SEGENV.step = now + 600 + (uint32_t)(255 - SEGMENT.custom1) * 20
-                        + (uint32_t)hw_random8() * 8;        // idle 0.6..7.7 s
+  // phases in aux0: 0 idle, 1..6 surging letter L=aux0-1, 7 hold-all,
+  // 8 color wave, 9 white hold, 10 flicker-out.
+  // aux1: bits 0-5 = held-letter mask (Accumulate), bits 8-15 = cycle color seed.
+  const uint32_t HOLDALL_MS = 900, WAVE_MS = 1400, WHITE_MS = 450, FLICK_MS = 750;
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = 0;
+    SEGENV.aux1 = (uint16_t)((uint16_t)hw_random8() << 8);
+    SEGENV.step = now + 1500;
+  }
+  if (!acc && SEGENV.aux0 > 6) {                             // Accumulate switched off mid-cycle
+    SEGENV.aux0 = 0; SEGENV.aux1 &= 0xFF00; SEGENV.step = now + 800;
+  }
+  uint8_t held = (uint8_t)(SEGENV.aux1 & 0x3F);
+
+  if ((int32_t)(now - SEGENV.step) >= 0) {                   // phase transitions
+    switch (SEGENV.aux0) {
+      case 0: {                                              // idle -> surge a letter
+        uint8_t L = hw_random8() % CHARGE_NUM_LETTERS;
+        if (acc && held != 0x3F) {                           // pick an unheld letter
+          uint8_t tries = 0;
+          while ((held >> L) & 1) { L = hw_random8() % CHARGE_NUM_LETTERS; if (++tries > 15) break; }
+          while ((held >> L) & 1) L = (uint8_t)((L + 1) % CHARGE_NUM_LETTERS);
+        }
+        SEGENV.aux0 = (uint16_t)(1 + L);
+        SEGENV.step = now + 260 + hw_random8();              // surge ~260..515 ms
+        break; }
+      case 1: case 2: case 3: case 4: case 5: case 6:        // surge over
+        if (acc) {
+          held |= (uint8_t)(1u << (SEGENV.aux0 - 1));
+          SEGENV.aux1 = (uint16_t)((SEGENV.aux1 & 0xFF00) | held);
+          if (held == 0x3F) { SEGENV.aux0 = 7; SEGENV.step = now + HOLDALL_MS; break; }
+        }
+        SEGENV.aux0 = 0;
+        SEGENV.step = now + 600 + (uint32_t)(255 - SEGMENT.custom1) * 20
+                          + (uint32_t)hw_random8() * 8;      // idle 0.6..7.7 s
+        break;
+      case 7:                                                // fully charged
+        if (SEGMENT.check2 && usePal) { SEGENV.aux0 = 8; SEGENV.step = now + WAVE_MS; }
+        else                          { SEGENV.aux0 = 10; SEGENV.step = now + FLICK_MS; }
+        break;
+      case 8: SEGENV.aux0 = 9;  SEGENV.step = now + WHITE_MS; break;
+      case 9: SEGENV.aux0 = 10; SEGENV.step = now + FLICK_MS; break;
+      default:                                               // flicker-out done: new cycle
+        SEGENV.aux0 = 0;
+        SEGENV.aux1 = (uint16_t)((uint16_t)hw_random8() << 8);  // re-roll cycle color
+        SEGENV.step = now + 900 + (uint32_t)(255 - SEGMENT.custom1) * 10;
+        break;
     }
+    held = (uint8_t)(SEGENV.aux1 & 0x3F);
+  }
+  uint8_t phase = (uint8_t)SEGENV.aux0;
+
+  // cycle + per-letter colors
+  uint32_t seed = charge_hash(((uint32_t)(SEGENV.aux1 >> 8) << 3) ^ 0x5EED0000u);
+  uint32_t cyccol = usePal ? SEGMENT.color_from_palette((uint8_t)seed, false, true, 255)
+                           : CHARGE_CYAN;
+  uint32_t lcol[CHARGE_NUM_LETTERS];
+  if (usePal && SEGMENT.check3)
+    charge_letter_colors(seed, true, lcol);                // palette primaries, neighbors distinct
+  else
+    for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) lcol[L] = cyccol;
+
+  if (phase >= 7) {
+    // ---- all-on finale phases (per-pixel; packets rest, the charge is full) ----
+    uint32_t rem = (int32_t)(SEGENV.step - now) > 0 ? SEGENV.step - now : 0;
+    for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+      uint8_t L = pgm_read_byte(&CHARGE_LETTER[i]);
+      uint32_t c;
+      if (phase == 7) {                                      // hold-all, fully charged
+        c = color_fade(lcol[L], 235, true);
+      } else if (phase == 8) {                               // palette pulse washes L->R
+        uint32_t prog = WAVE_MS - rem;
+        int32_t front = -60 + (int32_t)((prog * 375) / WAVE_MS);
+        int32_t d = front - (int32_t)pgm_read_byte(&CHARGE_XNORM[i]);
+        const int32_t BAND = 56;
+        if (d < 0)          c = color_fade(lcol[L], 235, true);          // wave hasn't hit
+        else if (d < BAND)  c = SEGMENT.color_from_palette((uint8_t)((d * 255) / BAND), false, true, 255);
+        else                c = color_fade(WHITE, 235, true);            // washed to white
+      } else if (phase == 9) {                               // white-hot hold
+        c = color_fade(WHITE, 235, true);
+      } else {                                               // flicker out together
+        uint32_t base = (SEGMENT.check2 && usePal) ? WHITE : lcol[L];
+        uint8_t g = (uint8_t)((rem * 255) / FLICK_MS);       // 255 -> 0 as it dies
+        uint8_t bri = qsub8(g, (uint8_t)(hw_random8() % (uint8_t)(2 + (255 - g) / 2)));
+        // per-letter electrical dropouts, worsening as the charge drains
+        if ((charge_hash(((now >> 5) * 0x9E3779B1u) ^ L) & 0xFF) < (uint8_t)(255 - g))
+          bri = (uint8_t)(bri >> 3);
+        c = color_fade(base, bri, true);
+      }
+      charge_setpx(i, c);
+    }
+    return;
   }
 
-  uint32_t bg = color_fade(CHARGE_CYAN, 30, true);           // charged-tube idle glow
-  for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) charge_setpx(i, bg);
+  // ---- idle / surging phases ----
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {         // glow: held letters stay ON
+    uint8_t bri = ((held >> L) & 1) ? 170 : 30;
+    uint32_t c = color_fade(lcol[L], bri, true);
+    uint16_t st = charge_lstart(L), n = charge_lcount(L);
+    for (uint16_t k = 0; k < n; k++) charge_setpx(st + k, c);
+  }
 
   uint8_t np = 1 + (SEGMENT.intensity >> 5);                 // 1..8 packets
   uint32_t v = 60 + (uint32_t)SEGMENT.speed * 3;             // 60..825 px/s
@@ -281,22 +414,24 @@ static void mode_charge_surge() {
     for (uint16_t k = 0; k <= TAIL; k++) {
       int32_t i = (int32_t)head - (int32_t)k;
       if (i < 0) break;                                      // chain isn't a loop
-      uint32_t c = (k == 0) ? RGBW32(255, 255, 255, 0)
-                 : color_fade(CHARGE_CYAN, (uint8_t)(255 - (k * 255) / (TAIL + 1)), true);
+      uint32_t base = lcol[pgm_read_byte(&CHARGE_LETTER[(uint16_t)i])];
+      uint32_t c = (k == 0) ? WHITE
+                 : color_fade(base, (uint8_t)(255 - (k * 255) / (TAIL + 1)), true);
       charge_setpx((uint16_t)i, c);
     }
   }
 
-  if (SEGMENT.check1)                                        // stray sparks (ephemeral)
+  if (SEGMENT.intensity >= 64)                               // stray sparks scale w/ Energy
     for (uint8_t s = 0; s < (uint8_t)(1 + (SEGMENT.intensity >> 6)); s++) {
       uint16_t i = (uint16_t)(((((uint32_t)hw_random8() << 8) | hw_random8())) % CHARGE_NUM_PIXELS);
-      charge_setpx(i, RGBW32(255, 255, 255, 0));
+      charge_setpx(i, WHITE);
     }
 
-  if (SEGENV.aux0) {                                         // arc-flash overlay
+  if (phase >= 1 && phase <= 6) {                            // arc-flash overlay
     uint8_t bri = (hw_random8() < 140) ? (uint8_t)(255 - (hw_random8() % 120)) : 255;
-    uint32_t c = color_fade(RGBW32(200, 255, 255, 0), bri, true);
-    uint8_t L = (uint8_t)(SEGENV.aux0 - 1);
+    uint8_t L = (uint8_t)(phase - 1);
+    uint32_t arc = usePal ? color_blend(lcol[L], WHITE, 185) : RGBW32(200, 255, 255, 0);
+    uint32_t c = color_fade(arc, bri, true);
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
     for (uint16_t k = 0; k < n; k++) charge_setpx(st + k, c);
   }
@@ -307,7 +442,7 @@ static void mode_charge_surge() {
 // entire neon path; optional rainbow tails (palette-cycled).
 // =====================================================================
 static const char _data_CHARGE_COMET[] PROGMEM =
-  "CHARGE Comet@Speed,Tail,Comets,,,Rainbow;;;2;sx=140,ix=96,c1=32,o1=0";
+  "CHARGE Comet@Speed,Tail,Comets,,,Rainbow;!,!,!;!;2;sx=140,ix=96,c1=32,o1=0,pal=0";
 
 static void mode_charge_comet() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -319,15 +454,19 @@ static void mode_charge_comet() {
   uint32_t total = (uint32_t)CHARGE_NUM_PIXELS + tail;
   for (uint8_t cix = 0; cix < nc; cix++) {
     uint32_t head = (uint32_t)(((uint64_t)now * v / 1000 + (uint32_t)cix * total / nc) % total);
+    // per-comet color: Default palette = classic cyan; else comets spread
+    // across the palette and drift through it slowly
+    uint32_t cometc = (SEGMENT.palette == 0) ? CHARGE_CYAN
+      : SEGMENT.color_from_palette((uint8_t)(((uint16_t)cix * 255) / nc + (now >> 9)), false, true, 255);
     for (uint16_t k = 0; k < tail; k++) {
       int32_t i = (int32_t)head - (int32_t)k;
       if (i < 0 || i >= CHARGE_NUM_PIXELS) continue;
       if (k < 2) { charge_setpx((uint16_t)i, RGBW32(255, 255, 255, 0)); continue; }
       uint8_t bri = (uint8_t)(((uint32_t)(tail - k) * 255) / tail);
       bri = qsub8(bri, hw_random8() & 63);                   // sparking decay
-      uint32_t base = SEGMENT.check1
-        ? charge_palette(4, (uint8_t)((k * 255) / tail + (now >> 4)))  // rainbow tail
-        : CHARGE_CYAN;
+      uint32_t base = SEGMENT.check1                         // Rainbow: palette cycles along the tail
+        ? SEGMENT.color_from_palette((uint8_t)((k * 255) / tail + (now >> 4)), false, true, 255)
+        : cometc;
       charge_setpx((uint16_t)i, color_fade(base, bri, true));
     }
   }
@@ -356,7 +495,7 @@ static void mode_charge_marquee() {
 // phases; Buzz adds failing-neon dropouts; Shimmer adds per-pixel life.
 // =====================================================================
 static const char _data_CHARGE_MORPH[] PROGMEM =
-  "CHARGE Neon Morph@Speed,Buzz,Shimmer;;;2;sx=128,ix=96,c1=60";
+  "CHARGE Neon Morph@Speed,Buzz,Shimmer;!,!,!;!;2;sx=128,ix=96,c1=60,pal=0";
 
 static void mode_charge_morph() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
@@ -365,7 +504,11 @@ static void mode_charge_morph() {
   uint8_t shim = SEGMENT.custom1;
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint8_t m = charge_tri8(now + (uint32_t)L * (P / 9), P); // staggered letters
-    uint32_t c = color_blend(CHARGE_CYAN, CHARGE_TEDX_RED, m);
+    // Default palette = the classic cyan <-> TEDx-red morph; any other palette:
+    // each letter drifts through the palette on its own staggered phase
+    uint32_t c = (SEGMENT.palette == 0)
+      ? color_blend(CHARGE_CYAN, CHARGE_TEDX_RED, m)
+      : SEGMENT.color_from_palette(m, false, true, 255);
     uint32_t win = (now >> 9) ^ ((uint32_t)L * 0x9E3779B1u);
     bool buzzing = (charge_hash(win) & 0xFF) < (SEGMENT.intensity >> 2);
     if (buzzing && hw_random8() < 160)
@@ -383,42 +526,246 @@ static void mode_charge_morph() {
 }
 
 // =====================================================================
-// CHARGE Pac-Man — each letter's tube is a maze corridor: chomping pac,
-// pellets, pursuing ghost. Power-pellet windows turn ghosts blue.
+// CHARGE Pac-Man — a real game simulation in the tubes (per-effect state
+// via SEGENV.allocateData, like stock WLED effects):
+// - pellets per letter, POWER pellets (every 5th, pulsing): eating one
+//   REVERSES pac into frightened-ghost-hunting mode (real rules)
+// - "Pacmen" slider: 1..6 pacs roam the sign; when a pac clears its
+//   letter it hops to another letter that still has pellets; when the
+//   whole board is clear, a new level starts (all pellets respawn)
+// - one ghost per letter: chases its visitor, flees (blue, blinking)
+//   when hunted, gets eaten and respawns; catches pac -> pac respawns
+// - "Portals" (the letters' real geometry): tube spots that are far
+//   apart along the wire but physically adjacent become escape portals
+//   (violet markers) — a cornered pac jumps through to lose the ghost
 // =====================================================================
 static const char _data_CHARGE_PACMAN[] PROGMEM =
-  "CHARGE Pac-Man@Speed,Pellets,,,,Power pellets;;;2;sx=128,ix=128,o1=1";
+  "CHARGE Pac-Man@Speed,Pellets,Pacmen,,,Power pellets,Portals;;;2;sx=128,ix=128,c1=64,o1=1,o2=1";
+
+typedef struct {
+  uint8_t  letter;
+  int8_t   dir;
+  uint8_t  mode;                     // 0 normal, 1 frightened (hunting ghosts)
+  uint8_t  _pad;
+  uint16_t posfp;                    // 8.8 fixed tube position
+  uint32_t modeUntil;
+  uint32_t portalCd;                 // portal cooldown deadline
+} ChargePac;
+typedef struct {
+  uint8_t  alive;
+  int8_t   dir;
+  uint16_t posfp;
+  uint32_t respawnAt;
+} ChargeGhost;
+typedef struct {
+  uint8_t  inited, npac, sp, level;
+  uint32_t eaten[CHARGE_NUM_LETTERS];             // pellet-eaten bitmask (idx = k/sp)
+  ChargePac   pac[CHARGE_NUM_LETTERS];
+  ChargeGhost ghost[CHARGE_NUM_LETTERS];
+  uint8_t  portal[CHARGE_NUM_LETTERS][4][2];      // close-in-space, far-on-wire pairs
+  uint32_t lastMs;
+} ChargePacData;
 
 static void mode_charge_pacman() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
+  if (!SEGMENT.allocateData(sizeof(ChargePacData))) { SEGMENT.fill(BLACK); return; }
+  ChargePacData *d = (ChargePacData*)SEGENV.data;
   uint32_t now = strip.now;
-  uint32_t v256 = 1536 + (uint32_t)SEGMENT.speed * 32;       // 6..38 px/s (8.8 fixed)
-  uint8_t sp = 3 + ((uint8_t)(255 - SEGMENT.intensity) >> 6); // pellet spacing 3..6
-  // power-pellet window: 2.5s of every 9s (blink the last 800ms)
-  uint32_t pph = now % 9000;
-  bool fright = SEGMENT.check1 && pph < 2500;
-  bool frightBlink = fright && pph > 1700 && ((now / 160) & 1);
+  uint8_t sp = (uint8_t)(3 + ((uint8_t)(255 - SEGMENT.intensity) >> 6));  // pellet spacing 3..6
+  uint8_t npac = (uint8_t)(1 + ((uint16_t)SEGMENT.custom1 * 5) / 255);    // 1..6 pacmen
+  uint32_t vp = 8 + (SEGMENT.speed >> 3);                                 // pac px/s 8..39
+
+  if (!d->inited || d->sp != sp || d->npac != npac) {        // (re)start the board
+    memset(d, 0, sizeof(ChargePacData));
+    d->inited = 1; d->sp = sp; d->npac = npac; d->level = 1;
+    for (uint8_t p = 0; p < npac; p++) {
+      d->pac[p].letter = p; d->pac[p].dir = 1; d->pac[p].posfp = 0;
+    }
+    for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+      uint16_t n = charge_lcount(L);
+      d->ghost[L].alive = 1; d->ghost[L].dir = 1;
+      d->ghost[L].posfp = (uint16_t)((n / 2) << 8);
+      // portals: pairs far apart along the tube but physically adjacent
+      uint8_t np = 0;
+      uint16_t st = charge_lstart(L);
+      for (uint8_t a = 2; a + 14 < n && np < 4; a += 2) {
+        for (uint16_t b = a + 14; b < n; b += 2) {
+          uint8_t gd = charge_dist8(
+            (int16_t)pgm_read_byte(&CHARGE_COL[st + a]) - (int16_t)pgm_read_byte(&CHARGE_COL[st + b]),
+            (int16_t)pgm_read_byte(&CHARGE_ROW[st + a]) - (int16_t)pgm_read_byte(&CHARGE_ROW[st + b]));
+          if (gd > 2) continue;
+          bool clash = false;                                // keep portals spread out
+          for (uint8_t j = 0; j < np; j++) {
+            int16_t s1 = (int16_t)a - d->portal[L][j][0], s2 = (int16_t)b - d->portal[L][j][1];
+            if ((s1 < 0 ? -s1 : s1) < 8 || (s2 < 0 ? -s2 : s2) < 8) { clash = true; break; }
+          }
+          if (clash) continue;
+          d->portal[L][np][0] = (uint8_t)a; d->portal[L][np][1] = (uint8_t)b; np++;
+          break;
+        }
+      }
+      for (uint8_t j = np; j < 4; j++) { d->portal[L][j][0] = 255; d->portal[L][j][1] = 255; }
+    }
+    d->lastMs = now;
+  }
+  uint32_t dt = now - d->lastMs; if (dt > 80) dt = 80;
+  d->lastMs = now;
+
+  uint8_t flashN = 0; uint8_t flashL[8]; uint8_t flashP[8];  // this-frame jump flashes
+
+  // ---- pacs ----
+  for (uint8_t p = 0; p < npac; p++) {
+    ChargePac *pc = &d->pac[p];
+    uint16_t n = charge_lcount(pc->letter);
+    uint16_t maxfp = (uint16_t)((n - 1) << 8);
+    uint32_t v = (pc->mode == 1) ? vp * 5 / 4 : vp;
+    int32_t fp = (int32_t)pc->posfp + pc->dir * (int32_t)(v * dt * 256 / 1000);
+    if (fp <= 0)      { fp = 0;     pc->dir = 1;  }
+    if (fp >= maxfp)  { fp = maxfp; pc->dir = -1; }
+    pc->posfp = (uint16_t)fp;
+    if (pc->mode == 1 && (int32_t)(now - pc->modeUntil) >= 0) pc->mode = 0;
+
+    uint8_t k = (uint8_t)(pc->posfp >> 8);
+    for (int8_t dk = -1; dk <= 1; dk++) {                    // chomp radius 1
+      int16_t kk = (int16_t)k + dk;
+      if (kk <= 0 || kk >= (int16_t)n || (kk % sp) != 0) continue;
+      uint8_t idx = (uint8_t)(kk / sp);
+      if (d->eaten[pc->letter] & (1u << idx)) continue;
+      d->eaten[pc->letter] |= (1u << idx);
+      if (SEGMENT.check1 && (idx % 5) == 0) {                // POWER pellet: hunt!
+        pc->mode = 1; pc->modeUntil = now + 4000; pc->dir = (int8_t)-pc->dir;
+      }
+    }
+
+    ChargeGhost *g = &d->ghost[pc->letter];
+    if (g->alive) {
+      int16_t dist = (int16_t)(g->posfp >> 8) - (int16_t)k; if (dist < 0) dist = (int16_t)-dist;
+      if (pc->mode == 1 && dist <= 2) {                      // ghost eaten!
+        g->alive = 0; g->respawnAt = now + 3500;
+      } else if (pc->mode == 0 && dist <= 1) {               // pac caught: respawn far side
+        pc->posfp = (k > n / 2) ? 0 : maxfp;
+        pc->dir = (pc->posfp == 0) ? 1 : -1;
+      } else if (SEGMENT.check2 && pc->mode == 0 && dist <= 6 &&
+                 (int32_t)(now - pc->portalCd) >= 0) {       // cornered: take a portal
+        for (uint8_t j = 0; j < 4; j++) {
+          uint8_t a = d->portal[pc->letter][j][0], b = d->portal[pc->letter][j][1];
+          if (a == 255) break;
+          int16_t da = (int16_t)k - a; if (da < 0) da = (int16_t)-da;
+          int16_t db = (int16_t)k - b; if (db < 0) db = (int16_t)-db;
+          if (da <= 1 || db <= 1) {
+            pc->posfp = (uint16_t)(((da <= 1) ? b : a) << 8);
+            pc->portalCd = now + 1200;
+            if (flashN < 8) { flashL[flashN] = pc->letter; flashP[flashN] = (da <= 1) ? b : a; flashN++; }
+            break;
+          }
+        }
+      }
+    }
+
+    uint8_t maxIdx = (uint8_t)((n - 1) / sp);                // letter cleared -> hop on
+    uint32_t full = (maxIdx >= 1) ? ((2u << maxIdx) - 2u) : 0u;
+    if (full && (d->eaten[pc->letter] & full) == full) {
+      int8_t next = -1;
+      for (uint8_t pass = 0; pass < 2 && next < 0; pass++) { // prefer letters w/o a pac
+        uint8_t L0 = (uint8_t)(charge_hash(now + p * 131u) % CHARGE_NUM_LETTERS);
+        for (uint8_t o = 0; o < CHARGE_NUM_LETTERS; o++) {
+          uint8_t cand = (uint8_t)((L0 + o) % CHARGE_NUM_LETTERS);
+          uint16_t cn = charge_lcount(cand);
+          uint8_t cmax = (uint8_t)((cn - 1) / sp);
+          uint32_t cfull = (cmax >= 1) ? ((2u << cmax) - 2u) : 0u;
+          if (!cfull || (d->eaten[cand] & cfull) == cfull) continue;
+          bool occupied = false;
+          for (uint8_t q = 0; q < npac; q++) if (q != p && d->pac[q].letter == cand) occupied = true;
+          if (pass == 0 && occupied) continue;
+          next = (int8_t)cand; break;
+        }
+      }
+      if (next >= 0) {
+        pc->letter = (uint8_t)next; pc->posfp = 0; pc->dir = 1;
+        if (flashN < 8) { flashL[flashN] = pc->letter; flashP[flashN] = 0; flashN++; }
+      } else {                                               // board clear: NEW LEVEL
+        d->level++;
+        for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) d->eaten[L] = 0;
+      }
+    }
+  }
+
+  // ---- ghosts ----
+  for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    ChargeGhost *g = &d->ghost[L];
+    uint16_t n = charge_lcount(L);
+    if (!g->alive) {
+      if ((int32_t)(now - g->respawnAt) >= 0) { g->alive = 1; g->posfp = (uint16_t)((n / 2) << 8); }
+      else continue;
+    }
+    int8_t target = -1;
+    for (uint8_t p = 0; p < npac; p++) if (d->pac[p].letter == L) { target = (int8_t)p; break; }
+    uint32_t vg = vp / 2;                                    // wander
+    if (target >= 0) {
+      bool fright = d->pac[(uint8_t)target].mode == 1;
+      vg = fright ? vp * 3 / 5 : vp * 4 / 5;
+      int16_t toward = ((d->pac[(uint8_t)target].posfp >> 8) > (g->posfp >> 8)) ? 1 : -1;
+      g->dir = fright ? (int8_t)-toward : (int8_t)toward;
+    }
+    uint16_t maxfp = (uint16_t)((n - 1) << 8);
+    int32_t fp = (int32_t)g->posfp + g->dir * (int32_t)(vg * dt * 256 / 1000);
+    if (fp <= 0)     { fp = 0;     g->dir = 1;  }
+    if (fp >= maxfp) { fp = maxfp; g->dir = -1; }
+    g->posfp = (uint16_t)fp;
+  }
+
+  // ---- render ----
+  SEGMENT.fill(BLACK);
   static const uint32_t GHOSTC[4] = { RGBW32(255,0,0,0),    RGBW32(255,105,180,0),
                                       RGBW32(0,255,255,0),  RGBW32(255,140,0,0) };
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
-    uint32_t prog = (uint32_t)((uint64_t)now * v256 / 256000) + (charge_hash(L) & 63);
-    uint32_t lap = prog / n;
-    uint16_t pos = (uint16_t)(prog % n);
-    for (uint16_t k = 0; k < n; k++) {                       // pellets ahead, eaten behind
-      uint32_t c = ((k % sp) == 0 && k > pos)
-                 ? color_fade(RGBW32(255, 220, 150, 0), 70, true) : BLACK;
-      charge_setpx(st + k, c);
+    if (SEGMENT.check2)                                      // portal markers
+      for (uint8_t j = 0; j < 4; j++) {
+        uint8_t a = d->portal[L][j][0], b = d->portal[L][j][1];
+        if (a == 255) break;
+        charge_setpx(st + a, color_fade(RGBW32(150, 60, 255, 0), 60, true));
+        charge_setpx(st + b, color_fade(RGBW32(150, 60, 255, 0), 60, true));
+      }
+    for (uint16_t k = sp; k < n; k += sp) {                  // uneaten pellets
+      uint8_t idx = (uint8_t)(k / sp);
+      if (d->eaten[L] & (1u << idx)) continue;
+      if (SEGMENT.check1 && (idx % 5) == 0)                  // power pellet: pulsing
+        charge_setpx(st + k, color_fade(RGBW32(255, 240, 180, 0),
+                     (uint8_t)(120 + (charge_tri8(now, 700) >> 1)), true));
+      else
+        charge_setpx(st + k, color_fade(RGBW32(255, 220, 150, 0), 70, true));
     }
-    charge_setpx(st + pos, RGBW32(255, 210, 0, 0));          // pac (chomping 2nd px)
-    if (((now / 130) & 1) && pos + 1u < n) charge_setpx(st + pos + 1, RGBW32(255, 210, 0, 0));
-    uint16_t gap = fright ? 12 : 7;                          // frightened ghosts hang back
-    if (lap > 0 || pos >= gap) {
-      uint16_t g = (uint16_t)((pos + n - gap) % n);
-      uint32_t gc = fright ? (frightBlink ? RGBW32(255,255,255,0) : RGBW32(40,40,255,0))
-                           : GHOSTC[L & 3];
-      charge_setpx(st + g, gc);
-      if (g + 1u < n) charge_setpx(st + g + 1, color_fade(gc, 120, true));
+    ChargeGhost *g = &d->ghost[L];
+    if (g->alive) {
+      int8_t vis = -1;
+      for (uint8_t p = 0; p < npac; p++) if (d->pac[p].letter == L) { vis = (int8_t)p; break; }
+      bool fright = vis >= 0 && d->pac[(uint8_t)vis].mode == 1;
+      bool blink = fright && (d->pac[(uint8_t)vis].modeUntil - now < 1200) && ((now / 160) & 1);
+      uint32_t gc = fright ? (blink ? WHITE : RGBW32(40, 40, 255, 0)) : GHOSTC[L & 3];
+      uint8_t gk = (uint8_t)(g->posfp >> 8);
+      charge_setpx(st + gk, gc);
+      int16_t g2 = (int16_t)gk + g->dir;
+      if (g2 >= 0 && g2 < (int16_t)n) charge_setpx((uint16_t)(st + g2), color_fade(gc, 120, true));
+    }
+  }
+  for (uint8_t p = 0; p < npac; p++) {                       // pacs on top
+    ChargePac *pc = &d->pac[p];
+    uint16_t st = charge_lstart(pc->letter), n = charge_lcount(pc->letter);
+    uint8_t k = (uint8_t)(pc->posfp >> 8);
+    uint32_t pcc = RGBW32(255, 210, 0, 0);
+    if (pc->mode == 1)                                       // hunting: white-hot pulse
+      pcc = color_blend(pcc, WHITE, charge_tri8(now, 300));
+    charge_setpx(st + k, pcc);
+    int16_t k2 = (int16_t)k + pc->dir;
+    if (((now / 130) & 1) && k2 >= 0 && k2 < (int16_t)n)     // chomp
+      charge_setpx((uint16_t)(st + k2), pcc);
+  }
+  for (uint8_t f = 0; f < flashN; f++) {                     // portal / hop flashes
+    uint16_t st = charge_lstart(flashL[f]), n = charge_lcount(flashL[f]);
+    for (int16_t o = -1; o <= 1; o++) {
+      int16_t k = (int16_t)flashP[f] + o;
+      if (k >= 0 && k < (int16_t)n) charge_setpx((uint16_t)(st + k), WHITE);
     }
   }
 }

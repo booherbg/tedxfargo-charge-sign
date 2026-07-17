@@ -148,9 +148,16 @@ for (let e = 0; e < fxCount; e++) {
   for (const [key, lo, hi, lab] of declared) {
     let same = run(e, { defaults: p.defaults, over: { [key]: lo } }, 300) ===
                run(e, { defaults: p.defaults, over: { [key]: hi } }, 300);
-    if (same) {   // param may be palette-gated (e.g. Boot's "Letter colors" on Default)
-      same = run(e, { defaults: p.defaults, over: { [key]: lo, pal: 35 } }, 300) ===
-             run(e, { defaults: p.defaults, over: { [key]: hi, pal: 35 } }, 300);
+    if (same) {
+      // param may depend on other state: a palette (Boot's "Letter colors" on
+      // Default), other checkboxes (Surge's "Color wave" needs Accumulate), or
+      // slow cycles (Surge's wave fires after a full accumulate round) — retry
+      // with a palette, every other checkbox on, max rate, and a long window
+      const retry = { pal: 35, c1: 255 };
+      p.checks.forEach((cl, k) => { if (cl) retry[CHECK_KEYS[k]] = 1; });
+      delete retry[key];                       // never override the param under test
+      same = run(e, { defaults: p.defaults, over: { ...retry, [key]: lo } }, 1600) ===
+             run(e, { defaults: p.defaults, over: { ...retry, [key]: hi } }, 1600);
     }
     if (same) bad(p.name, `PARAMS "${lab}" (${key}) has no effect on output`);
   }

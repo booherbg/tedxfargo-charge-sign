@@ -24,6 +24,7 @@ typedef uint8_t byte;
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
 // wled00/FX.h
 #define BLACK      (uint32_t)0x000000
+#define WHITE      (uint32_t)0xFFFFFF
 // wled00/colors.h channel accessors
 #define W(c) (byte((c) >> 24))
 #define NUM_COLORS 3
@@ -88,6 +89,12 @@ struct SimSegment {
     if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return;
     buf[y * W + x] = col;
   }
+  // effect data buffer — port of Segment::allocateData (FX_fcn.cpp): kept
+  // across frames, zeroed when (re)allocated or on the first call of an
+  // effect; the sim backs it with a static pool instead of heap
+  uint8_t* data = nullptr;
+  unsigned _dataLen = 0;
+  bool allocateData(size_t len);
   // ports of wled00/FX_fcn.cpp Segment::loadPalette / color_from_palette
   void loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) const;
   uint32_t color_from_palette(uint16_t i, bool mapping, bool moving,

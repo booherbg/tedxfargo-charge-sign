@@ -35,6 +35,23 @@ void shim_pal_counts(uint8_t custom_count, uint8_t usermod_count) {
   g_custom_count = custom_count; g_um_count = usermod_count;
 }
 
+// Port of Segment::allocateData (wled00/FX_fcn.cpp): reuse when big enough
+// (zeroing on an effect's first frame), else (re)allocate zeroed. Sim uses a
+// fixed pool — effects requesting more than the pool get 'false' like a
+// device that is out of segment data RAM.
+alignas(8) static uint8_t seg_data_pool[8192];   // heap-like alignment (WLED callocs)
+bool SimSegment::allocateData(size_t len) {
+  if (len == 0 || len > sizeof(seg_data_pool)) return false;
+  if (data && _dataLen >= len) {
+    if (call == 0) memset(data, 0, len);
+    return true;
+  }
+  data = seg_data_pool;
+  memset(data, 0, len);
+  _dataLen = (unsigned)len;
+  return true;
+}
+
 // Verbatim port of ColorFromPalette from wled00/colors.cpp @ WLED 16.0.1.
 uint32_t ColorFromPalette(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType) {
   if (blendType == LINEARBLEND_NOWRAP) {
