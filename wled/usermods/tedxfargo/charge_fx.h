@@ -555,7 +555,7 @@ static void mode_charge_morph() {
 //   (violet markers) — a cornered pac jumps through to lose the ghost
 // =====================================================================
 static const char _data_CHARGE_PACMAN[] PROGMEM =
-  "CHARGE Pac-Man@Speed,Pellets,Pacmen,Magic,Boom,Power pellets,Portals;;;2;sx=128,ix=128,c1=64,c2=32,c3=12,o1=1,o2=1";
+  "CHARGE Pac-Man@Speed,Pellets,Pacmen,Magic,Boom,Power pellets,Portals;!,!,!;!;2;sx=128,ix=128,c1=64,c2=32,c3=12,o1=1,o2=1,pal=251";
 
 typedef struct {
   uint8_t  letter;
@@ -779,10 +779,11 @@ static void mode_charge_pacman() {
       for (uint8_t m = 0; m < d->nspecial; m++)
         if (!(d->specialUsed & (1u << m)) && d->special[m][0] == L && d->special[m][1] == idx)
           { magic = true; break; }
-      if (magic) {                                           // psychedelic pellet (Boom sizes it)
-        charge_setpx(st + k, charge_palette(4, (uint8_t)(now >> 4)));
+      if (magic) {                                           // magic pellet (palette-colored)
+        charge_setpx(st + k, SEGMENT.color_from_palette((uint8_t)(now >> 4), false, true, 255));
         if (SEGMENT.custom3 > 15 && k + 1 < n)
-          charge_setpx(st + k + 1, color_fade(charge_palette(4, (uint8_t)((now >> 4) + 80)), 140, true));
+          charge_setpx(st + k + 1, color_fade(
+            SEGMENT.color_from_palette((uint8_t)((now >> 4) + 80), false, true, 255), 140, true));
       }
       else if (SEGMENT.check1 && (idx % 5) == 0)             // power pellet: pulsing
         charge_setpx(st + k, color_fade(RGBW32(255, 240, 180, 0),
@@ -842,7 +843,8 @@ static void mode_charge_pacman() {
       }
       if (!wsum) continue;
       uint8_t bri = wsum > 255 ? 255 : (uint8_t)wsum;
-      charge_setpx(i, color_fade(charge_palette(4, (uint8_t)(hue + (now >> 3))), bri, true));
+      charge_setpx(i, color_fade(
+        SEGMENT.color_from_palette((uint8_t)(hue + (now >> 3)), false, true, 255), bri, true));
     }
   }
 }
