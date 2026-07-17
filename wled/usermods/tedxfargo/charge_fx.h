@@ -1354,11 +1354,21 @@ static void mode_charge_fireworks() {
   // the entire chain from the Firing side, through every letter's tube,
   // decelerates, hangs mid-sign, detonates — and the whole sign floods
   // with radial palette color. c3=31 -> every window is a showpiece.
+  uint32_t letterClock = now;                              // the little ones' timeline
+  uint32_t eraSalt = 0;
   if (SEGMENT.custom3) {
     uint32_t gWms = Wms * 2;
     uint32_t gwin = now / gWms;
     // Grand = frequency: 1..31 -> a showpiece every 4th..every launch window
     uint8_t interval = (uint8_t)(1 + (31 - SEGMENT.custom3) / 8);      // 1..4
+    if ((gwin % interval) != 0) {
+      // between grands: restart the letter timeline at the last grand's end
+      // so the little ones RELAUNCH fresh (not resume mid-flight), with a
+      // new seed era so the patterns differ each time
+      uint32_t g0 = (gwin / interval) * interval;
+      letterClock = now - (g0 + 1) * gWms;
+      eraSalt = (gwin / interval) * 7919u;
+    }
     if ((gwin % interval) == 0) {
       SEGMENT.fill(BLACK);
       uint32_t gph = now % gWms;
@@ -1435,10 +1445,10 @@ static void mode_charge_fireworks() {
 
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint16_t st = charge_lstart(L), n = charge_lcount(L);
-    uint32_t tphase = now + ((charge_hash(L ^ 0xF13E0000u) & 0x7FF));
+    uint32_t tphase = letterClock + ((charge_hash(L ^ 0xF13E0000u) & 0x7FF));
     uint32_t win = tphase / Wms;
     uint32_t ph = tphase % Wms;
-    uint32_t hj = charge_hash(win * 131 + L * 7 + 0xF13E0000u);
+    uint32_t hj = charge_hash(win * 131 + L * 7 + eraSalt + 0xF13E0000u);
     if ((hj & 0xFF) > 242) continue;                         // ~95% of windows launch
     // launch origin from the Firing side slider; burst point out on the far side
     uint16_t L0 = (uint16_t)(((uint32_t)SEGMENT.custom1 * (n - 1)) / 255);
