@@ -146,9 +146,13 @@ for (let e = 0; e < fxCount; e++) {
   p.sliders.forEach((lab, k) => { if (lab) declared.push([SLIDER_KEYS[k], 0, SLIDER_MAX[k], lab]); });
   p.checks.forEach((lab, k) => { if (lab) declared.push([CHECK_KEYS[k], 0, 1, lab]); });
   for (const [key, lo, hi, lab] of declared) {
-    const hlo = run(e, { defaults: p.defaults, over: { [key]: lo } }, 300);
-    const hhi = run(e, { defaults: p.defaults, over: { [key]: hi } }, 300);
-    if (hlo === hhi) bad(p.name, `PARAMS "${lab}" (${key}) has no effect on output`);
+    let same = run(e, { defaults: p.defaults, over: { [key]: lo } }, 300) ===
+               run(e, { defaults: p.defaults, over: { [key]: hi } }, 300);
+    if (same) {   // param may be palette-gated (e.g. Boot's "Letter colors" on Default)
+      same = run(e, { defaults: p.defaults, over: { [key]: lo, pal: 35 } }, 300) ===
+             run(e, { defaults: p.defaults, over: { [key]: hi, pal: 35 } }, 300);
+    }
+    if (same) bad(p.name, `PARAMS "${lab}" (${key}) has no effect on output`);
   }
   // WRAP
   try { run(e, { defaults: p.defaults }, 400, (0xFFFFFFFF - 2000) >>> 0); }

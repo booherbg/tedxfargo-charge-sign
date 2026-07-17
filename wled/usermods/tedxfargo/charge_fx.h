@@ -142,10 +142,14 @@ static inline void charge_letter_xrange(uint8_t L, uint8_t *xlo, uint8_t *xhi) {
 
 // =====================================================================
 // CHARGE Boot — neon ignition: letters flicker on C->H->A->R->G->E,
-// settle to cyan, hold (Hold slider), loop.
+// settle, hold (Hold slider), loop. Palette 'Default' = the classic neon
+// cyan; any other palette colors the ignition — one random palette color
+// per cycle, or a different random color per letter ("Letter colors").
+// "Electrify": during the hold, white lightning blasts through the whole
+// tube path left to right, leaving an overcharge glow that cools off.
 // =====================================================================
 static const char _data_CHARGE_BOOTUP[] PROGMEM =
-  "CHARGE Boot@Ignite time,Flicker,Hold;;;2;sx=128,ix=128,c1=70";
+  "CHARGE Boot@Ignite time,Flicker,Hold,,,Letter colors,Electrify;!,!,!;!;2;sx=128,ix=128,c1=70,o1=0,o2=0,pal=0";
 
 static void mode_charge_bootup() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }  // needs the matrix
@@ -163,7 +167,15 @@ static void mode_charge_bootup() {
   uint32_t fadeMs = holdMs / 2 > 450 ? 450 : holdMs / 2;
   uint8_t gfade = (t > cycle - fadeMs) ? (uint8_t)(((cycle - t) * 255) / fadeMs) : 255;
 
+  // color seed: stable within a cycle, re-rolled every loop (step = cycle start)
+  uint32_t seed = charge_hash(SEGENV.step | 1u);
+  uint32_t seqColor = (SEGMENT.palette == 0)              // Default = classic neon cyan
+      ? CHARGE_CYAN
+      : SEGMENT.color_from_palette((uint8_t)seed, false, true, 255);
+
+  uint32_t litcol[CHARGE_NUM_LETTERS];                    // per-letter drawn color (for electrify)
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    litcol[L] = BLACK;
     uint32_t litAt = (uint32_t)letterMs * L;
     if (t < litAt) continue;                               // not yet igniting
     uint32_t age = t - litAt;
@@ -175,10 +187,60 @@ static void mode_charge_bootup() {
       bri = qsub8(ramp, dip);
     }
     bri = (uint8_t)(((uint16_t)bri * gfade) / 255);
-    uint32_t col = color_fade(CHARGE_CYAN, bri, true);
+    uint32_t basec = seqColor;
+    if (SEGMENT.check1 && SEGMENT.palette != 0)            // Letter colors: random per letter
+      basec = SEGMENT.color_from_palette((uint8_t)charge_hash(seed ^ (0x1E77u + L)), false, true, 255);
+    uint32_t col = color_fade(basec, bri, true);
+    litcol[L] = col;
 
     uint16_t start = charge_lstart(L), count = charge_lcount(L);
     for (uint16_t k = 0; k < count; k++) charge_setpx(start + k, col);
+  }
+
+  // Electrify: during the hold, lightning rips through the tube C -> E
+  if (SEGMENT.check2) {
+    uint32_t litEnd = (uint32_t)letterMs * CHARGE_NUM_LETTERS;
+    uint32_t holdLen = (cycle - fadeMs > litEnd) ? (cycle - fadeMs - litEnd) : 0;
+    if (t >= litEnd && holdLen > 500) {
+      const uint32_t TRAVEL = 300;                         // bolt crosses the sign in 300ms
+      const int32_t  OVER = 24;                            // spawn/exit off the ends
+      uint8_t nStrikes = (uint8_t)(1 + holdLen / 1600);    // more hold = more strikes
+      if (nStrikes > 3) nStrikes = 3;
+      uint32_t slice = holdLen / nStrikes;
+      for (uint8_t sk = 0; sk < nStrikes; sk++) {
+        uint32_t jitter = (slice > 800) ? charge_hash(seed ^ (0xB017u + sk)) % (slice - 800) : 0;
+        uint32_t at = litEnd + sk * slice + jitter;
+        if (t < at) continue;
+        uint32_t age = t - at;
+        if (age >= TRAVEL + 450) continue;                 // strike fully cooled
+        int32_t front = (int32_t)(((uint64_t)age * (CHARGE_NUM_PIXELS + 2 * OVER)) / TRAVEL) - OVER;
+        for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
+          int32_t d = front - (int32_t)i;
+          if (d < 0) continue;                             // bolt hasn't reached this pixel
+          uint32_t base = litcol[pgm_read_byte(&CHARGE_LETTER[i])];
+          if (d < 10) {                                    // white-hot bolt head
+            uint8_t w = (uint8_t)(255 - d * 18);
+            w = qsub8(w, (uint8_t)(hw_random8() & 40));    // crackle
+            w = (uint8_t)(((uint16_t)w * gfade) / 255);
+            charge_setpx(i, color_blend(base, RGBW32(255, 255, 255, 0), w));
+          } else {                                         // overcharge glow cooling off
+            uint32_t passed = ((uint32_t)d * TRAVEL) / (CHARGE_NUM_PIXELS + 2 * OVER);
+            if (passed < 420) {
+              uint8_t w = (uint8_t)(200 - (passed * 200) / 420);
+              w = (uint8_t)(((uint16_t)w * gfade) / 255);
+              charge_setpx(i, color_blend(base, RGBW32(255, 255, 255, 0), w));
+            }
+          }
+        }
+        // branch crackle: stray sparks bursting off around the bolt head
+        for (uint8_t b = 0; b < 3; b++) {
+          int32_t bi = front - 5 + (int32_t)(hw_random8() % 24) - 9;
+          if (bi >= 0 && bi < CHARGE_NUM_PIXELS && hw_random8() < 170)
+            charge_setpx((uint16_t)bi, color_fade(RGBW32(255, 255, 255, 0),
+                          (uint8_t)(((uint16_t)(160 + (hw_random8() % 96)) * gfade) / 255), true));
+        }
+      }
+    }
   }
 }
 
