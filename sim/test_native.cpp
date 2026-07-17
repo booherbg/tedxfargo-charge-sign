@@ -43,6 +43,7 @@ static void reset_seg() {
 }
 
 static void tick(uint32_t now) { strip.now = now; mode_charge_bootup(); sim_segment.call++; }
+static void tick_fx(charge_mode_fn fn, uint32_t now) { strip.now = now; fn(); sim_segment.call++; }
 
 // is any pixel of letter L lit?
 static bool letter_lit(int L) {
@@ -105,12 +106,20 @@ int main() {
   }
   CHECK(true, "");                            // reaching here w/o UBSan trip = pass
 
-  // --- long soak: 2 simulated hours at 42fps, all slider corners ---
+  // --- long soak: EVERY effect, 30 simulated minutes at 42fps per slider
+  //     corner, plus a millis()-wrap crossing per effect ---
   const uint8_t corners[][2] = { {0,0}, {0,255}, {255,0}, {255,255}, {128,128} };
-  for (auto &c : corners) {
-    sim_segment.speed = c[0]; sim_segment.intensity = c[1];
+  for (uint8_t e = 0; e < CHARGE_FX_COUNT; e++) {
+    charge_mode_fn fn = CHARGE_FX_LIST[e].fn;
+    for (auto &c : corners) {
+      sim_segment.speed = c[0]; sim_segment.intensity = c[1];
+      reset_seg();
+      for (uint32_t t = 0; t < 30u * 60 * 1000; t += FRAMETIME) tick_fx(fn, t);
+    }
+    sim_segment.speed = 128; sim_segment.intensity = 128;
     reset_seg();
-    for (uint32_t t = 0; t < 2u * 3600 * 1000; t += FRAMETIME) tick(t);
+    for (uint32_t k = 0; k < 400; k++) tick_fx(fn, (0xFFFFFFFFu - 2000) + k * FRAMETIME);
+    CHECK(canaries_ok(), "guard bands corrupted by effect %u (%s)", e, CHARGE_FX_LIST[e].meta);
   }
 
   // --- every write in-bounds (COL/ROW vs grid) — the header guarantees it,
@@ -122,6 +131,8 @@ int main() {
 
   CHECK(canaries_ok(), "grid buffer guard bands corrupted — effect wrote out of bounds");
 
-  printf(fails ? "FAILURES: %d\n" : "ALL PASS (incl. 10 simulated hours, UBSan + guard bands)\n", fails);
+  printf(fails ? "FAILURES: %d\n"
+               : "ALL PASS (%u effects, 30 sim-min x 5 slider corners each + wrap, UBSan + guard bands)\n",
+         fails ? fails : (unsigned)CHARGE_FX_COUNT);
   return fails ? 1 : 0;
 }

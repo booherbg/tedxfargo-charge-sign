@@ -37,8 +37,9 @@ static inline uint8_t hw_random8() {
   return (uint8_t)(x >> 24);
 }
 
-// --- color_fade: verbatim port of wled00/colors.cpp (16.0.1) ---
+// --- color_fade / color_blend: verbatim ports of wled00/colors.cpp (16.0.1) ---
 uint32_t color_fade(uint32_t c1, uint8_t amount, bool video = false);
+uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend);
 
 // --- Segment: framebuffer + the runtime/UI fields effects touch.
 // Field types match wled00/FX.h Segment (step/call u32, aux0/aux1 u16,
