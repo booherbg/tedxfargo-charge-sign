@@ -1138,20 +1138,22 @@ static const char _data_CHARGE_GRAVITY[] PROGMEM =
 
 typedef struct {                       // "Tube fall" marble-drain state
   uint8_t  inited, nballs, _p0, _p1;
-  uint16_t posfp[CHARGE_NUM_LETTERS][6];      // tube position, 8.8
-  int16_t  velfp[CHARGE_NUM_LETTERS][6];      // tube velocity
+  uint16_t posfp[CHARGE_NUM_LETTERS][10];     // tube position, 8.8
+  int16_t  velfp[CHARGE_NUM_LETTERS][10];     // tube velocity
   uint8_t  topIdx[CHARGE_NUM_LETTERS];        // highest point of each tube
   uint8_t  _p2, _p3;
-  uint32_t lastMs, dropAt;
+  uint32_t lastMs;
+  uint32_t dropAt[CHARGE_NUM_LETTERS];        // staggered per-letter re-drops
 } ChargeGravData;
 
 static void mode_charge_gravity() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   SEGMENT.fill(BLACK);
   uint32_t now = strip.now;
-  uint8_t nballs = (uint8_t)(1 + SEGMENT.intensity / 43);    // 1..6 per letter
+  uint8_t nballs = (uint8_t)(1 + SEGMENT.intensity / 43);    // 1..6 per letter (bounce mode)
 
   if (SEGMENT.check2) {                                      // ---- Tube fall mode ----
+    nballs = (uint8_t)(2 + (SEGMENT.intensity >> 5));        // 2..9 marbles per letter
     if (!SEGMENT.allocateData(sizeof(ChargeGravData))) return;
     ChargeGravData *d = (ChargeGravData*)SEGENV.data;
     if (!d->inited || d->nballs != nballs) {
@@ -1167,23 +1169,24 @@ static void mode_charge_gravity() {
         d->topIdx[L] = top;
       }
       d->lastMs = now;
-      d->dropAt = now;                                       // first drop immediately
+      for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++)
+        d->dropAt[L] = now + L * 160;                        // first drops cascade in
     }
     uint32_t dt = now - d->lastMs; if (dt > 80) dt = 80;
     d->lastMs = now;
-    if ((int32_t)(now - d->dropAt) >= 0) {                   // (re-)drop from the top
-      for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
+    for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++)
+      if ((int32_t)(now - d->dropAt[L]) >= 0) {              // staggered re-drop w/ a KICK
         int16_t n = (int16_t)charge_lcount(L);
         for (uint8_t b = 0; b < d->nballs; b++) {
-          int16_t k = (int16_t)d->topIdx[L] + (int16_t)b * 3 - d->nballs;
+          int16_t k = (int16_t)d->topIdx[L] + (int16_t)b * 2 - d->nballs;
           if (k < 0) k = 0;
           if (k >= n) k = (int16_t)(n - 1);
           d->posfp[L][b] = (uint16_t)(k << 8);
-          d->velfp[L][b] = 0;
+          uint32_t hk = charge_hash((now | 1u) ^ ((uint32_t)L << 8) ^ b);
+          d->velfp[L][b] = (int16_t)(((hk & 1) ? 1 : -1) * (int16_t)(500 + (hk % 900)));
         }
+        d->dropAt[L] = now + 2600 + (charge_hash(now ^ (L * 977u)) % 2000);
       }
-      d->dropAt = now + 5000 + (charge_hash(now) % 4000);
-    }
     uint16_t G = (uint16_t)(30 + SEGMENT.speed);             // pull strength (Gravity slider)
     for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
       uint16_t st = charge_lstart(L), n = charge_lcount(L);
@@ -1196,6 +1199,13 @@ static void mode_charge_gravity() {
                      - (int16_t)pgm_read_byte(&CHARGE_HEIGHT[st + khi]);
         int32_t v = d->velfp[L][b] + ((int32_t)grad * G * (int32_t)dt) / 1000;
         v = (v * 245) / 256;                                 // drag
+        if (v > -260 && v < 260 && grad > -3 && grad < 3) {  // rest deadzone: SETTLE
+          v = 0;
+          // ...but never fall asleep on a crest: nudge loose every ~0.5s
+          if (pgm_read_byte(&CHARGE_HEIGHT[st + k]) > 70 &&
+              (charge_hash((now >> 9) ^ ((uint32_t)L << 8) ^ b) & 3) == 0)
+            v = ((charge_hash(now ^ b) & 1) ? 1 : -1) * 700;
+        }
         if (v > 4200) v = 4200;
         if (v < -4200) v = -4200;
         int32_t fp = (int32_t)d->posfp[L][b] + (v * (int32_t)dt) / 256;
@@ -1230,7 +1240,7 @@ static void mode_charge_gravity() {
         charge_setpx(st + k, bc);
         int16_t k2 = (int16_t)k + ((d->velfp[L][b] >= 0) ? -1 : 1);
         if (k2 >= 0 && k2 < (int16_t)n)
-          charge_setpx((uint16_t)(st + k2), color_fade(bc, 110, true));
+          charge_setpx((uint16_t)(st + k2), color_fade(bc, 190, true));
       }
     }
     return;
@@ -1829,51 +1839,83 @@ static void mode_charge_flow() {
 }
 
 // =====================================================================
-// CHARGE Storm — story #3: weather passes over the sign (~26s, Length):
-// dusk calm -> wind rises (brightness waves ripple through the letters)
-// -> rain builds (blue-white droplets falling through the letterforms)
-// -> the STORM: downpour, gusts, lightning bolts ripping across the sign
-// with strobes -> the rain eases -> a RAINBOW fades in, arcing over the
-// word while golden light warms it -> dusk again -> loop.
+// CHARGE Storm — story #3, v2: LIGHTNING IS THE STORY. It never stops
+// raining. Stepped leaders crackle and criss-cross the sky hunting a
+// dark letter — then the return stroke FIRES, blasting through the
+// letter and LOADING it with charge. Six strikes light the word; then
+// the finale: a triple-bolt barrage, the whole sign flares white-hot, a
+// shockwave rolls outward, and the letters discharge back into the rain.
 // =====================================================================
 static const char _data_CHARGE_STORM[] PROGMEM =
-  "CHARGE Storm@Length,Fury;;;2;sx=128,ix=160";
+  "CHARGE Storm@Strike rate,Fury;;;2;sx=150,ix=170";
+
+// jagged walk biased to pass through (tx,ty); the criss-cross the user loves
+static void charge_bolt_walk(uint8_t out[CHARGE_GRID_W], uint32_t seed,
+                             uint8_t tx, uint8_t ty) {
+  int16_t r = (int16_t)(3 + (seed % 18));
+  for (uint16_t c = 0; c < CHARGE_GRID_W; c++) {
+    out[c] = (uint8_t)(r < 0 ? 0 : (r >= CHARGE_GRID_H ? CHARGE_GRID_H - 1 : r));
+    uint32_t h = charge_hash(seed ^ (c * 0x9E3779B1u));
+    r = (int16_t)(r + (int16_t)(h % 5) - 2);
+    int16_t dc = (int16_t)tx - (int16_t)c;                   // attraction to the target
+    if (dc > -6 && dc < 34 && (h & 0xFF) < 150) r += (ty > r) ? 1 : ((ty < r) ? -1 : 0);
+  }
+}
 
 static void mode_charge_storm() {
   if (!SEGMENT.is2D()) { SEGMENT.fill(BLACK); return; }
   uint32_t now = strip.now;
-  uint32_t total = 36000 - (uint32_t)SEGMENT.speed * 80;     // 15.6..36 s
-  uint32_t t = now % total;
-  uint32_t lap = now / total;
-  uint32_t u = total / 32;
   uint8_t fury = SEGMENT.intensity;
+  // phases: 0 brooding, 1..6 strike on letter aux0-1, 7 barrage, 8 flare+shock, 9 discharge
+  const uint32_t STRIKE_MS = 640, BARRAGE_MS = 1200, FLARE_MS = 1500, DIS_MS = 900;
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = 0;
+    SEGENV.aux1 = (uint16_t)((uint16_t)hw_random8() << 8);
+    SEGENV.step = now + 1400;                                // first strike ~1.4s in
+  }
+  uint8_t lit = (uint8_t)(SEGENV.aux1 & 0x3F);
+  if ((int32_t)(now - SEGENV.step) >= 0) {
+    switch (SEGENV.aux0) {
+      case 0: {
+        if (lit == 0x3F) { SEGENV.aux0 = 7; SEGENV.step = now + BARRAGE_MS; break; }
+        uint8_t L = hw_random8() % CHARGE_NUM_LETTERS; uint8_t tries = 0;
+        while ((lit >> L) & 1) { L = hw_random8() % CHARGE_NUM_LETTERS; if (++tries > 15) break; }
+        while ((lit >> L) & 1) L = (uint8_t)((L + 1) % CHARGE_NUM_LETTERS);
+        SEGENV.aux1 = (uint16_t)(((uint16_t)hw_random8() << 8) | lit);   // new bolt seed
+        SEGENV.aux0 = (uint16_t)(1 + L);
+        SEGENV.step = now + STRIKE_MS;
+        break; }
+      case 1: case 2: case 3: case 4: case 5: case 6:
+        lit |= (uint8_t)(1u << (SEGENV.aux0 - 1));           // the strike LOADED the letter
+        SEGENV.aux1 = (uint16_t)((SEGENV.aux1 & 0xFF00) | lit);
+        SEGENV.aux0 = 0;
+        SEGENV.step = now + 400 + (uint32_t)(255 - SEGMENT.speed) * 8
+                          + (uint32_t)hw_random8() * 3;      // next strike pace
+        break;
+      case 7: SEGENV.aux0 = 8; SEGENV.step = now + FLARE_MS; break;
+      case 8: SEGENV.aux0 = 9; SEGENV.step = now + DIS_MS; break;
+      default:                                               // discharged: brood again
+        SEGENV.aux0 = 0;
+        SEGENV.aux1 = (uint16_t)((uint16_t)hw_random8() << 8);
+        SEGENV.step = now + 1200;
+        break;
+    }
+    lit = (uint8_t)(SEGENV.aux1 & 0x3F);
+  }
+  uint8_t phase = (uint8_t)SEGENV.aux0;
+  uint32_t rem = (int32_t)(SEGENV.step - now) > 0 ? SEGENV.step - now : 0;
+  uint32_t seed = charge_hash(((uint32_t)(SEGENV.aux1 >> 8) << 4) ^ 0xB0170000u);
 
-  // ---- phase envelopes (0..255) ----
-  uint8_t windAmt = 0, rainAmt = 0, rainbowAmt = 0, goldAmt = 0;
-  if (t >= 4 * u) {
-    if (t < 8 * u)       windAmt = (uint8_t)(((t - 4 * u) * 200) / (4 * u));
-    else if (t < 20 * u) windAmt = (uint8_t)(200 + (t >= 14 * u ? 55 : 0));
-    else if (t < 24 * u) windAmt = (uint8_t)(200 - (uint8_t)(((t - 20 * u) * 200) / (4 * u)));
-  }
-  if (t >= 8 * u) {
-    if (t < 14 * u)      rainAmt = (uint8_t)(((t - 8 * u) * 150) / (6 * u));
-    else if (t < 20 * u) rainAmt = 255;
-    else if (t < 24 * u) rainAmt = (uint8_t)(255 - (uint8_t)(((t - 20 * u) * 255) / (4 * u)));
-  }
-  if (t >= 24 * u) {
-    if (t < 26 * u)      rainbowAmt = charge_smooth8((uint8_t)(((t - 24 * u) * 255) / (2 * u)));
-    else if (t < 29 * u) rainbowAmt = 255;
-    else                 rainbowAmt = (uint8_t)(255 - (uint8_t)(((t - 29 * u) * 255) / (3 * u)));
-    goldAmt = rainbowAmt;
-  }
-  uint8_t stormMix = rainAmt > windAmt ? rainAmt : windAmt;  // dusk -> storm-grey blend
+  uint8_t cxa[CHARGE_NUM_LETTERS], cya[CHARGE_NUM_LETTERS];
+  charge_letter_centroids(cxa, cya);
 
-  // ---- rain drops (per letter, density rides the envelope + Fury) ----
+  // ---- constant rain (it never stops) ----
+  uint8_t rainAmt = (uint8_t)(120 + (fury >> 1));
   uint8_t ndrop[CHARGE_NUM_LETTERS];
   uint8_t dxd[CHARGE_NUM_LETTERS][8]; int16_t dhf[CHARGE_NUM_LETTERS][8];
   for (uint8_t L = 0; L < CHARGE_NUM_LETTERS; L++) {
     uint8_t xlo, xhi; charge_letter_xrange(L, &xlo, &xhi);
-    uint8_t nd = (uint8_t)(((uint16_t)rainAmt * (2 + (fury >> 6))) / 96);   // 0..~13
+    uint8_t nd = (uint8_t)(((uint16_t)rainAmt * 5) / 255 + 2);   // 4..6 lanes
     if (nd > 8) nd = 8;
     ndrop[L] = nd;
     for (uint8_t di = 0; di < nd; di++) {
@@ -1883,40 +1925,39 @@ static void mode_charge_storm() {
       uint32_t ci = (now + (h >> 8)) / cyc;
       uint32_t hx = charge_hash(h ^ (ci * 0x85EBCA6Bu));
       dxd[L][di] = (uint8_t)(xlo + (hx & 0xFF) * (uint8_t)(xhi - xlo) / 255);
-      dhf[L][di] = (int16_t)(235 - (int32_t)((tc * 280) / cyc));            // falls past base
+      dhf[L][di] = (int16_t)(235 - (int32_t)((tc * 280) / cyc));
     }
   }
 
-  // ---- lightning (storm window only) ----
-  bool strike = false; uint8_t strobe = 0;
-  uint8_t boltRow[CHARGE_GRID_W];
-  if (t >= 14 * u && t < 20 * u) {
-    uint8_t nstrikes = (uint8_t)(2 + (fury >> 7));           // 2..3 per storm
-    uint32_t slice = (6 * u) / nstrikes;
-    for (uint8_t sk = 0; sk < nstrikes; sk++) {
-      uint32_t hs = charge_hash(lap * 7919u + sk * 131u + 0x57B0u);
-      uint32_t at = 14 * u + sk * slice + (hs % (slice > 600 ? slice - 600 : 1));
-      if (t < at) continue;
-      uint32_t age = t - at;
-      if (age < 320) {                                       // the bolt
-        strike = true;
-        int16_t r = (int16_t)(4 + (hs % 12));
-        for (uint16_t cx2 = 0; cx2 < CHARGE_GRID_W; cx2++) {
-          boltRow[cx2] = (uint8_t)(r < 0 ? 0 : (r >= CHARGE_GRID_H ? CHARGE_GRID_H - 1 : r));
-          uint32_t hb = charge_hash(hs ^ (cx2 * 0x9E3779B1u));
-          r = (int16_t)(r + (int16_t)(hb % 5) - 2);
-        }
-      } else if (age < 460 && ((age / 60) & 1)) {
-        strobe = 130;                                        // afterflashes
-      }
+  // ---- bolt state ----
+  bool leaders = false, retstroke = false;
+  uint8_t strobe = 0;
+  int8_t target = -1;
+  uint8_t boltA[CHARGE_GRID_W], boltB[CHARGE_GRID_W];
+  int16_t stopCol = CHARGE_GRID_W - 1; bool fromLeft = true;
+  if (phase >= 1 && phase <= 6) {
+    target = (int8_t)(phase - 1);
+    uint32_t tph = STRIKE_MS - rem;
+    fromLeft = (seed & 1);
+    stopCol = (int16_t)cxa[(uint8_t)target] + (fromLeft ? 6 : -6);
+    charge_bolt_walk(boltA, seed, cxa[(uint8_t)target], cya[(uint8_t)target]);
+    charge_bolt_walk(boltB, seed ^ 0x7777u, cxa[(uint8_t)target], cya[(uint8_t)target]);
+    if (tph < 330)      leaders = true;                      // stepped leaders hunt...
+    else if (tph < 470) { retstroke = true;                  // ...then it FIRES
+      strobe = (uint8_t)(160 - ((tph - 330) * 160) / 140);
     }
+  }
+  if (phase == 7) {                                          // barrage: three bolts
+    charge_bolt_walk(boltA, seed ^ 0x1111u, cxa[1], cya[1]);
+    charge_bolt_walk(boltB, seed ^ 0x2222u, cxa[4], cya[4]);
+    uint32_t tph = BARRAGE_MS - rem;
+    if (((tph / 130) & 1)) strobe = 150;                     // hammering strobes
   }
 
   // ---- paint ----
-  // (names chosen clear of FX.h color macros: RED/GREY/ORANGE/etc are taken)
-  const uint32_t duskC = RGBW32(255, 140, 40, 0);
-  const uint32_t greyC = RGBW32(70, 90, 130, 0);
-  const uint32_t rainC = RGBW32(150, 190, 255, 0);
+  const uint32_t stormC = RGBW32(70, 90, 130, 0);
+  const uint32_t rainC  = RGBW32(150, 190, 255, 0);
+  const uint32_t loadC  = RGBW32(140, 235, 255, 0);          // charged-letter electric
   for (uint16_t i = 0; i < CHARGE_NUM_PIXELS; i++) {
     uint8_t L  = pgm_read_byte(&CHARGE_LETTER[i]);
     uint8_t xn = pgm_read_byte(&CHARGE_XNORM[i]);
@@ -1924,41 +1965,56 @@ static void mode_charge_storm() {
     uint8_t col = pgm_read_byte(&CHARGE_COL[i]);
     uint8_t row = pgm_read_byte(&CHARGE_ROW[i]);
 
-    // dusk base with a slow breath, cooling to storm-grey as weather builds
-    uint8_t baseB = (uint8_t)(38 + (charge_tri8(now, 5200) >> 4));
-    uint32_t c = color_fade(color_blend(duskC, greyC, stormMix), baseB, true);
-    if (windAmt) {                                           // gusts ripple through
-      uint8_t wph = (uint8_t)(xn * 2 - (uint8_t)(now >> 3));
-      uint8_t wave = (uint8_t)(wph < 128 ? wph * 2 : (255 - wph) * 2);
-      c = color_blend(c, color_fade(color_blend(duskC, greyC, stormMix), 140, true),
-                      (uint8_t)(((uint16_t)wave * windAmt) >> 9));
+    uint32_t c = color_fade(stormC, (uint8_t)(34 + (charge_tri8(now, 5200) >> 4)), true);
+    bool isLit = (lit >> L) & 1;
+    if (phase == 9) {                                        // discharge: flicker out in the rain
+      uint8_t g = (uint8_t)((rem * 255) / DIS_MS);
+      uint8_t bri = qsub8(g, (uint8_t)(hw_random8() % (uint8_t)(2 + (255 - g) / 2)));
+      if ((charge_hash(((now >> 5) * 0x9E3779B1u) ^ L) & 0xFF) < (uint8_t)(255 - g)) bri >>= 3;
+      c = color_fade(loadC, isLit ? bri : 0, true);
+      if (!isLit) c = color_fade(stormC, 34, true);
+    } else if (phase == 8) {                                 // flare + shockwave
+      uint32_t tph = FLARE_MS - rem;
+      uint8_t f8 = (uint8_t)((tph * 255) / FLARE_MS);
+      c = color_fade(color_blend(WHITE, loadC, f8), (uint8_t)(255 - (f8 >> 2)), true);
+      uint16_t R = (uint16_t)(((uint32_t)charge_smooth8(f8) * 95) / 255);
+      uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - CHARGE_GRID_H / 2);
+      int16_t band = (int16_t)d - (int16_t)R; if (band < 0) band = (int16_t)-band;
+      if (band < 7) c = color_blend(c, WHITE, (uint8_t)(255 - band * 30));
+    } else if (isLit) {                                      // loaded letters burn on
+      uint8_t bri = 225;
+      if (hw_random8() < 10) bri = (uint8_t)(160 + (hw_random8() % 60));   // storm jitter
+      c = color_fade(loadC, bri, true);
     }
-    for (uint8_t di = 0; di < ndrop[L]; di++) {              // rain streaks
+    if (target >= 0 && L == (uint8_t)target && phase >= 1 && phase <= 6) {
+      uint32_t tph = STRIKE_MS - rem;
+      if (tph >= 330 && tph < 470)      c = WHITE;           // the letter takes the hit
+      else if (tph >= 470)              c = color_blend(WHITE, loadC, (uint8_t)(((tph - 470) * 255) / 170));
+    }
+
+    for (uint8_t di = 0; di < ndrop[L]; di++) {              // the rain, always
       uint8_t ddx = (xn > dxd[L][di]) ? (uint8_t)(xn - dxd[L][di]) : (uint8_t)(dxd[L][di] - xn);
       if (ddx >= 6) continue;
       int16_t ddh = (int16_t)hp - dhf[L][di]; if (ddh < 0) ddh = (int16_t)-ddh;
-      if (ddh < 14)
-        c = color_blend(c, rainC, (uint8_t)(((14 - ddh) * 14) + 40));
-      else if (dhf[L][di] < 12 && hp < 14 && ddx < 8 && hw_random8() < 60)
-        c = color_blend(c, rainC, 120);                      // splash sparkle
+      if (ddh < 14) c = color_blend(c, rainC, (uint8_t)(((14 - ddh) * 12) + 30));
     }
-    if (strike && (int16_t)row >= (int16_t)boltRow[col] - 2 &&
-        (int16_t)row <= (int16_t)boltRow[col] + 2) {
-      int16_t dr = (int16_t)row - (int16_t)boltRow[col]; if (dr < 0) dr = (int16_t)-dr;
-      c = (dr <= 1) ? WHITE : color_blend(c, RGBW32(200, 220, 255, 0), 170);
+
+    // bolts
+    bool inRange = (phase == 7) || (fromLeft ? ((int16_t)col <= stopCol) : ((int16_t)col >= stopCol));
+    if (inRange && (leaders || retstroke || phase == 7)) {
+      uint8_t bra = boltA[col], brb = boltB[col];
+      int16_t da = (int16_t)row - (int16_t)bra; if (da < 0) da = (int16_t)-da;
+      int16_t db = (int16_t)row - (int16_t)brb; if (db < 0) db = (int16_t)-db;
+      if (leaders) {                                         // criss-crossing leaders
+        bool showA = ((now / 45) & 1);
+        if (showA && da <= 1) c = color_blend(c, RGBW32(180, 200, 255, 0), (uint8_t)(140 - da * 50));
+        if (!showA && db <= 1) c = color_blend(c, RGBW32(180, 200, 255, 0), (uint8_t)(140 - db * 50));
+      } else {                                               // return stroke / barrage
+        if (da <= 1) c = (da == 0) ? WHITE : color_blend(c, WHITE, 200);
+        if (phase == 7 && db <= 1) c = (db == 0) ? WHITE : color_blend(c, WHITE, 200);
+      }
     }
     if (strobe) c = color_blend(c, WHITE, strobe);
-    if (rainbowAmt) {                                        // the payoff
-      uint8_t d = charge_dist8((int16_t)col - CHARGE_GRID_W / 2, (int16_t)row - (CHARGE_GRID_H + 27));
-      int16_t rd = (int16_t)d - 28;
-      if (rd >= 0 && rd < 28) {
-        uint32_t rc = charge_palette(2, (uint8_t)(rd * 9));  // true ROYGBIV arcs
-        c = color_blend(c, rc, (uint8_t)(((uint16_t)rainbowAmt * 220) >> 8));
-      }
-      if (goldAmt)                                           // low sun gilds the letters
-        c = color_blend(c, color_fade(RGBW32(255, 190, 90, 0), (uint8_t)(90 + (hp >> 1)), true),
-                        (uint8_t)(((uint16_t)goldAmt * 90) >> 8));
-    }
     charge_setpx(i, c);
   }
 }
