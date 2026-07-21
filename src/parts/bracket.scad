@@ -14,8 +14,11 @@ include <bracket_layout.scad>
 STRAP = 1;
 
 bk_web_t    = 4.0;    // web (= 2 flange pocket + 2 embedded collar)
-bk_rail_h   = 8.0;    // stiffening rails above the web
+bk_rail_h   = 8.0;    // stiffening rails above the web (-D 32 = frame-height
+                      // panel supports, backer-frame round 2026-07-21)
 bk_rail_w   = 5.0;
+bk_nut_pocket = 1;    // 1 = captive hex (as-built S1/S2); 0 = flat seat,
+                      // washer + nut from the back (needs M4x10/12)
 bk_pass_d   = 17.0;   // pixel pass-through (flange Ø13.6 + fingers)
 bk_cham_d   = 21.0;   // insertion-guide chamfer mouth at the back face
 bk_nut_af   = 7.2;    // M4 nut across-flats + fit
@@ -73,9 +76,10 @@ union() {
         }
         for (q = bk_nut[i]) translate([q[0], q[1], 0]) {
             translate([0, 0, -0.1])
-                cylinder(h = bk_web_t + 0.2, d = bk_scr_d);
-            translate([0, 0, bk_web_t - bk_nut_t])
-                cylinder(h = bk_nut_t + 0.1, d = bk_nut_af / cos(30), $fn = 6);
+                cylinder(h = bk_web_t + bk_rail_h + 0.2, d = bk_scr_d);
+            if (bk_nut_pocket)
+                translate([0, 0, bk_web_t - bk_nut_t])
+                    cylinder(h = bk_nut_t + 0.1, d = bk_nut_af / cos(30), $fn = 6);
         }
         for (q = bk_socket[i])         // blind leg bore (1mm front floor)
             translate([q[0], q[1], 1])

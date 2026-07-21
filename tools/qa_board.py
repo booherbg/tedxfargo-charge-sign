@@ -196,10 +196,17 @@ check("machine screws paired across seams (1 known single)",
       len(mach) - paired == 1, "%d of %d paired" % (paired, len(mach)))
 
 # ---- C. straps (STL truth) ----
+TALL = {"S3", "S4"}    # backer-frame variants: rails 32, flat nut seats
 for i, name in enumerate(NAMES):
     tris = read_stl("stl/strap_s%d.stl" % (i+1))
     verts = vset(tris)
     bad = []
+    want_h = (4.0 + 32.0) if name in TALL else (4.0 + 8.0)
+    if bk_socket[i]:                    # leg-socket bosses stand web + 10
+        want_h = max(want_h, 4.0 + 10.0)
+    zmax = max(v[2] for v in verts)
+    if abs(zmax - want_h) > 0.1:
+        bad.append(("height", (want_h,), zmax))
     for q in bk_pass[i]:
         r = ring_r(verts, q[0], q[1], -0.05, 2.05)
         if r is None or abs(r - 8.5) > 0.2:
@@ -209,9 +216,13 @@ for i, name in enumerate(NAMES):
         if r is None or abs(r - 2.25) > 0.2:
             bad.append(("bore", q, r))
         # hex pocket: wall vertices live only at the rims (floor z=0.8, top z=4);
-        # probe the floor rim in the annulus between the Ø4.5 bore and the boss
+        # probe the floor rim in the annulus between the Ø4.5 bore and the boss.
+        # Tall frame variants have FLAT seats — the ring must be ABSENT there.
         rh = ring_r(verts, q[0], q[1], 0.7, 0.9, 6, rmin=3.0)
-        if rh is None or not 3.4 <= rh <= 4.3:      # hex flat 3.6 .. corner 4.16
+        if name in TALL:
+            if rh is not None:
+                bad.append(("hex-should-be-flat", q, rh))
+        elif rh is None or not 3.4 <= rh <= 4.3:    # hex flat 3.6 .. corner 4.16
             bad.append(("hex", q, rh))
     for q in bk_collar[i]:
         r = ring_r(verts, q[0], q[1], 0.9, 1.1, 8)  # lip at mid-height
