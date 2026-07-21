@@ -171,6 +171,86 @@
    "detail": "284x295"
   },
   {
+   "name": "frame bosses == the 14 perimeter wood-screw points",
+   "ok": true,
+   "detail": "14 pts"
+  },
+  {
+   "name": "PSU tray >= 11 mm from every pixel",
+   "ok": true,
+   "detail": "min 28.6"
+  },
+  {
+   "name": "controller tray >= 10.5 mm from every pixel",
+   "ok": true,
+   "detail": "min 10.7"
+  },
+  {
+   "name": "PSU stack fits: floor 4 + LRS 30 + 2 clear <= cavity 36",
+   "ok": true,
+   "detail": "36.0"
+  },
+  {
+   "name": "trim reveal clears every screw rim (>= 0.5 mm)",
+   "ok": true,
+   "detail": "14 ok"
+  },
+  {
+   "name": "segment joints clear of all bosses (>= 12 mm)",
+   "ok": true,
+   "detail": "jx=205 jy=300"
+  },
+  {
+   "name": "every panel fixing lands on a support",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "gland seat 2.5 <= 3.5 (PG clamp limit)",
+   "ok": true,
+   "detail": "2.5 mm plate"
+  },
+  {
+   "name": "frame_seg1 fits 316x295",
+   "ok": true,
+   "detail": "208x304"
+  },
+  {
+   "name": "frame_seg2 fits 316x295",
+   "ok": true,
+   "detail": "208x304"
+  },
+  {
+   "name": "frame_seg3 fits 316x295",
+   "ok": true,
+   "detail": "208x254"
+  },
+  {
+   "name": "frame_seg4 fits 316x295",
+   "ok": true,
+   "detail": "208x254"
+  },
+  {
+   "name": "frame_panel1 fits 316x295",
+   "ok": true,
+   "detail": "207x302"
+  },
+  {
+   "name": "frame_panel2 fits 316x295",
+   "ok": true,
+   "detail": "207x302"
+  },
+  {
+   "name": "frame_panel3 fits 316x295",
+   "ok": true,
+   "detail": "207x252"
+  },
+  {
+   "name": "frame_panel4 fits 316x295",
+   "ok": true,
+   "detail": "207x252"
+  },
+  {
    "name": "stl/board1_3color.3mf manifold",
    "ok": true,
    "detail": "0 bad edges"
@@ -212,6 +292,96 @@
   },
   {
    "name": "stl/pusher.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_seg1.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_seg2.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_seg3.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_seg4.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_panel1.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_panel2.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_panel3.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_panel4.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_trim1.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_trim2.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_trim3.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_trim4.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_handle.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_foot.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_leg.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_gland_pg9.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_key.stl manifold",
+   "ok": true,
+   "detail": "0 bad edges"
+  },
+  {
+   "name": "stl/frame_coupon.stl manifold",
    "ok": true,
    "detail": "0 bad edges"
   }

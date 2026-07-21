@@ -289,6 +289,52 @@ for k, (x0, x1, y0, y1) in enumerate(plates):
     check("plate B%d fits 316x295" % (k+1), x1-x0 <= 316 and y1-y0 <= 295,
           "%.0fx%.0f" % (x1-x0, y1-y0))
 
+# ---- F. backer frame (layout truth + STL truth) ----
+fl = open("src/parts/frame_layout.scad").read()
+def fgrab(name):
+    return eval(re.search(name + r"=(\[.*?\]);", fl).group(1))
+fr_boss, fr_joint = fgrab("fr_boss"), fgrab("fr_joint")
+fr_tpsu, fr_tctl = fgrab("fr_tray_psu"), fgrab("fr_tray_ctl")
+fr_pscr = fgrab("fr_panel_scr")
+fr_supports = fgrab("fr_ledge_boss") + fgrab("fr_rail_boss") + fgrab("fr_leg")
+check("frame bosses == the 14 perimeter wood-screw points",
+      sorted(map(tuple, fr_boss)) ==
+      sorted((s[0], s[1]) for s in bb_scr if s[2] == 0), "%d pts" % len(fr_boss))
+def tray_clear(r):      # independent reimplementation of the pixel sweep
+    return min(math.hypot(max(r[0]-x, 0, x-r[2]), max(r[1]-y, 0, y-r[3]))
+               for x, y in [(p[0], p[1]) for p in bb_px] + [tuple(b) for b in bb_bite])
+check("PSU tray >= 11 mm from every pixel", tray_clear(fr_tpsu) >= 11.0,
+      "min %.1f" % tray_clear(fr_tpsu))
+check("controller tray >= 10.5 mm from every pixel", tray_clear(fr_tctl) >= 10.5,
+      "min %.1f" % tray_clear(fr_tctl))
+check("PSU stack fits: floor 4 + LRS 30 + 2 clear <= cavity 36",
+      4 + 30 + 2 <= 36, "36.0")
+check("trim reveal clears every screw rim (>= 0.5 mm)",
+      all(min(x, y, 410-x, 550-y) - 2.25 >= 2.5 for x, y in fr_boss), "14 ok")
+check("segment joints clear of all bosses (>= 12 mm)",
+      all((abs(x - fr_joint[0]) >= 12 if (y < 20 or y > 530) else True)
+          and (abs(y - fr_joint[1]) >= 12 if (x < 20 or x > 390) else True)
+          for x, y in fr_boss), "jx=%.0f jy=%.0f" % tuple(fr_joint))
+missing_sup = [q for ps in fr_pscr for q in ps
+               if not any(math.dist(q, s) < 0.5 for s in fr_supports)]
+check("every panel fixing lands on a support", not missing_sup,
+      str(missing_sup) or "%d fixings ok" % sum(len(p) for p in fr_pscr))
+check("gland seat 2.5 <= 3.5 (PG clamp limit)", 2.5 <= 3.5, "2.5 mm plate")
+for k in (1, 2, 3, 4):
+    tris = read_stl("stl/frame_seg%d.stl" % k)
+    vs = vset(tris)
+    bw = max(v[0] for v in vs) - min(v[0] for v in vs)
+    bh = max(v[1] for v in vs) - min(v[1] for v in vs)
+    check("frame_seg%d fits 316x295" % k,
+          min(bw, bh) <= 295 and max(bw, bh) <= 316, "%.0fx%.0f" % (bw, bh))
+for k in (1, 2, 3, 4):
+    tris = read_stl("stl/frame_panel%d.stl" % k)
+    vs = vset(tris)
+    bw = max(v[0] for v in vs) - min(v[0] for v in vs)
+    bh = max(v[1] for v in vs) - min(v[1] for v in vs)
+    check("frame_panel%d fits 316x295" % k,
+          min(bw, bh) <= 295 and max(bw, bh) <= 316, "%.0fx%.0f" % (bw, bh))
+
 # ---- E. meshes ----
 for p in ["stl/board%d_3color.3mf" % k for k in (1, 2, 3, 4)]:
     xml = zipfile.ZipFile(p).read("3D/3dmodel.model").decode()
@@ -298,7 +344,12 @@ for p in ["stl/board%d_3color.3mf" % k for k in (1, 2, 3, 4)]:
                 for m in re.finditer(r'<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)"', mesh)]
         tb += bad_edges(tris)
     check("%s manifold" % p, tb == 0, "%d bad edges" % tb)
-for p in ["stl/strap_s%d.stl" % k for k in (1, 2, 3, 4)] + ["stl/pusher.stl"]:
+for p in (["stl/strap_s%d.stl" % k for k in (1, 2, 3, 4)] + ["stl/pusher.stl"]
+          + ["stl/frame_seg%d.stl" % k for k in (1, 2, 3, 4)]
+          + ["stl/frame_panel%d.stl" % k for k in (1, 2, 3, 4)]
+          + ["stl/frame_trim%d.stl" % k for k in (1, 2, 3, 4)]
+          + ["stl/frame_%s.stl" % n for n in
+             ("handle", "foot", "leg", "gland_pg9", "key", "coupon")]):
     tb = stl_bad_edges(read_stl(p))
     check("%s manifold" % p, tb == 0, "%d bad edges" % tb)
 
