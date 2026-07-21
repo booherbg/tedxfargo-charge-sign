@@ -27,26 +27,30 @@ Total sign body ≈ 40 mm behind the plate front (plate 2 + cavity 36 + panel
 - C-channel: **flange** 16 × 4 mm behind the plate perimeter with 14 pilot
   bosses at the existing `bb_scr` kind-0 positions (the wood-rail band —
   keepout already validated); plates screw down from the front, screws they
-  already have. **Outer wall** 3 mm, rising to a 2 mm front **reveal lip**
-  wrapping the plate edge (hides plate edges/seams; `reveal=2` param, zero to
-  disable). The lip NEVER covers a screw: perimeter holes sit 6 mm from the
-  plate edge, so the Ø4.5 hole rim starts at 3.75 — the 2 mm lip leaves
-  1.75 mm clear (generator asserts lip + head clearance). The lip + flange
-  form the channel the plate edges seat in: the frame assembles AROUND the
-  intact sign (hook each corner-L's lip over the plate front, rotate down
-  onto the flange, join the dovetails), then the 14 screws lock it.
+  already have. **Outer wall** 3 mm. **AS-BUILT AMENDMENT:** the 2 mm front
+  reveal is a separate **snap-on trim strip** (frame_parts PART=6, groove in
+  the wall outer face) — one-piece lip + rail can't print support-free, and
+  the split lets rails print FLANGE-DOWN cleanly; `reveal=0` = don't print
+  trim. The trim never covers a screw: holes sit 6 mm from the plate edge,
+  hole rim at 3.75, trim covers 2 (generator asserts). Assembly: sign
+  face-down, segments laid flange-down onto the plate backs, dovetails
+  joined, flip once, drive the 14 screws, snap trim on last.
   **Ledge** 8 × 4 mm at cavity depth 36 with M3 panel bosses.
-- Segments are corner-Ls (legs ≈ 275 + 205, bbox fits 316×295) meeting at the
-  4 edge midpoints, clear of all screw holes. Joint = printed dovetail key
-  slid in from the back + one M3 cross-screw per joint.
+- Segments are corner-Ls meeting at **x=205 / y=300** (AS-BUILT: y moved
+  275→300 — the probe caught the joint splitting the (6,275)/(404,275)
+  bosses, and 300 also clears the S1/S2 strap band; asserted now). Joint =
+  printed dovetail key in an inner-face pocket + M3 cross-screws from
+  outside through wall+pad into the key.
 - **Handles ×2** on the top rail near the corners: thick printed bars
   (grip opening ≈ 100 × 28, body ≥ 14 thick), each bolted with 2 × M4 +
   washer/nut into top-rail bosses. Back faces sit FLUSH with the back-panel
   plane so the sign hangs flat on a wall — the grip opening doubles as the
   hang point (screw head, cleat, chain, or zip tie through it) and as the
   carry handle. Printed lying flat so layer lines run along the load path.
-- Bottom rail: 2 through T-slots in the underside for **snap-in feet** (spring
-  tab + click ridge, blade ≈ 90 mm fore-aft); sign is wall-hung with feet out.
+- Bottom rail: 2 snap sockets in the underside for **snap-in feet**
+  (AS-BUILT: split-prong arrowhead tab + barb pocket — a true T-slot can't
+  insert from below; squeeze the prongs from inside to release; blade
+  ≈ 90 mm fore-aft); sign is wall-hung with feet out.
 
 ## Strap interface (folds in the chirality reprint)
 
@@ -86,15 +90,16 @@ clean zones are the TOP corners. Devices lie FLAT on 4-mm tray floors that
 span the flange band, integrated into the top corner-L segments; devices stay
 with the sign when panels come off.
 
-- **PSU tray (upper-LEFT)**: zone x ≈ 1..98, y ≈ 415..544 — 31 mm to the
-  nearest pixel, 4 mm to S3's raised rail. Fits the whole family in portrait
+- **PSU tray (upper-LEFT)**: zone x ≈ 1..98, y ≈ 407..536 (AS-BUILT: slid
+  down 8 so the top ledge bosses clear the tray) — 28.6 mm to the nearest
+  pixel, 4 mm to S3's raised rail. Fits the whole family in portrait
   (all 30 tall, L=3.0 bottom taps, M3×7 through the 4 mm floor = 3 mm in):
-  - LRS-50 (case 239A, 99×82): holes (20.5, 40.5) + (75.5, 40.5) — 55 apart
-  - LRS-75 (case 240A, 99×97): holes (20.5, 45.5) + (75.5, 45.5) — 55 apart
-  - LRS-100 (case 238A, 129×97): holes (78, 34) + (78, 67) — 33 apart
-  `psu` config param selects the drilled pattern (default: all three where
-  they don't collide). Terminals point DOWN toward the cavity. Before
-  buying: match the voltage to the pixel string — LRS is 5/12/24 V.
+  - LRS-50 (case 239A, 99×82) + LRS-75 (240A, 99×97): shared **slots** at
+    length 20.5/75.5 spanning width 40.5→45.5 (AS-BUILT: the two patterns
+    are 5 mm apart — one slot serves both)
+  - LRS-100 (case 238A, 129×97): round holes (78, 34) + (78, 67)
+  Terminals point DOWN toward the cavity. Before buying: match the voltage
+  to the pixel string — LRS is 5/12/24 V.
 - **Controller tray (upper-RIGHT)**: Elite vertical, zone x ≈ 342..392,
   y ≈ 405..534 (10.7 mm to the nearest pixel — generator asserts ≥ 8.5 + 2).
   Two bosses at the shell's end screws — **122.0 × 26.0 diagonal, Ø4.6**
