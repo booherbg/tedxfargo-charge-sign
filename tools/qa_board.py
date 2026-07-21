@@ -91,8 +91,10 @@ def seam_perp(q):
     return best
 
 def unlocal(name, q):
+    # y-straps bake v = -(board v); x-straps bake v = +(board v) (their u/v
+    # axis swap is itself the flip-to-install mirror)
     axis, coord = STRAP_AX[name]
-    u, v = q[0], -q[1]
+    u, v = q[0], -q[1] if axis == 1 else q[1]
     return (u, coord + v) if axis == 1 else (coord + v, u)
 
 results = []
@@ -237,8 +239,9 @@ for p in PX:
         v = (q[1] - coord) if axis == 1 else (q[0] - coord)
         u0, u1 = bk_span[i]
         if abs(v) <= bk_w/2 + 7.3 and u0 - 7.3 <= u <= u1 + 7.3:
+            vm = -v if axis == 1 else v          # baked sign, see unlocal
             feats = [f for f in (bk_pass[i] + bk_collar[i])]
-            if not any(abs(f[0]-u) < 0.5 and abs(f[1]+v) < 0.5 for f in feats):
+            if not any(abs(f[0]-u) < 0.5 and abs(f[1]-vm) < 0.5 for f in feats):
                 missing.append((name, q))
 check("every strap-overlapped pixel has a pass-hole/collar", not missing,
       str(missing) or "coverage complete")

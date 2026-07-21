@@ -40,9 +40,9 @@ if before:
     old_px = [(p["x"], p["y"], p["color"], "plate") for p in old["pixels"]]
 
 STRAP_AX = {"S1": (1, SY), "S2": (1, SY), "S3": (0, SXT), "S4": (0, SXB)}
-def unlocal(name, q):                 # printed local -> board (v was mirrored)
-    axis, coord = STRAP_AX[name]
-    u, v = q[0], -q[1]
+def unlocal(name, q):                 # printed local -> board (v baked
+    axis, coord = STRAP_AX[name]      # -v on y-straps, +v on x-straps)
+    u, v = q[0], -q[1] if axis == 1 else q[1]
     return (u, coord + v) if axis == 1 else (coord + v, u)
 
 # ---- gap analysis at each channel/seam crossing ----

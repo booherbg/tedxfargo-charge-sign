@@ -3,9 +3,10 @@
 // Local printed frame: z=0 = FRONT face, printed ON THE BED (mates flush
 // against the plate backs; an embedded collar lands in the same first-2mm
 // orientation as the plate collars, so the calibrated press-fit transfers).
-// Feature coords come PRE-MIRRORED from boltboard.py — the part is flipped
-// about the u axis to install (chirality baked in the generator; see the
-// flip-to-use gotcha).
+// Feature coords come CHIRALITY-BAKED from boltboard.py — the part is
+// flipped over to install, which mirrors it once; the generator's to_local
+// compensates per seam axis (v = -board v on S1/S2, +board v on S3/S4;
+// see the flip-to-use gotcha).
 include <../config.scad>
 include <../collar.scad>
 include <bracket_layout.scad>
