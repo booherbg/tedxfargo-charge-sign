@@ -70,12 +70,22 @@ the sign when panels come off; wiring never leaves the box).
   through PETG (RF-transparent). USB-C/Ethernet/function button need the
   adjacent panel off — accepted, WLED is OTA.
 - **PSU tray (lower-left, later)**: LRS-50 boss footprint (99 × 82, stands 30)
-  next to the glands. Costs nothing until used. Before buying: confirm the
-  supply voltage matches the pixel string — LRS-50 comes in 5/12/24 V.
-- **Glands ×2** through the bottom-left outer wall: power lead in (strain-
-  relieved; DC from the external brick today, mains if the LRS-50 moves in)
-  + a blanked spare for a data/power link to the word sign. Fusing and relays
-  live on the controller — no separate fuse holder.
+  next to the glands. Bottom mounting per datasheet (case 239A): **2 × M3 on
+  the width centerline (40.5 from the edge), 55.0 apart (at 20.5 and 75.5
+  along the 99 length); screw penetration into the case MAX 3 mm** (L=3.0 —
+  longer screws can reach the board). M3×6 through the 3 mm tray floor lands
+  exactly at 3. The case also has 2 × M3 side holes (74 apart, mid-height,
+  L=5) as a fallback orientation. Costs nothing until used. Before buying:
+  confirm the supply voltage matches the pixel string — LRS-50 is 5/12/24 V.
+- **Gland plate** on the bottom-left outer wall: a small screwed-on plate
+  (2 × M3 into wall bosses) over a rectangular opening, carrying both cable
+  entries — swap the plate, not the rail. V1 plate: **PG7** holes (Ø12.5
+  panel bore — user has stock; clamps 3–6.5 mm, fits the DC lead from the
+  external brick). A future internal-LRS-50 mains cord (3-wire SVT/SJT,
+  typically 6.5–8.5 mm OD) does NOT fit PG7 — print the **PG9** plate
+  (Ø15.2 bore, clamps 4–8 mm) at that point. Second hole = blanked spare
+  for a word-sign link. Fusing and relays live on the controller — no
+  separate fuse holder.
 
 ## Fasteners / material / mass
 
