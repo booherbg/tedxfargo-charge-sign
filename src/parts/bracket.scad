@@ -10,6 +10,7 @@
 include <../config.scad>
 include <../collar.scad>
 include <bracket_layout.scad>
+include <frame_layout.scad>   // fr_rail_boss for the tall frame variant
 
 STRAP = 1;
 
@@ -84,6 +85,14 @@ union() {
         for (q = bk_socket[i])         // blind leg bore (1mm front floor)
             translate([q[0], q[1], 1])
                 cylinder(h = bk_web_t + bk_boss_h, d = bk_leg_d);
+        if (bk_rail_h > 30)            // frame variant: panel-screw pilots in
+            for (q = fr_rail_boss) {   // the rail tops (frame_layout truth)
+                u = q[1];              // x-seam straps: u = board y
+                v = q[0] - (STRAP == 3 ? 126 : 153);
+                if (abs(v) < 24 && u0 - 1 <= u && u <= u1 + 1)
+                    translate([u, v, bk_web_t + bk_rail_h - 8])
+                        cylinder(h = 8.1, d = 2.8);
+            }
     }
     for (q = bk_collar[i])             // calibrated press-fit, front 2mm,
         translate([q[0], q[1], 0])     // welded into the seat AFTER the cuts

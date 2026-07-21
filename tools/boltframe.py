@@ -15,7 +15,8 @@ SOCK = grab(bk, "bk_socket")
 FW, FH = 410.0, 550.0
 CLR, WALL, CAV, PT = 0.5, 3.0, 36.0, 2.4
 FLW, FLT, LGW, LGT, REV = 16.0, 4.0, 8.0, 4.0, 2.0
-JX, JY = 205.0, 275.0
+JX, JY = 205.0, 300.0   # JY=300 keeps the side joints off the (6,275)/(404,275)
+                        # screw bosses AND off the S1/S2 strap band (231..279)
 PXPTS = [(p[0], p[1]) for p in PX] + [tuple(b) for b in BITE]
 
 def rect_px_clear(r, need, what):
@@ -31,6 +32,11 @@ assert len(boss) == 14, "expected 14 perimeter wood-screw points"
 for x, y in boss:   # trim reveal never covers a hole rim
     e = min(x, y, FW - x, FH - y)
     assert e - 2.25 >= REV + 0.5, f"trim lip too close to screw at {(x, y)}"
+    # segment joints must never cut through a boss (the y=275 lesson)
+    if y < 20 or y > FH - 20:
+        assert abs(x - JX) >= 12, f"top/bottom joint through boss {(x, y)}"
+    if x < 20 or x > FW - 20:
+        assert abs(y - JY) >= 12, f"side joint through boss {(x, y)}"
 
 # equipment trays (verified pixel-free zones; see spec)
 TRAY_PSU = (1.0, 407.0, 98.0, 536.0)
