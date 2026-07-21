@@ -1,23 +1,26 @@
-# Bolt backer frame — printed torsion box, vented, PSU-ready
+# Bolt backer frame — printed torsion box, vented, internal PSU
 
 **Goal:** give the bolt board (410×550, 4 plates + 4 seam straps, no frame today)
 a fully printed enclosure: stiff, clean, fully closed back with vent slits,
-wall-hung or free-standing, controller and (future) PSU fully enclosed — one
-power lead through a gland and that's it. Experiment to replace the heavy
+wall-hung or free-standing, controller AND PSU fully enclosed — ONE mains cable
+through a side-wall gland and that's it. Experiment to replace the heavy
 carpenter-built wood frame style used on the word sign.
 
-User decisions (2026-07-21, revised same day: everything inside): **picture-
-frame torsion box** over sparse ladder and monocoque tub; cavity **34 mm** —
-clears the deepest flat-mounted device (LRS-50 stands 30, Elite 23; wall-FACE
-mounting like the word sign's exterior would need a 50+ mm wall and was
-rejected as too chunky); fully closed back **with vent slits**; snap-in
-**feet** in bottom-rail slots; controller = **Gledopto Elite 2D-EXMU
-(GL-C-616WL, 129×50×23 mm)** mounted INSIDE — its shell screws down by the
-two end tabs (per the word-sign install photo), fuses/relays onboard; PSU
-(LRS-50, later) also inside; the only penetrations are **two gland knockouts**
-bottom-left (power in + spare for a word-sign link cable). M3 self-tap into
-printed bosses now, boss bores sized so M3 heat-set inserts are a later
-drop-in (user: heat-set not needed yet).
+User decisions (2026-07-21, three revision rounds same day): **picture-frame
+torsion box** over sparse ladder and monocoque tub; **internal PSU from day
+one** — plan for the whole 30-mm-tall LRS family (**LRS-50 / 75 / 100**, one
+tray profile); cavity **36 mm** (tray floor 4 over the flange + PSU 30 + 2
+clear; wall-FACE mounting like the word sign's exterior would need 50+ mm
+walls, rejected); fully closed back **with vent slits**; snap-in **feet** in
+bottom-rail slots; **two thick top handles** for carrying + wall-hanging
+(replace the loops/keyhole idea); controller = **Gledopto Elite 2D-EXMU
+(GL-C-616WL, 129×50×23)** inside, shell end-tab screws; **one PG9 gland,
+printed open** — no knockouts to punch or drill, alternates are swap plates.
+M3 self-tap into printed bosses now, bores sized so M3 heat-set inserts are a
+later drop-in.
+
+Total sign body ≈ 40 mm behind the plate front (plate 2 + cavity 36 + panel
+2.4), plus the front shell as built.
 
 ## Frame rails (4 corner-L segments, white PETG)
 
@@ -32,18 +35,23 @@ drop-in (user: heat-set not needed yet).
   form the channel the plate edges seat in: the frame assembles AROUND the
   intact sign (hook each corner-L's lip over the plate front, rotate down
   onto the flange, join the dovetails), then the 14 screws lock it.
-  **Ledge** 8 × 4 mm at cavity depth 34 with M3 panel bosses.
+  **Ledge** 8 × 4 mm at cavity depth 36 with M3 panel bosses.
 - Segments are corner-Ls (legs ≈ 275 + 205, bbox fits 316×295) meeting at the
   4 edge midpoints, clear of all screw holes. Joint = printed dovetail key
   slid in from the back + one M3 cross-screw per joint.
-- Top rail: 2 chain/zip-tie loops at the corners + 2 keyhole slots in the flat.
-  Bottom rail: 2 through T-slots in the underside for **snap-in feet** (spring
+- **Handles ×2** on the top rail near the corners: thick printed bars
+  (grip opening ≈ 100 × 28, body ≥ 14 thick), each bolted with 2 × M4 +
+  washer/nut into top-rail bosses. Back faces sit FLUSH with the back-panel
+  plane so the sign hangs flat on a wall — the grip opening doubles as the
+  hang point (screw head, cleat, chain, or zip tie through it) and as the
+  carry handle. Printed lying flat so layer lines run along the load path.
+- Bottom rail: 2 through T-slots in the underside for **snap-in feet** (spring
   tab + click ridge, blade ≈ 90 mm fore-aft); sign is wall-hung with feet out.
 
 ## Strap interface (folds in the chirality reprint)
 
 - **S3/S4 reprint** (already required — chirality fix 6edb95e): rails raised
-  8 → 30 mm (web 4 + 30 = 34 = cavity depth) with M3 bosses on top; they become
+  8 → 32 mm (web 4 + 32 = 36 = cavity depth) with M3 bosses on top; they become
   the panels' mid-span supports. Pass-hole chamfers already cut through rails.
 - **Captive hex pockets dropped on the reprint** (user 2026-07-21: nut depth/
   alignment in a pocket is fiddly — prefers flat + washer): screw bores become
@@ -54,7 +62,7 @@ drop-in (user: heat-set not needed yet).
   **use M4×10 (flush) or M4×12**. `nut_pocket` param restores the old pocket
   if wanted. S1/S2 keep their pockets (installed, working).
 - **S1/S2 stay installed** (correct as printed): three Ø10 printed legs drop
-  into the existing leg sockets, M3 boss on top at panel height.
+  into the existing leg sockets, M3 boss on top at panel height (36).
 - Plates, pixels, wiring untouched.
 
 ## Back panels (4 quadrants, vented, removable)
@@ -66,67 +74,73 @@ drop-in (user: heat-set not needed yet).
 - Vents: angled louver slits (light-tight, dust-shedding), intake rows along
   the bottom panels, exhaust rows in the top third; one consistent pattern,
   plus a small cluster over the controller (mic aperture for audioreactive +
-  convection over the equipment corners).
+  convection over the equipment corners — PSU and controller both live up
+  top, so the exhaust rows do double duty).
 
-## Internal equipment corners (left rail)
+## Internal equipment (top corners — the verified pixel-free zones)
 
-The bolt runs diagonally, so both left corners of the board are pixel-free.
-Devices lie FLAT against the plate back, snugged to the inner wall, on tray
-bosses integrated into the two left corner-L rail segments (devices stay with
-the sign when panels come off; wiring never leaves the box).
+Placement is pinned by a clearance sweep against the real pixel map (the
+originally-sketched lower-left PSU spot FAILED it — a pixel sat inside the
+rect; the bolt's bottom and diagonal channels fill the lower half). The two
+clean zones are the TOP corners. Devices lie FLAT on 4-mm tray floors that
+span the flange band, integrated into the top corner-L segments; devices stay
+with the sign when panels come off.
 
-- **Controller (upper-left)**: Elite vertical along the rail, footprint
-  129 × 50 in the empty zone x < 100, y > 400; two bosses at the shell's
-  end-screw positions — **diagonal, 122.0 apart lengthwise × 26.0 across, at
-  12/38 of the 50 width, Ø4.6 clearance** (probed from docs/elite2d_mount.stl,
-  the word-sign adapter plate; no adapter needed here, controller screws
-  straight to the tray). Terminals face the cavity; antenna + WiFi work
-  through PETG (RF-transparent). USB-C/Ethernet/function button need the
-  adjacent panel off — accepted, WLED is OTA.
-- **PSU tray (lower-left, later)**: LRS-50 boss footprint (99 × 82, stands 30)
-  next to the glands. Bottom mounting per datasheet (case 239A): **2 × M3 on
-  the width centerline (40.5 from the edge), 55.0 apart (at 20.5 and 75.5
-  along the 99 length); screw penetration into the case MAX 3 mm** (L=3.0 —
-  longer screws can reach the board). M3×6 through the 3 mm tray floor lands
-  exactly at 3. The case also has 2 × M3 side holes (74 apart, mid-height,
-  L=5) as a fallback orientation. Costs nothing until used. Before buying:
-  confirm the supply voltage matches the pixel string — LRS-50 is 5/12/24 V.
-- **Gland plate** on the bottom-left outer wall: a small screwed-on plate
-  (2 × M3 into wall bosses) over a rectangular opening, carrying both cable
-  entries — swap the plate, not the rail. Default **PG9** (Ø15.2 bore,
-  clamps 4–8 mm — covers 3-wire SVT mains cord AND the DC lead; user has
-  stock); `gland` config param generates PG7 (Ø12.5) or PG11 (Ø18.6)
-  variants. **Plate is 2.5 mm thick at the gland seats** — PG thread length
-  is only ~8 mm and the locknut needs ~5, so anything over ~3.5 mm can't
-  clamp (user has been bitten by too-thick walls; generator asserts this).
-  Second hole = blanked spare for a word-sign link. Fusing and relays live
-  on the controller — no separate fuse holder.
+- **PSU tray (upper-LEFT)**: zone x ≈ 1..98, y ≈ 415..544 — 31 mm to the
+  nearest pixel, 4 mm to S3's raised rail. Fits the whole family in portrait
+  (all 30 tall, L=3.0 bottom taps, M3×7 through the 4 mm floor = 3 mm in):
+  - LRS-50 (case 239A, 99×82): holes (20.5, 40.5) + (75.5, 40.5) — 55 apart
+  - LRS-75 (case 240A, 99×97): holes (20.5, 45.5) + (75.5, 45.5) — 55 apart
+  - LRS-100 (case 238A, 129×97): holes (78, 34) + (78, 67) — 33 apart
+  `psu` config param selects the drilled pattern (default: all three where
+  they don't collide). Terminals point DOWN toward the cavity. Before
+  buying: match the voltage to the pixel string — LRS is 5/12/24 V.
+- **Controller tray (upper-RIGHT)**: Elite vertical, zone x ≈ 342..392,
+  y ≈ 405..534 (10.7 mm to the nearest pixel — generator asserts ≥ 8.5 + 2).
+  Two bosses at the shell's end screws — **122.0 × 26.0 diagonal, Ø4.6**
+  (probed from docs/elite2d_mount.stl; no adapter plate needed). Terminals
+  face the cavity; WiFi works through PETG. USB-C/Ethernet/button need the
+  panel off — accepted, WLED is OTA.
+- **Wiring run**: mains in low on the left wall → up the flange shelf to the
+  PSU AC end (cord FG lands on the LRS FG terminal); DC across the top rail
+  channel to the controller INPUT; OUTPUT drops to the chain entry at
+  (194, 180). All runs < 500 mm.
+- **Gland plate** low on the LEFT side wall (side entry keeps free-standing
+  on the feet stable; low = hidden, cord drops to the floor): a 2.5-mm-thick
+  screwed-on plate (2 × M3 into wall bosses) over a rectangular opening.
+  V1 plate ships with ONE **PG9** hole printed OPEN (Ø15.2, clamps 4–8 —
+  takes a 3-wire SVT mains cord; no drilling, no punch-outs). Variant plates
+  (PG7 Ø12.5, PG11 Ø18.6, or two-hole for a word-sign link) are 5-minute
+  prints — swap the plate, not the rail. **Seats stay ≤ 3.5 mm** — PG thread
+  is ~8 mm and the locknut needs ~5 (user has over-thickened walls before;
+  generator asserts). Fusing and relays live on the controller.
 
 ## Fasteners / material / mass
 
 White PETG throughout (matches straps). M3 self-tap bosses (Ø2.8 pilot),
 boss OD 7 so a Ø4.0 counterbore upgrade takes M3 heat-set inserts later.
-Plate-to-flange reuses the 14 existing wood screws. Estimate ≈ 1.2–1.6 kg
-total: 4 rails (2 with equipment trays) + 4 panels + 2 feet + 3 legs
-(+ S3/S4 reprint ~130 g at the taller rails).
+Plate-to-flange reuses the 14 existing wood screws. Estimate ≈ 1.3–1.7 kg
+total: 4 rails (2 with equipment trays) + 4 panels + 2 handles + 2 feet +
+3 legs + gland plate (+ S3/S4 reprint ~140 g at the taller rails).
 
 ## Build & verify
 
 - New generator emits `frame_layout.scad` (rail segments, boss positions from
-  `bb_scr`, panel outlines, equipment-tray anchors, gland positions) + part
-  scads in the existing `-D PART=` style; build lines added to build_board.sh.
-  Generator asserts both trays sit fully in pixel-free zones (min distance to
-  every `bb_px`/`bb_bite`).
+  `bb_scr`, panel outlines, tray anchors + PSU hole patterns, gland position,
+  handle bosses) + part scads in the existing `-D PART=` style; build lines
+  added to build_board.sh. Generator asserts: both tray rects ≥ 11 mm from
+  every `bb_px`/`bb_bite`; PSU top clearance ≥ 2; tray clear of S3 rails.
 - qa_board.py grows frame checks: flange bosses == `bb_scr` kind-0 positions
   (axis-aware — see the chirality lesson), every segment/panel fits 316×295,
   panel screw bosses land on ledge/strap/leg supports, joint keys clear
   screw holes, reveal lip clears every `bb_scr` hole rim, gland-plate seat
-  thickness ≤ 3.5 (PG clamp limit).
+  thickness ≤ 3.5 (PG clamp limit), handle back faces coplanar with the
+  panel plane.
 - Print order: S3/S4 straps first (unblocks the strap swap), then rails,
-  panels, feet.
+  panels, handles, feet, gland plate.
 
-## Measure-at-build inputs (config params, not blockers)
+## Config params (all have working defaults)
 
-Existing supply-lead diameter (gland bore); plate-edge reveal preference
-(2 mm default, 0 disables). Controller screw geometry is NOT one of these —
-it's pinned by docs/elite2d_mount.stl (122.0 × 26.0 diagonal, Ø4.6).
+`psu` (LRS-50/75/100 hole pattern, default all), `gland` (PG9 default /
+PG7 / PG11 / two-hole link variant), `reveal` (2, 0 disables), `nut_pocket`
+(off), supply-cord diameter only if it falls outside PG9's 4–8 mm clamp.
