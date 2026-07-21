@@ -26,7 +26,13 @@ drop-in (user: heat-set not needed yet).
   keepout already validated); plates screw down from the front, screws they
   already have. **Outer wall** 3 mm, rising to a 2 mm front **reveal lip**
   wrapping the plate edge (hides plate edges/seams; `reveal=2` param, zero to
-  disable). **Ledge** 8 × 4 mm at cavity depth 34 with M3 panel bosses.
+  disable). The lip NEVER covers a screw: perimeter holes sit 6 mm from the
+  plate edge, so the Ø4.5 hole rim starts at 3.75 — the 2 mm lip leaves
+  1.75 mm clear (generator asserts lip + head clearance). The lip + flange
+  form the channel the plate edges seat in: the frame assembles AROUND the
+  intact sign (hook each corner-L's lip over the plate front, rotate down
+  onto the flange, join the dovetails), then the 14 screws lock it.
+  **Ledge** 8 × 4 mm at cavity depth 34 with M3 panel bosses.
 - Segments are corner-Ls (legs ≈ 275 + 205, bbox fits 316×295) meeting at the
   4 edge midpoints, clear of all screw holes. Joint = printed dovetail key
   slid in from the back + one M3 cross-screw per joint.
@@ -39,6 +45,14 @@ drop-in (user: heat-set not needed yet).
 - **S3/S4 reprint** (already required — chirality fix 6edb95e): rails raised
   8 → 30 mm (web 4 + 30 = 34 = cavity depth) with M3 bosses on top; they become
   the panels' mid-span supports. Pass-hole chamfers already cut through rails.
+- **Captive hex pockets dropped on the reprint** (user 2026-07-21: nut depth/
+  alignment in a pocket is fiddly — prefers flat + washer): screw bores become
+  plain Ø4.5 through-holes with a FLAT back face; washer + M4 nut tightened
+  from the open back (panels aren't on yet at strap-install time; the 38 mm
+  gap between the raised rails leaves driver room). Screw length changes:
+  plate 2 + web 4 + washer + nut ≈ 10 — the existing M4×8 are too short,
+  **use M4×10 (flush) or M4×12**. `nut_pocket` param restores the old pocket
+  if wanted. S1/S2 keep their pockets (installed, working).
 - **S1/S2 stay installed** (correct as printed): three Ø10 printed legs drop
   into the existing leg sockets, M3 boss on top at panel height.
 - Plates, pixels, wiring untouched.
@@ -79,13 +93,14 @@ the sign when panels come off; wiring never leaves the box).
   confirm the supply voltage matches the pixel string — LRS-50 is 5/12/24 V.
 - **Gland plate** on the bottom-left outer wall: a small screwed-on plate
   (2 × M3 into wall bosses) over a rectangular opening, carrying both cable
-  entries — swap the plate, not the rail. V1 plate: **PG7** holes (Ø12.5
-  panel bore — user has stock; clamps 3–6.5 mm, fits the DC lead from the
-  external brick). A future internal-LRS-50 mains cord (3-wire SVT/SJT,
-  typically 6.5–8.5 mm OD) does NOT fit PG7 — print the **PG9** plate
-  (Ø15.2 bore, clamps 4–8 mm) at that point. Second hole = blanked spare
-  for a word-sign link. Fusing and relays live on the controller — no
-  separate fuse holder.
+  entries — swap the plate, not the rail. Default **PG9** (Ø15.2 bore,
+  clamps 4–8 mm — covers 3-wire SVT mains cord AND the DC lead; user has
+  stock); `gland` config param generates PG7 (Ø12.5) or PG11 (Ø18.6)
+  variants. **Plate is 2.5 mm thick at the gland seats** — PG thread length
+  is only ~8 mm and the locknut needs ~5, so anything over ~3.5 mm can't
+  clamp (user has been bitten by too-thick walls; generator asserts this).
+  Second hole = blanked spare for a word-sign link. Fusing and relays live
+  on the controller — no separate fuse holder.
 
 ## Fasteners / material / mass
 
@@ -105,7 +120,8 @@ total: 4 rails (2 with equipment trays) + 4 panels + 2 feet + 3 legs
 - qa_board.py grows frame checks: flange bosses == `bb_scr` kind-0 positions
   (axis-aware — see the chirality lesson), every segment/panel fits 316×295,
   panel screw bosses land on ledge/strap/leg supports, joint keys clear
-  screw holes.
+  screw holes, reveal lip clears every `bb_scr` hole rim, gland-plate seat
+  thickness ≤ 3.5 (PG clamp limit).
 - Print order: S3/S4 straps first (unblocks the strap swap), then rails,
   panels, feet.
 
