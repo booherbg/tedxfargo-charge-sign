@@ -62,11 +62,13 @@ bosses integrated into the two left corner-L rail segments (devices stay with
 the sign when panels come off; wiring never leaves the box).
 
 - **Controller (upper-left)**: Elite vertical along the rail, footprint
-  129 × 50 in the empty zone x < 100, y > 400; two bosses for the shell's end
-  screws (**spacing measured from the word-sign install** — config param).
-  Terminals face the cavity; antenna + WiFi work through PETG (RF-transparent).
-  USB-C/Ethernet/function button need the adjacent panel off — accepted, WLED
-  is OTA.
+  129 × 50 in the empty zone x < 100, y > 400; two bosses at the shell's
+  end-screw positions — **diagonal, 122.0 apart lengthwise × 26.0 across, at
+  12/38 of the 50 width, Ø4.6 clearance** (probed from docs/elite2d_mount.stl,
+  the word-sign adapter plate; no adapter needed here, controller screws
+  straight to the tray). Terminals face the cavity; antenna + WiFi work
+  through PETG (RF-transparent). USB-C/Ethernet/function button need the
+  adjacent panel off — accepted, WLED is OTA.
 - **PSU tray (lower-left, later)**: LRS-50 boss footprint (99 × 82, stands 30)
   next to the glands. Costs nothing until used. Before buying: confirm the
   supply voltage matches the pixel string — LRS-50 comes in 5/12/24 V.
@@ -99,6 +101,6 @@ total: 4 rails (2 with equipment trays) + 4 panels + 2 feet + 3 legs
 
 ## Measure-at-build inputs (config params, not blockers)
 
-Elite 2D-EXMU shell end-screw spacing (measure the word-sign install);
-existing supply-lead diameter (gland bore); plate-edge reveal preference
-(2 mm default, 0 disables).
+Existing supply-lead diameter (gland bore); plate-edge reveal preference
+(2 mm default, 0 disables). Controller screw geometry is NOT one of these —
+it's pinned by docs/elite2d_mount.stl (122.0 × 26.0 diagonal, Ø4.6).
