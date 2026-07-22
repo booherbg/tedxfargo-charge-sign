@@ -99,8 +99,18 @@ for p in ledge_boss:    # bosses must not sit inside a tray footprint
             f"ledge boss {p} inside {nm} tray"
 rail_boss = ([(126 - 21.5, y) for y in (330, 470)]     # S3 raised rails
            + [(126 + 21.5, y) for y in (330, 470)]
-           + [(153 - 21.5, y) for y in (60, 190)]      # S4
-           + [(153 + 21.5, y) for y in (60, 190)])
+           + [(153 - 21.5, y) for y in (60, 130)]      # S4 (190 was inside
+           + [(153 + 21.5, y) for y in (60, 130)])     # edge-slot cutouts)
+# rail bosses must clear the straps' edge-slot cuts (slots break the rails):
+# any pass hole with |v| > 12.5 on the same side voids the rail for ~10.5+
+bk_pass = grab(bk, "bk_pass")
+for x, y in rail_boss:
+    si, coord = (2, 126) if abs(x - 126) < 23 else (3, 153)
+    v = x - coord
+    for pu, pv in bk_pass[si]:
+        if abs(pv) > 12.5 and (pv > 0) == (v > 0):
+            assert abs(pu - y) >= 12, \
+                f"rail boss {(x, y)} inside an edge-slot cut (pass u={pu})"
 legs = [(q[0], 255.0) for s in SOCK for q in s]
 assert len(legs) == 3, "expected 3 S1/S2 leg sockets"
 supports = ledge_boss + rail_boss + legs

@@ -30,18 +30,19 @@ module handle() {
 
 // ---- 2: snap-in foot — arrowhead tab, blade 90 fore-aft ----
 module foot() {
+    // socket truth (frame.scad): channel 14.6 x 3.6, depth 9.0 from the
+    // rail bottom face; barb pocket 18.6 wide at depth 4.5..7.5.
+    // Tab: 8.9 reach (0.1 shy of bottoming), barbs at depth 4.7..7.3 with
+    // 1.0 protrusion (compression 2 x 0.7 fits the 2.0 slit), ramp on the
+    // leading (top) face, square shoulder catches the pocket's lower lip.
     translate([-12, -45, 0]) cube([24, 90, 6]);         // blade on the floor
-    translate([-7, -1.5, 5.9]) cube([14, 3, 12.1]);     // tab riser
     difference() {
-        union() {
-            translate([-7, -1.5, 12]) cube([14, 3, 6]);
-            for (s = [-1, 1])                            // barbs at the tips
-                translate([s * 7, -1.5, 15]) scale([1, 1, 1]) hull() {
-                    translate([s * -0.1, 0, 0]) cube([0.2, 3, 3]);
-                    translate([s * 1.6, 0, 2.9]) cube([0.2, 3, 0.1]);
-                }
-        }
-        translate([-1, -2, 10]) cube([2, 4, 8.2]);      // spring slit
+        translate([-7, -1.5, 5.9]) cube([14, 3, 8.9]);  // tab riser
+        translate([-1, -2, 8]) cube([2, 4, 7]);         // spring slit
+    }
+    for (s = [-1, 1]) hull() {                          // barbs
+        translate([s * 6.9 - 0.05, -1.5, 13.2]) cube([0.1, 3, 0.1]);
+        translate([s * 7.5 - 0.5, -1.5, 10.7]) cube([1.0, 3, 1.2]);
     }
 }
 

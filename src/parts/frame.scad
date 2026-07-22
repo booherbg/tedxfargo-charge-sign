@@ -114,7 +114,7 @@ module cuts() {
                 cylinder(h = fr_wall + 6.2, d = 2.8);
     } else
         translate([ox0 - 0.1, fr_gland[0], fr_gland[1]]) rotate([0, 90, 0])
-            cylinder(h = fr_wall + 0.2, d = 12.5);
+            cylinder(h = fr_wall + 0.2, d = 12.8);  // +0.3 print allowance
     for (q = fr_ctl_ext)                  // exterior controller pilots
         translate([ox0 - 0.1, q[0], q[1]]) rotate([0, 90, 0])
             cylinder(h = fr_wall + 6.2, d = 3.4);
