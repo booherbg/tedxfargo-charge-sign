@@ -80,6 +80,9 @@ TRIM = 0        # v1.1: trim dropped (user) — no groove, clean outer face
 # body spans z 0.4..50.4 (back face coplanar with the panel plane)
 ctl_ext = [(99.0, 12.4), (221.0, 38.4)]
 GLAND = (275.0, 19.0)           # (y along wall, z) hole center, left wall
+GLAND_D = 6.6   # v1.2: plain 1/4in cable pass (6.35 + print allowance) —
+                # user has no need for a full gland; zip-tie inside = strain
+                # relief. Set 12.8 for PG7, or GLAND_PLATE=1 for the plate.
 ext_top = (ctl_ext[0][0] + ctl_ext[1][0]) / 2 + 64.5   # controller top end
 assert GLAND[0] - ext_top >= 45, "gland must sit ~2 in above the controller"
 assert GLAND[0] + (6.25 if not GLAND_PLATE else 22.5) + 2 <= JY - 15, \
@@ -159,6 +162,7 @@ with open("src/parts/frame_layout.scad", "w") as f:
     f.write("fr_gland=[%.1f,%.1f];\n" % GLAND)
     f.write("fr_gland_plate=%d;\n" % GLAND_PLATE)
     f.write("fr_trim=%d;\n" % TRIM)
+    f.write("fr_gland_d=%.1f;\n" % GLAND_D)
     f.write("fr_handle=[%s];\n" % ",".join(
         "[%.1f,%.1f,%.1f,%.1f]" % h for h in HANDLE))
     f.write("fr_feet=[%.1f,%.1f];\n" % tuple(FEET))
