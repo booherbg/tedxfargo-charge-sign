@@ -17,14 +17,16 @@ module handle() {
     difference() {
         linear_extrude(15) rrect(120, 44, 8);           // z = thickness (15)
         translate([0, 4, -0.1]) linear_extrude(15.2) rrect(96, 24, 7);
-        for (s = [-1, 1]) translate([s * 40, -16, 0]) {
-            translate([0, 0, -0.1]) cylinder(h = 15.4, d = 4.5);
-        }
+        // bolts run DOWN (-y) through the 14 mm base into the rail pads —
+        // drive them from above, through the grip opening; head + washer
+        // bear on the grip floor. Axis at mid-thickness (z 7.5) pairs with
+        // the rail pilot at wz1 - 7.5 for an exactly back-flush mount.
+        for (s = [-1, 1]) translate([s * 40, -22.1, 7.5]) rotate([-90, 0, 0])
+            cylinder(h = 14.3, d = 4.5);
     }
 }
-// bolt holes run through the 12 mm base (y -22..-10); heads sit in the grip:
-// drilled above as plain Ø4.5 through z — the M4 self-taps the rail pad, the
-// head + washer bear on the handle base inside the grip opening.
+// installed: the handle STANDS on the top rail's top face (grip up), its
+// 15 mm thickness fore-aft, back face coplanar with the back panels.
 
 // ---- 2: snap-in foot — arrowhead tab, blade 90 fore-aft ----
 module foot() {

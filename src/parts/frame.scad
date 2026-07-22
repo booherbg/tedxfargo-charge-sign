@@ -118,9 +118,10 @@ module cuts() {
     for (q = fr_ctl_ext)                  // exterior controller pilots
         translate([ox0 - 0.1, q[0], q[1]]) rotate([0, 90, 0])
             cylinder(h = fr_wall + 6.2, d = 3.4);
-    for (h = fr_handle) for (bx = [h[2], h[3]])   // handle bolts: down (-y)
-        translate([bx, oy1 + 0.1, wz1 - 6]) rotate([90, 0, 0])
-            cylinder(h = fr_wall + 14.2, d = 3.4);        // 6 off back plane
+    for (h = fr_handle) for (bx = [h[2], h[3]])   // handle bolts: down (-y),
+        translate([bx, oy1 + 0.1, wz1 - 7.5]) rotate([90, 0, 0])
+            cylinder(h = fr_wall + 14.2, d = 3.4);  // 7.5 off the back plane
+            // = the handle's mid-thickness -> back face lands flush
     for (fx = fr_feet) {                  // feet snap sockets, entered below:
         translate([fx - 7.3, oy0 - 0.1, 0.8])             // prong channel
             cube([14.6, fr_wall + 6.1, 3.6]);
