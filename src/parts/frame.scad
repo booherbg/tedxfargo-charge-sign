@@ -132,9 +132,11 @@ module cuts() {
         linear_extrude(4.2) bowtie(0.15);
     translate([fr_joint[0], iny1 - 8 + 4.1, 19]) rotate([90, 0, 0])
         linear_extrude(4.2) bowtie(0.15);
-    translate([inx0 + 8 + 0.1, fr_joint[1], 19]) rotate([90, 0, 90])
+    // side pockets: extrusion must run INTO the pads (rotate [90,0,90]
+    // extrudes +x — that cut air on the left; caught on the seg1 slice)
+    translate([inx0 + 8 + 0.1, fr_joint[1], 19]) rotate([90, 0, -90])
         linear_extrude(4.2) bowtie(0.15);
-    translate([inx1 - 8 + 4.1, fr_joint[1], 19]) rotate([90, 0, 90])
+    translate([inx1 - 8 - 0.1, fr_joint[1], 19]) rotate([90, 0, 90])
         linear_extrude(4.2) bowtie(0.15);
     for (jx = [fr_joint[0] - 8, fr_joint[0] + 8]) {
         translate([jx, oy0 - 0.1, 19]) rotate([-90, 0, 0])

@@ -336,6 +336,19 @@ for k in (1, 2, 3, 4):
     bh = max(v[1] for v in vs) - min(v[1] for v in vs)
     check("frame_panel%d fits 316x295" % k,
           min(bw, bh) <= 295 and max(bw, bh) <= 316, "%.0fx%.0f" % (bw, bh))
+# dovetail pockets present at BOTH cut ends of every segment (the side
+# pockets were once extruded into cavity air — user caught it on a slice)
+pock = {1: [(196.5, 6.9, 208.5, 11.1), (6.9, 291.5, 11.1, 303.5)],
+        2: [(0, 6.9, 12, 11.1), (197.4, 291.5, 201.6, 303.5)],
+        3: [(0, 242.4, 12, 246.6), (197.4, 0, 201.6, 12)],
+        4: [(196.5, 242.4, 208.5, 246.6), (6.9, 0, 11.1, 12)]}
+for k, boxes in pock.items():
+    vs = vset(read_stl("stl/frame_seg%d.stl" % k))
+    ns = [sum(1 for v in vs if b[0] - 0.4 < v[0] < b[2] + 0.4
+              and b[1] - 0.4 < v[1] < b[3] + 0.4
+              and 11.5 < v[2] < 26.5) for b in boxes]
+    check("frame_seg%d key pockets at both ends" % k,
+          all(n >= 8 for n in ns), "verts %s" % ns)
 
 # ---- E. meshes ----
 for p in ["stl/board%d_3color.3mf" % k for k in (1, 2, 3, 4)]:

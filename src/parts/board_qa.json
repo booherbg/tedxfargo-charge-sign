@@ -251,6 +251,26 @@
    "detail": "207x252"
   },
   {
+   "name": "frame_seg1 key pockets at both ends",
+   "ok": true,
+   "detail": "verts [17, 17]"
+  },
+  {
+   "name": "frame_seg2 key pockets at both ends",
+   "ok": true,
+   "detail": "verts [17, 17]"
+  },
+  {
+   "name": "frame_seg3 key pockets at both ends",
+   "ok": true,
+   "detail": "verts [17, 17]"
+  },
+  {
+   "name": "frame_seg4 key pockets at both ends",
+   "ok": true,
+   "detail": "verts [17, 17]"
+  },
+  {
    "name": "stl/board1_3color.3mf manifold",
    "ok": true,
    "detail": "0 bad edges"
