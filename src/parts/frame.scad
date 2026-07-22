@@ -71,6 +71,16 @@ module body() {
     for (q = fr_ctl_ext)
         translate([inx0, q[0], q[1]]) rotate([0, 90, 0])
             cylinder(h = 6, d = 10);
+    // zip-tie fin inboard of the cable hole: saddle at hole height cradles
+    // the cable, tie threads the slot below and lashes it (strain relief)
+    if (!fr_gland_plate) difference() {
+        translate([5, fr_gland[0] - 8, 4]) cube([3, 16, 22]);
+        translate([4.9, fr_gland[0], fr_gland[1]]) rotate([0, 90, 0])
+            cylinder(h = 3.2, d = 6.8);                   // saddle root
+        translate([4.9, fr_gland[0] - 3.4, fr_gland[1]])
+            cube([3.2, 6.8, 22]);                         // open the top
+        translate([4.9, fr_gland[0] - 4, 6]) cube([3.2, 8, 6]);  // tie slot
+    }
     // feet pads on the bottom wall inner face
     for (fx = fr_feet)
         translate([fx - 18, iny0 - 0.1, 0]) cube([36, 12.1, 14]);
