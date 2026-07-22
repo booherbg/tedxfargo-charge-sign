@@ -26,7 +26,7 @@ for S in 1 2; do
     2>"stl/strap${S}.log" && echo "  ok strap_s${S}"
 done
 for S in 3 4; do
-  "$OSCAD" -D STRAP=$S -D bk_rail_h=32 -D bk_nut_pocket=0 \
+  "$OSCAD" -D STRAP=$S -D bk_rail_h=44 -D bk_nut_pocket=0 \
     -o "stl/strap_s${S}.stl" src/parts/bracket.scad \
     2>"stl/strap${S}.log" && echo "  ok strap_s${S} (tall)"
 done
@@ -39,8 +39,6 @@ python3 tools/boltframe.py
 for G in 1 2 3 4; do
   "$OSCAD" -D SEG=$G -o "stl/frame_seg${G}.stl" src/parts/frame.scad \
     2>"stl/frameseg${G}.log" && echo "  ok frame_seg${G}"
-  "$OSCAD" -D PART=6 -D SEG=$G -o "stl/frame_trim${G}.stl" \
-    src/parts/frame_parts.scad 2>/dev/null && echo "  ok frame_trim${G}"
 done
 for P in 1 2 3 4; do
   "$OSCAD" -D PANEL=$P -o "stl/frame_panel${P}.stl" src/parts/frame_panel.scad \

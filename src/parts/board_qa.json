@@ -186,9 +186,9 @@
    "detail": "min 10.7"
   },
   {
-   "name": "PSU stack fits: floor 4 + LRS 30 + 2 clear <= cavity 36",
+   "name": "PSU stack fits: floor 4 + LRS 30 + 2 clear <= cavity",
    "ok": true,
-   "detail": "36.0"
+   "detail": "cavity 48.0"
   },
   {
    "name": "trim reveal clears every screw rim (>= 0.5 mm)",
@@ -352,26 +352,6 @@
   },
   {
    "name": "stl/frame_panel4.stl manifold",
-   "ok": true,
-   "detail": "0 bad edges"
-  },
-  {
-   "name": "stl/frame_trim1.stl manifold",
-   "ok": true,
-   "detail": "0 bad edges"
-  },
-  {
-   "name": "stl/frame_trim2.stl manifold",
-   "ok": true,
-   "detail": "0 bad edges"
-  },
-  {
-   "name": "stl/frame_trim3.stl manifold",
-   "ok": true,
-   "detail": "0 bad edges"
-  },
-  {
-   "name": "stl/frame_trim4.stl manifold",
    "ok": true,
    "detail": "0 bad edges"
   },

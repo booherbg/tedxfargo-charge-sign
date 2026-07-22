@@ -162,14 +162,14 @@ CS = '''<svg viewBox="0 0 470 246" role="img" aria-label="Rail cross-section">
 <rect class="csrail" x="250" y="48" width="12" height="152"/>
 <rect class="csrail" x="358" y="48" width="12" height="152"/>
 <line class="csdim" x1="440" y1="48" x2="440" y2="200"/>
-<text class="lab" x="447" y="128">36</text>
+<text class="lab" x="447" y="128">__CAV__</text>
 <line class="csdim" x1="418" y1="200" x2="418" y2="210"/>
 <text class="lab" x="425" y="209">2.4</text>
 <line class="csdim" x1="30" y1="228" x2="94" y2="228"/>
 <text class="lab" x="98" y="231">flange 16</text>
 <text class="lab" x="6" y="24">snap trim ↰</text>
 <text class="lab" x="132" y="36">plate 2 + front channels</text>
-<text class="lab" x="255" y="76">S3/S4: web 4 + rail 32</text>
+<text class="lab" x="255" y="76">S3/S4: web 4 + rail __RAIL__</text>
 <text class="lab" x="66" y="196">ledge 8</text>
 <text class="lab" x="150" y="146">cavity: LRS-50/75/100 fit (all 30 tall)</text>
 </svg>'''
@@ -186,8 +186,8 @@ POD = f'''<svg viewBox="0 0 250 240" role="img" aria-label="Equipment tray detai
 <text class="lab" x="94" y="196" text-anchor="middle">slots 50/75 · rounds 100 · max 3 deep</text>
 <circle class="bossp" cx="59" cy="157" r="2.5"/><circle class="bossp" cx="126" cy="157" r="2.5"/>
 <line class="csdim" x1="222" y1="30" x2="222" y2="206"/>
-<text class="lab" x="228" y="122">36</text>
-<text class="lab" x="34" y="228">both lie flat on 4 mm tray floors → 36 clears all</text>
+<text class="lab" x="228" y="122">__CAV__</text>
+<text class="lab" x="34" y="228">flat on 4 mm floors · ext controller flush on the 50 wall</text>
 </svg>'''
 
 FEET = '''<svg viewBox="0 0 250 240" role="img" aria-label="Foot snap detail">
@@ -299,7 +299,7 @@ ul li { margin:5px 0; } ul b { color:var(--ink); font-weight:600; }
   trays, and fixings from the generated frame_layout — this page shows what the
   rendered part files actually contain (QA: __QA__).</p>
   <div class="kv">
-    <div><span>cavity </span><b>36 mm</b></div>
+    <div><span>cavity </span><b>__CAV__ mm</b></div>
     <div><span>printed parts </span><b>18 + coupon</b></div>
     <div><span>frame bosses </span><b>__NWOOD__ reused holes</b></div>
     <div><span>v1 wiring </span><b>ctl outside · PG7 in wall</b></div>
@@ -333,7 +333,7 @@ ul li { margin:5px 0; } ul b { color:var(--ink); font-weight:600; }
       <li><b>gland</b> — v1: PG7 threads the 3.0 wall directly at y=275 (3× 18AWG jacketed ≈ 5.5–6.5 OD fits 3–6.5 clamp); GLAND_PLATE=1 restores the internal-PSU plate config</li>
       <li><b>Strap screws</b> — S3/S4 flat seats: M4×10/12 + washer/nut
         (M4×8 stock too short)</li>
-      <li><b>reveal</b> — 2 mm snap-on trim strips; skip printing trim = 0</li>
+      <li><b>trim</b> — dropped in v1.1 (fr_trim=0, no groove); PART=6 still prints if wanted</li>
     </ul>
     <p class="note" style="margin-top:14px">Print order: coupon → S3/S4 straps →
     rails → panels → handles/feet/legs/trim/gland plate.</p>
@@ -343,6 +343,7 @@ ul li { margin:5px 0; } ul b { color:var(--ink); font-weight:600; }
 page = (page.replace("__MAIN__", main_svg).replace("__CS__", CS)
             .replace("__POD__", POD).replace("__FEET__", FEET)
             .replace("__NWOOD__", str(n_wood))
+            .replace("__CAV__", "%.0f" % CAV).replace("__RAIL__", "%.0f" % (CAV - 4))
             .replace("__QA__", "%d checks, %d fail" %
                      (len(qa["checks"]), qa["fail"])))
 out = "docs/sign-preview/frame-preview.html"

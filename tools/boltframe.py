@@ -13,7 +13,7 @@ bk = open("src/parts/bracket_layout.scad").read()
 SCR, PX, BITE = grab(bl, "bb_scr"), grab(bl, "bb_px"), grab(bl, "bb_bite")
 SOCK = grab(bk, "bk_socket")
 FW, FH = 410.0, 550.0
-CLR, WALL, CAV, PT = 0.5, 3.0, 36.0, 2.4
+CLR, WALL, CAV, PT = 0.5, 3.0, 48.0, 2.4
 FLW, FLT, LGW, LGT, REV = 16.0, 4.0, 8.0, 4.0, 2.0
 JX, JY = 205.0, 300.0   # JY=300 keeps the side joints off the (6,275)/(404,275)
                         # screw bosses AND off the S1/S2 strap band (231..279)
@@ -75,7 +75,10 @@ ctl_holes = [(round(cx - 13*ctl_diag, 2), round(cy - 61, 2)),
 # (output) end. PG7 threads the 3.0 wall directly (clamp limit 3.5) — no
 # plate. The internal-PSU gland-plate config is kept behind GLAND_PLATE.
 GLAND_PLATE = 0
-ctl_ext = [(99.0, 6.2), (221.0, 32.2)]
+TRIM = 0        # v1.1: trim dropped (user) — no groove, clean outer face
+# flush exterior mount: wall = CAV + 2.4 = 50.4 >= the Elite's 50 width;
+# body spans z 0.4..50.4 (back face coplanar with the panel plane)
+ctl_ext = [(99.0, 12.4), (221.0, 38.4)]
 GLAND = (275.0, 19.0)           # (y along wall, z) hole center, left wall
 ext_top = (ctl_ext[0][0] + ctl_ext[1][0]) / 2 + 64.5   # controller top end
 assert GLAND[0] - ext_top >= 45, "gland must sit ~2 in above the controller"
@@ -145,6 +148,7 @@ with open("src/parts/frame_layout.scad", "w") as f:
     f.write("fr_ctl_ext=%s;\n" % fmt(ctl_ext))
     f.write("fr_gland=[%.1f,%.1f];\n" % GLAND)
     f.write("fr_gland_plate=%d;\n" % GLAND_PLATE)
+    f.write("fr_trim=%d;\n" % TRIM)
     f.write("fr_handle=[%s];\n" % ",".join(
         "[%.1f,%.1f,%.1f,%.1f]" % h for h in HANDLE))
     f.write("fr_feet=[%.1f,%.1f];\n" % tuple(FEET))

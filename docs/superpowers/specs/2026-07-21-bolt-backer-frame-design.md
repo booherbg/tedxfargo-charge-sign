@@ -34,6 +34,15 @@ internal trays, PSU patterns, gland plate — is BUILT and KEPT as the
 enclosed-future path; `GLAND_PLATE = 1` in tools/boltframe.py restores the
 plate opening for the internal-PSU pivot (rails reprint required then).
 
+**V1.1 (2026-07-22, user): cavity 36 → 48, trim dropped.** Wall becomes
+50.4 ≥ the Elite's 50 width, so the exterior controller sits FULLY FLUSH on
+the outer face (body z 0.4..50.4, back coplanar with the panel plane — no
+front/back overhang, wall-hang unaffected). Trim strips and their groove are
+dropped (`TRIM = 0`; PART=6 remains printable if ever wanted). S3/S4 rails
+8 → 44, legs parametrized to `fr_cavity`. Sign body ≈ 52 mm behind the plate
+front. Note: the controller DOES fit INSIDE lying flat (27 < cavity) — the
+deepening is only for the flush wall-face mount; interior tray unchanged.
+
 ## Frame rails (4 corner-L segments, white PETG)
 
 - C-channel: **flange** 16 × 4 mm behind the plate perimeter with 14 pilot

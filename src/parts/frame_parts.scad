@@ -48,8 +48,8 @@ module leg() {
     cylinder(h = 13, d = 10.0);                          // socket pin
     translate([0, 0, 13]) cylinder(h = 2, d = 14);       // shoulder on boss
     translate([0, 0, 15]) difference() {
-        cylinder(h = 21, d = 10);                        // column to panel
-        translate([0, 0, 13.1]) cylinder(h = 8, d = 2.8);
+        cylinder(h = fr_cavity - 15, d = 10);            // column to panel
+        translate([0, 0, fr_cavity - 22.9]) cylinder(h = 8, d = 2.8);
     }
 }
 

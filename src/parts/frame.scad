@@ -119,7 +119,7 @@ module cuts() {
         translate([ox0 - 0.1, q[0], q[1]]) rotate([0, 90, 0])
             cylinder(h = fr_wall + 6.2, d = 3.4);
     for (h = fr_handle) for (bx = [h[2], h[3]])   // handle bolts: down (-y)
-        translate([bx, oy1 + 0.1, 32.4]) rotate([90, 0, 0])
+        translate([bx, oy1 + 0.1, wz1 - 6]) rotate([90, 0, 0])
             cylinder(h = fr_wall + 14.2, d = 3.4);        // 6 off back plane
     for (fx = fr_feet) {                  // feet snap sockets, entered below:
         translate([fx - 7.3, oy0 - 0.1, 0.8])             // prong channel
@@ -150,8 +150,8 @@ module cuts() {
         translate([ox1 + 0.1, jy, 19]) rotate([0, -90, 0])
             cylinder(h = fr_wall + 8.2, d = 2.8);
     }
-    // trim snap groove, full perimeter on the outer face (z 5.5..7.5, .8 in)
-    translate([0, 0, 5.5]) linear_extrude(2) difference() {
+    // trim snap groove (only when trim strips are in use)
+    if (fr_trim) translate([0, 0, 5.5]) linear_extrude(2) difference() {
         translate([ox0 - 0.01, oy0 - 0.01])
             square([ox1 - ox0 + 0.02, oy1 - oy0 + 0.02]);
         translate([ox0 + 0.8, oy0 + 0.8])

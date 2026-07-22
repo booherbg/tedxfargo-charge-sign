@@ -201,7 +201,7 @@ for i, name in enumerate(NAMES):
     tris = read_stl("stl/strap_s%d.stl" % (i+1))
     verts = vset(tris)
     bad = []
-    want_h = (4.0 + 32.0) if name in TALL else (4.0 + 8.0)
+    want_h = (4.0 + 44.0) if name in TALL else (4.0 + 8.0)
     if bk_socket[i]:                    # leg-socket bosses stand web + 10
         want_h = max(want_h, 4.0 + 10.0)
     zmax = max(v[2] for v in verts)
@@ -307,8 +307,9 @@ check("PSU tray >= 11 mm from every pixel", tray_clear(fr_tpsu) >= 11.0,
       "min %.1f" % tray_clear(fr_tpsu))
 check("controller tray >= 10.5 mm from every pixel", tray_clear(fr_tctl) >= 10.5,
       "min %.1f" % tray_clear(fr_tctl))
-check("PSU stack fits: floor 4 + LRS 30 + 2 clear <= cavity 36",
-      4 + 30 + 2 <= 36, "36.0")
+cavq = float(re.search(r"fr_cavity=([\d.]+)", fl).group(1))
+check("PSU stack fits: floor 4 + LRS 30 + 2 clear <= cavity",
+      4 + 30 + 2 <= cavq, "cavity %.1f" % cavq)
 check("trim reveal clears every screw rim (>= 0.5 mm)",
       all(min(x, y, 410-x, 550-y) - 2.25 >= 2.5 for x, y in fr_boss), "14 ok")
 check("segment joints clear of all bosses (>= 12 mm)",
@@ -362,7 +363,6 @@ for p in ["stl/board%d_3color.3mf" % k for k in (1, 2, 3, 4)]:
 for p in (["stl/strap_s%d.stl" % k for k in (1, 2, 3, 4)] + ["stl/pusher.stl"]
           + ["stl/frame_seg%d.stl" % k for k in (1, 2, 3, 4)]
           + ["stl/frame_panel%d.stl" % k for k in (1, 2, 3, 4)]
-          + ["stl/frame_trim%d.stl" % k for k in (1, 2, 3, 4)]
           + ["stl/frame_%s.stl" % n for n in
              ("handle", "foot", "leg", "gland_pg9", "key", "coupon")]):
     tb = stl_bad_edges(read_stl(p))
