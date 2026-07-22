@@ -85,13 +85,22 @@ module toring(grow, w) difference() {     // band outside->inboard, grown out
     translate([ox0 + w, oy0 + w])
         square([ox1 - ox0 - 2*w, oy1 - oy0 - 2*w]);
 }
-module trim_body() {
-    // face leg: covers wall edge + clearance + 2 mm reveal onto the plate
-    translate([0, 0, -3.6]) linear_extrude(1.6)
-        toring(1.6, fr_wall + fr_clr + fr_reveal);
-    // skirt down the outer face with an inward snap bead into the groove
-    translate([0, 0, -3.6]) linear_extrude(11.6) toring(1.6, 0.01);
-    translate([0, 0, 5.7]) linear_extrude(1.6) toring(0.01, 0.7);
+module trim_body() difference() {
+    union() {
+        // face leg: covers wall edge + clearance + 2 mm reveal on the plate
+        translate([0, 0, -3.6]) linear_extrude(1.6)
+            toring(1.6, fr_wall + fr_clr + fr_reveal);
+        // skirt down the outer face; with fr_trim the snap bead engages the
+        // wall groove, otherwise it is FLAT for VHB tape / CA glue (v1
+        // segments printed grooveless)
+        translate([0, 0, -3.6]) linear_extrude(11.6) toring(1.6, 0.01);
+        if (fr_trim)
+            translate([0, 0, 5.7]) linear_extrude(1.6) toring(0.01, 0.7);
+    }
+    for (fx = fr_feet)              // keep the feet sockets insertable
+        translate([fx - 11, oy0 - 3.8, -2.05]) cube([22, 4, 10.2]);
+    // clear the exterior controller footprint on the left wall (seg1)
+    translate([ox0 - 3.8, 90, -2.05]) cube([4, 142, 10.2]);
 }
 clipx = [[ox0 - 2, fr_joint[0]], [fr_joint[0], ox1 + 2],
          [fr_joint[0], ox1 + 2], [ox0 - 2, fr_joint[0]]][SEG - 1];
