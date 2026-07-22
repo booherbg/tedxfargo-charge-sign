@@ -206,9 +206,9 @@
    "detail": "[]"
   },
   {
-   "name": "gland seat 2.5 <= 3.5 (PG clamp limit)",
+   "name": "gland seat <= 3.5 (PG clamp limit)",
    "ok": true,
-   "detail": "2.5 mm plate"
+   "detail": "PG7 direct through the 3.0 wall"
   },
   {
    "name": "frame_seg1 fits 316x295",

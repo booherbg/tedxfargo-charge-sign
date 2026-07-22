@@ -22,6 +22,18 @@ later drop-in.
 Total sign body ≈ 40 mm behind the plate front (plate 2 + cavity 36 + panel
 2.4), plus the front shell as built.
 
+**V1 AS-BUILT CONFIGURATION (2026-07-22, user simplification):** controller
+mounts OUTSIDE on the left-wall pads (`fr_ctl_ext`, screws at the probed
+122 × 26 diagonal, body spans y ≈ 96..225), fed by a plug-in PSU — nothing
+electrical inside. One **PG7 gland threaded directly into the 3.0 mm wall**
+(Ø12.5 hole at y = 275, z = 19; 3.0 ≤ the 3.5 clamp limit, so no plate)
+passes the single jacketed 3 × 18 AWG V+/V−/D line into the cavity, 50 mm
+(2 in) above the controller's top/output end for working room — the position
+is capped by the y = 300 segment joint (asserted). Everything below —
+internal trays, PSU patterns, gland plate — is BUILT and KEPT as the
+enclosed-future path; `GLAND_PLATE = 1` in tools/boltframe.py restores the
+plate opening for the internal-PSU pivot (rails reprint required then).
+
 ## Frame rails (4 corner-L segments, white PETG)
 
 - C-channel: **flange** 16 × 4 mm behind the plate perimeter with 14 pilot

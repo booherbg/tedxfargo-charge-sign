@@ -64,9 +64,10 @@ module body() {
     // handle pads under the top face, gland pilot pads, exterior ctl pads
     for (h = fr_handle) for (bx = [h[2], h[3]])
         translate([bx - 10, iny1 - 12, wz1 - 12]) cube([20, 12, 12]);
-    for (gy = [fr_gland[0] - 20, fr_gland[0] + 20])
-        translate([inx0, gy, fr_gland[1]]) rotate([0, 90, 0])
-            cylinder(h = 6, d = 7);
+    if (fr_gland_plate)
+        for (gy = [fr_gland[0] - 20, fr_gland[0] + 20])
+            translate([inx0, gy, fr_gland[1]]) rotate([0, 90, 0])
+                cylinder(h = 6, d = 7);
     for (q = fr_ctl_ext)
         translate([inx0, q[0], q[1]]) rotate([0, 90, 0])
             cylinder(h = 6, d = 10);
@@ -101,14 +102,19 @@ module cuts() {
         }
     for (q = fr_ctl_holes)                // Elite shell end screws
         translate([q[0], q[1], -0.1]) cylinder(h = fr_flange_t + 0.2, d = 3.2);
-    // gland: outer-face recess + through opening + 2 pilots
-    translate([ox0 - 0.1, fr_gland[0] - 22.5, fr_gland[1] - 15])
-        cube([1.6, 45, 30]);
-    translate([ox0 - 0.1, fr_gland[0] - 18, fr_gland[1] - 11])
-        cube([fr_wall + 6.2, 36, 22]);
-    for (gy = [fr_gland[0] - 20, fr_gland[0] + 20])
-        translate([ox0 - 0.1, gy, fr_gland[1]]) rotate([0, 90, 0])
-            cylinder(h = fr_wall + 6.2, d = 2.8);
+    // gland: v1 = PG7 threaded straight into the 3.0 wall (Ø12.5 hole,
+    // clamp limit 3.5); plate mode = outer recess + opening + 2 pilots
+    if (fr_gland_plate) {
+        translate([ox0 - 0.1, fr_gland[0] - 22.5, fr_gland[1] - 15])
+            cube([1.6, 45, 30]);
+        translate([ox0 - 0.1, fr_gland[0] - 18, fr_gland[1] - 11])
+            cube([fr_wall + 6.2, 36, 22]);
+        for (gy = [fr_gland[0] - 20, fr_gland[0] + 20])
+            translate([ox0 - 0.1, gy, fr_gland[1]]) rotate([0, 90, 0])
+                cylinder(h = fr_wall + 6.2, d = 2.8);
+    } else
+        translate([ox0 - 0.1, fr_gland[0], fr_gland[1]]) rotate([0, 90, 0])
+            cylinder(h = fr_wall + 0.2, d = 12.5);
     for (q = fr_ctl_ext)                  // exterior controller pilots
         translate([ox0 - 0.1, q[0], q[1]]) rotate([0, 90, 0])
             cylinder(h = fr_wall + 6.2, d = 3.4);

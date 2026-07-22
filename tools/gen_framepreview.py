@@ -101,12 +101,16 @@ for q in F["fr_ctl_ext"]:      # exterior option pads (left wall, y along wall)
     em(f'<circle class="extp" cx="{OX0}" cy="{fy(q[0])}" r="3"/>')
 gy = F["fr_gland"][0]
 em(f'<circle class="gland" cx="{OX0}" cy="{fy(gy)}" r="4.2"/>')
-em(f'<path class="wire" d="M {OX0+3} {fy(gy+2)} C 8 {fy(140)}, 8 {fy(300)}, '
-   f'30 {fy(tp[1]+20)}"/>')
+exts = F["fr_ctl_ext"]
+ec = (exts[0][0] + exts[1][0]) / 2
+em(f'<rect class="podunit" x="{OX0-9}" y="{fy(ec+64.5)}" width="9" height="129" rx="2"/>')
+em(f'<text class="lab" x="{OX0-14}" y="{fy(ec)}" text-anchor="end">Elite (v1: outside)</text>')
+em(f'<path class="wire" d="M {OX0-4} {fy(ec+66)} C {OX0-10} {fy(250)}, '
+   f'{OX0-6} {fy(268)}, {OX0-1} {fy(gy)}"/>')
 em(f'<path class="wire" d="M {tp[2]-40} {fy(tp[3]+4)} C 180 {fy(547)}, 300 '
    f'{fy(545)}, {(tc[0]+tc[2])/2} {fy(tc[3]+2)}"/>')
-em(f'<path class="wire" d="M {(tc[0]+tc[2])/2} {fy(tc[1]-2)} C 330 {fy(300)}, '
-   f'240 {fy(210)}, 199 {fy(182)}"/>')
+em(f'<path class="wire" d="M {OX0+3} {fy(gy)} C 60 {fy(258)}, 140 {fy(220)}, '
+   f'199 {fy(184)}"/>')
 em(f'<circle class="entry" cx="194.4" cy="{fy(179.6)}" r="5.5"/>')
 
 # joints, handles, feet
@@ -123,17 +127,16 @@ for sx in F["fr_feet"]:
 CALL = [
     (418, fy(556), "handles ×2 · carry + flush wall-hang", 350, -11),
     (418, fy(505), "exhaust louvers + PSU/Elite bays", 340, fy(505)),
-    (418, fy(470), f"Elite tray · holes {F['fr_ctl_holes'][0][0]:.0f}/{F['fr_ctl_holes'][1][0]:.0f} diag", tc[2], fy(470)),
+    (418, fy(470), "Elite tray (future internal option)", tc[2], fy(470)),
     (418, fy(JY), "corner-L joint (dovetail + M3)", OX1 + 1, fy(JY)),
     (418, fy(240), "S1/S2 stay · Ø10 legs ×3", 370, fy(255)),
     (418, fy(180), "data enters chain px 0", 200, fy(179)),
     (418, fy(140), "flange band · 14 reused screws", 404, fy(130)),
     (418, fy(38), "intake louvers + snap feet", 330, fy(30)),
-    (-52, fy(480), "PSU tray · slots fit 50/75, rounds 100", tp[0], fy(480)),
-    (-52, fy(300), "mains up the left wall", 8, fy(300)),
-    (-52, fy(165), "ext controller pads (option)", OX0 - 3, fy(165)),
-    (-52, fy(70), "PG9 gland — printed open", OX0 - 5, fy(70)),
-]
+    (-52, fy(480), "PSU tray (future internal option)", tp[0], fy(480)),
+    (-52, fy(292), "PG7 direct: V+/V−/D in, 2in over ctl", OX0 - 2, fy(276)),
+    (-52, fy(120), "controller pads · plug-in PSU feeds it", OX0 - 3, fy(120)),
+    ]
 for tx, ty, label, ax, ay in CALL:
     anchor = "start" if tx > 0 else "end"
     lx = tx - 3 if tx > 0 else tx + 3
@@ -299,7 +302,7 @@ ul li { margin:5px 0; } ul b { color:var(--ink); font-weight:600; }
     <div><span>cavity </span><b>36 mm</b></div>
     <div><span>printed parts </span><b>18 + coupon</b></div>
     <div><span>frame bosses </span><b>__NWOOD__ reused holes</b></div>
-    <div><span>equipment </span><b>all internal · 1 gland</b></div>
+    <div><span>v1 wiring </span><b>ctl outside · PG7 in wall</b></div>
     <div><span>QA </span><b>__QA__</b></div>
   </div>
 </header>
@@ -327,7 +330,7 @@ ul li { margin:5px 0; } ul b { color:var(--ink); font-weight:600; }
         regenerate, THEN print rails</li>
       <li><b>psu</b> — slots fit LRS-50/75, rounds fit LRS-100; screws M3, max
         3 mm into the case</li>
-      <li><b>gland</b> — PG9 printed open (PG7/PG11 = swap plates)</li>
+      <li><b>gland</b> — v1: PG7 threads the 3.0 wall directly at y=275 (3× 18AWG jacketed ≈ 5.5–6.5 OD fits 3–6.5 clamp); GLAND_PLATE=1 restores the internal-PSU plate config</li>
       <li><b>Strap screws</b> — S3/S4 flat seats: M4×10/12 + washer/nut
         (M4×8 stock too short)</li>
       <li><b>reveal</b> — 2 mm snap-on trim strips; skip printing trim = 0</li>

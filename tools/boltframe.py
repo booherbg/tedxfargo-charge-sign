@@ -69,11 +69,18 @@ cx, cy = (TRAY_CTL[0]+TRAY_CTL[2])/2, (TRAY_CTL[1]+TRAY_CTL[3])/2
 ctl_holes = [(round(cx - 13*ctl_diag, 2), round(cy - 61, 2)),
              (round(cx + 13*ctl_diag, 2), round(cy + 61, 2))]
 
-# exterior controller option (temporary non-frame-PSU config): pads on the
-# LEFT wall outside, (y along wall, z up the wall), same 122 x 26 diagonal
-ctl_ext = [(104.0, 6.2), (226.0, 32.2)]
-GLAND = (70.0, 19.0)            # (y along wall, z) hole center, left wall low
-assert ctl_ext[0][0] - GLAND[0] >= 30, "ext pads must clear the gland recess"
+# v1 wiring config (2026-07-22, user): controller OUTSIDE on the left-wall
+# pads (same 122 x 26 diagonal), plug-in PSU, and a single PG7 gland passing
+# the 3x18AWG V+/V-/D line into the cavity 2 in above the controller's top
+# (output) end. PG7 threads the 3.0 wall directly (clamp limit 3.5) — no
+# plate. The internal-PSU gland-plate config is kept behind GLAND_PLATE.
+GLAND_PLATE = 0
+ctl_ext = [(99.0, 6.2), (221.0, 32.2)]
+GLAND = (275.0, 19.0)           # (y along wall, z) hole center, left wall
+ext_top = (ctl_ext[0][0] + ctl_ext[1][0]) / 2 + 64.5   # controller top end
+assert GLAND[0] - ext_top >= 45, "gland must sit ~2 in above the controller"
+assert GLAND[0] + (6.25 if not GLAND_PLATE else 22.5) + 2 <= JY - 15, \
+    "gland must clear the side joint pad"
 assert not (TRAY_PSU[1] - 30 < GLAND[0] < TRAY_PSU[3]), "gland under PSU tray"
 
 # panel quadrants + fixing points
@@ -137,6 +144,7 @@ with open("src/parts/frame_layout.scad", "w") as f:
     f.write("fr_ctl_holes=%s;\n" % fmt(ctl_holes))
     f.write("fr_ctl_ext=%s;\n" % fmt(ctl_ext))
     f.write("fr_gland=[%.1f,%.1f];\n" % GLAND)
+    f.write("fr_gland_plate=%d;\n" % GLAND_PLATE)
     f.write("fr_handle=[%s];\n" % ",".join(
         "[%.1f,%.1f,%.1f,%.1f]" % h for h in HANDLE))
     f.write("fr_feet=[%.1f,%.1f];\n" % tuple(FEET))

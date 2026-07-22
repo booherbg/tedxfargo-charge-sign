@@ -319,7 +319,9 @@ missing_sup = [q for ps in fr_pscr for q in ps
                if not any(math.dist(q, s) < 0.5 for s in fr_supports)]
 check("every panel fixing lands on a support", not missing_sup,
       str(missing_sup) or "%d fixings ok" % sum(len(p) for p in fr_pscr))
-check("gland seat 2.5 <= 3.5 (PG clamp limit)", 2.5 <= 3.5, "2.5 mm plate")
+gp = int(re.search(r"fr_gland_plate=(\d)", fl).group(1))
+check("gland seat <= 3.5 (PG clamp limit)", (2.5 if gp else 3.0) <= 3.5,
+      "2.5 plate" if gp else "PG7 direct through the 3.0 wall")
 for k in (1, 2, 3, 4):
     tris = read_stl("stl/frame_seg%d.stl" % k)
     vs = vset(tris)
