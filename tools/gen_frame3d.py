@@ -5,7 +5,7 @@ board coordinates (z=0 plate back, +z into the cavity), quantizes to int16,
 and embeds everything in one self-contained page (no external libraries).
 Board plates / bolt outline / pixels / controller are synthesized from the
 layout data so the giant board meshes stay out of the page."""
-import base64, json, re, struct
+import base64, json, math, re, struct
 
 def grab(txt, name):
     return eval(re.search(re.escape(name) + r"\s*=\s*(\[.*?\]);", txt, re.S).group(1))
@@ -99,13 +99,36 @@ for p in bb_paths:
         a, b = p[i], p[i+1]
         rib.append([(a[0], a[1], -2), (b[0], b[1], -2), (b[0], b[1], -12)])
         rib.append([(a[0], a[1], -2), (b[0], b[1], -12), (a[0], a[1], -12)])
-add("board", "#ffc93c", rib)
-for col, hexc in (("yellow", "#ffc93c"), ("red", "#e05252")):
-    px = []
-    for p in PXM:
-        if p["color"] == col:
-            px += box(p["x"] - 3, p["y"] - 3, -7, p["x"] + 3, p["y"] + 3, -2)
-    add("board", hexc, px)
+add("board", "#dfe3e8", rib)      # white channel liner walls
+# pixel hardware, rear-visible: white collar liner rings through the plate
+# + dark bullet bodies punching back through the strap pass holes
+def ringpts(cx, cy, r, z, n=12):
+    return [(cx + r*math.cos(6.2832*k/n), cy + r*math.sin(6.2832*k/n), z)
+            for k in range(n)]
+def tube(cx, cy, r, z0, z1, n=12):
+    a, b = ringpts(cx, cy, r, z0, n), ringpts(cx, cy, r, z1, n)
+    return [t for k in range(n) for t in
+            ([a[k], a[(k+1) % n], b[(k+1) % n]], [a[k], b[(k+1) % n], b[k]])]
+def disc(cx, cy, r, z, n=12):
+    a = ringpts(cx, cy, r, z, n)
+    return [[(cx, cy, z), a[k], a[(k+1) % n]] for k in range(n)]
+def annulus(cx, cy, r0, r1, z, n=12):
+    a, b = ringpts(cx, cy, r0, z, n), ringpts(cx, cy, r1, z, n)
+    return [t for k in range(n) for t in
+            ([a[k], b[k], b[(k+1) % n]], [a[k], b[(k+1) % n], a[(k+1) % n]])]
+collars, bullets = [], []
+for p in PXM:
+    collars += tube(p["x"], p["y"], 8, -2, 2) + annulus(p["x"], p["y"], 6, 8, 2)
+    bullets += tube(p["x"], p["y"], 6, 0, 14)
+add("board", "#dfe3e8", collars)
+add("board", "#2a323d", bullets)
+# animated LED faces: front lens disc + rear glow cap per pixel (72 verts ea)
+led_pos, led_meta = [], []
+for p in PXM:
+    for t in disc(p["x"], p["y"], 6, -2.3) + disc(p["x"], p["y"], 5, 14.3):
+        led_pos += [c for v in t for c in v]
+    led_meta.append({"c": p["chain"], "x": p["x"], "y": p["y"],
+                     "z": 1 if p["color"] == "red" else 0})
 ec = (fr_ctl_ext[0][0] + fr_ctl_ext[1][0]) / 2
 add("controller", "#d9a017", box(-26.5, ec - 64.5, 0.4, -3.5, ec + 64.5, Z1))
 
@@ -132,6 +155,8 @@ for group, color, tris in parts:
                 "i": base64.b64encode(qi).decode()})
 print(f"parts: {len(enc)}, payload {total/1024:.0f} KB raw")
 
+LED = json.dumps({"pos": base64.b64encode(
+    struct.pack("<%df" % len(led_pos), *led_pos)).decode(), "meta": led_meta})
 DATA = json.dumps(enc)
 page = """<title>Bolt backer frame — 3D assembly</title>
 <style>
@@ -162,13 +187,16 @@ label { display:inline-flex; align-items:center; gap:5px; margin:2px 10px 2px 0;
   <p>drag rotate · wheel zoom · shift-drag pan<br>view from the back; front
   face (bolt) points away at start</p>
   <div id="tg"></div>
+  <p style="margin:8px 0 2px">led effect</p><div id="fx"></div>
 </div>
 <script>
 const PARTS = __DATA__;
+const LEDS = __LED__;
 const groups = {frame:true, panels:false, straps:true, hardware:true,
-                board:true, controller:true};
+                board:true, controller:true, leds:true};
 const gcol = {frame:"#8b94a1", panels:"#57637a", straps:"#7ad48a",
-              hardware:"#e8ebef", board:"#ffc93c", controller:"#d9a017"};
+              hardware:"#e8ebef", board:"#dfe3e8", controller:"#d9a017",
+              leds:"#ffc93c"};
 const tg = document.getElementById("tg");
 for (const g in groups) {
   const l = document.createElement("label");
@@ -201,6 +229,17 @@ gl.linkProgram(pr); gl.useProgram(pr);
 const uMvp = gl.getUniformLocation(pr, "mvp"),
       uCol = gl.getUniformLocation(pr, "col"),
       uEye = gl.getUniformLocation(pr, "eye");
+const vs2 = `#version 300 es
+in vec3 p; in vec3 c; uniform mat4 mvp; out vec3 vc;
+void main(){ vc = c; gl_Position = mvp * vec4(p, 1.0); }`;
+const fs2 = `#version 300 es
+precision highp float; in vec3 vc; out vec4 o;
+void main(){ o = vec4(vc, 1.0); }`;
+const pr2 = gl.createProgram();
+gl.attachShader(pr2, sh(gl.VERTEX_SHADER, vs2));
+gl.attachShader(pr2, sh(gl.FRAGMENT_SHADER, fs2));
+gl.linkProgram(pr2);
+const uMvp2 = gl.getUniformLocation(pr2, "mvp");
 function b64(s){ const b = atob(s), a = new Uint8Array(b.length);
   for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a.buffer; }
 const meshes = PARTS.map(p => {
@@ -219,6 +258,59 @@ const meshes = PARTS.map(p => {
   return {vao, n: p.n, g: p.g,
           col: [(c>>16&255)/255, (c>>8&255)/255, (c&255)/255]};
 });
+// LED mesh: static positions + per-frame color buffer (72 verts/pixel)
+const ledPos = new Float32Array(b64(LEDS.pos));
+const nled = LEDS.meta.length;
+const ledCol = new Float32Array(nled * 72 * 3);
+const ledVao = gl.createVertexArray(); gl.bindVertexArray(ledVao);
+const lpb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, lpb);
+gl.bufferData(gl.ARRAY_BUFFER, ledPos, gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+const lcb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, lcb);
+gl.bufferData(gl.ARRAY_BUFFER, ledCol, gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+function hsv(h, s2, v){ const i = Math.floor(h*6), f = h*6 - i;
+  const a = v*(1-s2), q = v*(1-f*s2), t2 = v*(1-(1-f)*s2);
+  return [[v,t2,a],[q,v,a],[a,v,t2],[a,q,v],[t2,a,v],[v,a,q]][((i%6)+6)%6]; }
+const FX = {
+  "as-built": p => p.z ? [1,.30,.30] : [1,.78,.22],
+  chase: (p,t) => { const d = (p.c - t*40%137 + 137) % 137;
+    const v = Math.max(.04, 1 - d/14);
+    return p.z ? [v,v*.28,v*.28] : [v,v*.78,v*.2]; },
+  rainbow: (p,t) => hsv((p.c/137 + t*.10) % 1, 1, 1),
+  wave: (p,t) => hsv(((p.x + p.y)/800 + t*.22) % 1, .92, 1),
+  sparkle: (p,t) => { const s2 = Math.sin(p.c*127.1 +
+      Math.floor(t*7)*311.7) * 43758.55, r = s2 - Math.floor(s2);
+    return r > .9 ? [1,1,.92] : [.13,.09,.02]; },
+  breathe: (p,t) => { const v = .25 + .75*(.5 + .5*Math.sin(t*2.2 -
+      (p.x+p.y)/260));
+    return p.z ? [v,v*.26,v*.26] : [v,v*.76,v*.2]; },
+};
+let fx = "chase";
+const fxd = document.getElementById("fx");
+for (const name in FX) {
+  const b = document.createElement("button");
+  b.textContent = name;
+  b.style.cssText = "margin:2px 4px 2px 0;padding:3px 8px;font-size:11px;" +
+    "border:1px solid var(--line);border-radius:5px;background:var(--card);" +
+    "color:var(--ink);cursor:pointer";
+  b.onclick = () => { fx = name;
+    [...fxd.children].forEach(x => x.style.borderColor = "var(--line)");
+    b.style.borderColor = "var(--accent)"; };
+  if (name === fx) b.style.borderColor = "var(--accent)";
+  fxd.append(b);
+}
+function ledTick(t){
+  const f = FX[fx];
+  for (let i = 0; i < nled; i++) {
+    const c = f(LEDS.meta[i], t);
+    for (let k = 0; k < 36; k++) ledCol.set(c, (i*72 + k)*3);
+    const r = [c[0]*.45, c[1]*.45, c[2]*.45];
+    for (let k = 36; k < 72; k++) ledCol.set(r, (i*72 + k)*3);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, lcb);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, ledCol);
+}
 let th = 0.6, ph = 0.42, R = 900, tgt = [205, 275, 15];
 function mat(){
   const cw = cv.clientWidth, chh = cv.clientHeight;
@@ -269,15 +361,23 @@ function frame(){
   gl.enable(gl.DEPTH_TEST);
   gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   const [M,eye]=mat();
+  gl.useProgram(pr);
   gl.uniformMatrix4fv(uMvp,false,new Float32Array(M));
   gl.uniform3fv(uEye,eye);
   for(const m of meshes){ if(!groups[m.g]) continue;
     gl.bindVertexArray(m.vao); gl.uniform3fv(uCol,m.col);
     gl.drawElements(gl.TRIANGLES,m.n,gl.UNSIGNED_INT,0); }
+  if (groups.leds) {
+    ledTick(performance.now()/1000);
+    gl.useProgram(pr2);
+    gl.uniformMatrix4fv(uMvp2,false,new Float32Array(M));
+    gl.bindVertexArray(ledVao);
+    gl.drawArrays(gl.TRIANGLES, 0, nled*72);
+  }
   requestAnimationFrame(frame);
 }
 frame();
 </script>"""
-page = page.replace("__DATA__", DATA)
+page = page.replace("__DATA__", DATA).replace("__LED__", LED)
 open("docs/sign-preview/frame-3d.html", "w").write(page)
 print("wrote docs/sign-preview/frame-3d.html (%d KB)" % (len(page) // 1024))

@@ -279,6 +279,8 @@ screws, and the frame concept</p>
   <div class="links">
     <a href="system-preview.html">full system preview</a>
     <a href="bracket-preview.html">seam-bracket deep dive</a>
+    <a href="frame-preview.html">backer-frame review</a>
+    <a href="frame-3d.html">3D assembly (rotate it!)</a>
     <a href="wiring.html">wiring &amp; WLED</a>
   </div>
 </div></footer>
