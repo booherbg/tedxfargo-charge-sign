@@ -143,11 +143,17 @@ with the sign when panels come off.
 
 ## Fasteners / material / mass
 
-White PETG throughout (matches straps). M3 self-tap bosses (Ø2.8 pilot),
-boss OD 7 so a Ø4.0 counterbore upgrade takes M3 heat-set inserts later.
-Plate-to-flange reuses the 14 existing wood screws. Estimate ≈ 1.3–1.7 kg
-total: 4 rails (2 with equipment trays) + 4 panels + 2 handles + 2 feet +
-3 legs + gland plate (+ S3/S4 reprint ~140 g at the taller rails).
+White PETG throughout (matches straps). SIMPLIFIED BOM (2026-07-23): three
+screw SKUs, all ordinary machine screws threading printed pilots —
+- M4×12 black button ×25: 11 strap (+ M4 nuts, washers optional) + 14
+  plate→flange (flange pilots Ø3.4; the M4 head covers the Ø4.5 plate hole,
+  no washers anywhere)
+- M4×30 button ×4 + washers: handles
+- M3×12 flat/countersunk ×37: 29 panels + 8 dovetail keys (every M3 pilot
+  Ø2.8 × 10.5 deep so one length fits all)
+Boss OD 7 keeps the M3 heat-set upgrade path. Estimate ≈ 1.3–1.7 kg total:
+4 rails (2 with equipment trays) + 4 panels + 2 handles + 2 feet + 3 legs
+(+ S3/S4 ~265 g at the taller rails; trim strips optional glue-on).
 
 ## Build & verify
 

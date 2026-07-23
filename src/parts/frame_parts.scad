@@ -52,7 +52,7 @@ module leg() {
     translate([0, 0, 13]) cylinder(h = 2, d = 14);       // shoulder on boss
     translate([0, 0, 15]) difference() {
         cylinder(h = fr_cavity - 15, d = 10);            // column to panel
-        translate([0, 0, fr_cavity - 22.9]) cylinder(h = 8, d = 2.8);
+        translate([0, 0, fr_cavity - 25.4]) cylinder(h = 10.5, d = 2.8);
     }
 }
 

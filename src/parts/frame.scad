@@ -99,10 +99,10 @@ module bowtie(cl = 0) {                   // dovetail key outline
 }
 
 module cuts() {
-    for (q = fr_boss)                     // 14 reused plate screws (pilots)
-        translate([q[0], q[1], -0.1]) cylinder(h = fr_flange_t + 0.2, d = 2.8);
-    for (q = fr_ledge_boss)               // panel screws into ledge bosses
-        translate([q[0], q[1], fr_cavity - 8]) cylinder(h = 8.2, d = 2.8);
+    for (q = fr_boss)                     // 14 plate screws: M4x12 self-tap
+        translate([q[0], q[1], -0.1]) cylinder(h = fr_flange_t + 0.2, d = 3.4);
+    for (q = fr_ledge_boss)               // panel M3x12 into ledge bosses
+        translate([q[0], q[1], fr_cavity - 10.5]) cylinder(h = 10.7, d = 2.8);
     for (q = fr_psu_holes)                // LRS-100 rounds (M3, 3 mm max in)
         translate([q[0], q[1], -0.1]) cylinder(h = fr_flange_t + 0.2, d = 2.8);
     for (s = fr_psu_slots)                // LRS-50/75 shared slots

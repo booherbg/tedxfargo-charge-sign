@@ -90,8 +90,8 @@ union() {
                 u = q[1];              // x-seam straps: u = board y
                 v = q[0] - (STRAP == 3 ? 126 : 153);
                 if (abs(v) < 24 && u0 - 1 <= u && u <= u1 + 1)
-                    translate([u, v, bk_web_t + bk_rail_h - 8])
-                        cylinder(h = 8.1, d = 2.8);
+                    translate([u, v, bk_web_t + bk_rail_h - 10.5])
+                        cylinder(h = 10.6, d = 2.8);
             }
     }
     for (q = bk_collar[i])             // calibrated press-fit, front 2mm,
